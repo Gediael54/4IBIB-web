@@ -12,6 +12,7 @@
   "dependencies": {
     "@4ibib/core": "*",
     "@4ibib/mock": "*",
+    "@4ibib/runtime": "*",
     "@4ibib/supabase": "*",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
