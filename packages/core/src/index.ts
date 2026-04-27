@@ -48,6 +48,8 @@ export interface Ministry {
   color: string;
 }
 
+export type ScheduleStatus = "scheduled" | "suspended" | "free";
+
 export interface ScheduleItem {
   id: string;
   title: string;
@@ -56,7 +58,12 @@ export interface ScheduleItem {
   endsAt: string;
   location: string;
   summary: string;
-  leader: string;
+  preacher: string;
+  director: string;
+  passage: string;
+  specialDate: string;
+  googleEventId: string;
+  status: ScheduleStatus;
   featured: boolean;
 }
 
@@ -139,7 +146,7 @@ export function sortMinistries(items: Ministry[]): Ministry[] {
 export function getUpcomingSchedule(items: ScheduleItem[], limit = 5): ScheduleItem[] {
   const now = Date.now();
   return sortSchedule(items)
-    .filter((item) => Date.parse(item.startsAt) >= now)
+    .filter((item) => item.status === "scheduled" && Date.parse(item.startsAt) >= now)
     .slice(0, limit);
 }
 

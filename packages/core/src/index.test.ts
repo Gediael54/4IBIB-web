@@ -62,7 +62,12 @@ const schedule: ScheduleItem[] = [
     endsAt: "2030-01-03T12:00:00.000Z",
     location: "A",
     summary: "A",
-    leader: "A",
+    preacher: "A",
+    director: "",
+    passage: "",
+    specialDate: "",
+    googleEventId: "",
+    status: "scheduled",
     featured: false
   },
   {
@@ -73,7 +78,12 @@ const schedule: ScheduleItem[] = [
     endsAt: "2020-01-03T12:00:00.000Z",
     location: "B",
     summary: "B",
-    leader: "B",
+    preacher: "B",
+    director: "",
+    passage: "",
+    specialDate: "",
+    googleEventId: "",
+    status: "scheduled",
     featured: false
   },
   {
@@ -84,8 +94,29 @@ const schedule: ScheduleItem[] = [
     endsAt: "2030-01-01T12:00:00.000Z",
     location: "C",
     summary: "C",
-    leader: "C",
+    preacher: "C",
+    director: "",
+    passage: "",
+    specialDate: "",
+    googleEventId: "",
+    status: "scheduled",
     featured: true
+  },
+  {
+    id: "suspended",
+    title: "Suspended",
+    ministry: "D",
+    startsAt: "2030-01-02T10:00:00.000Z",
+    endsAt: "2030-01-02T12:00:00.000Z",
+    location: "D",
+    summary: "D",
+    preacher: "D",
+    director: "",
+    passage: "",
+    specialDate: "",
+    googleEventId: "",
+    status: "suspended",
+    featured: false
   }
 ];
 
@@ -106,9 +137,10 @@ it("sorts ministries alphabetically in pt-BR order", () => {
   expect(sortMinistries(ministries).map((item) => item.id)).toEqual(["1", "2"]);
 });
 
-it("sorts schedule by start date and returns upcoming events", () => {
-  expect(sortSchedule(schedule).map((item) => item.id)).toEqual(["past", "soon", "later"]);
+it("sorts schedule by start date and returns upcoming scheduled events", () => {
+  expect(sortSchedule(schedule).map((item) => item.id)).toEqual(["past", "soon", "suspended", "later"]);
   expect(getUpcomingSchedule(schedule, 1).map((item) => item.id)).toEqual(["soon"]);
+  expect(getUpcomingSchedule(schedule).map((item) => item.id)).toEqual(["soon", "later"]);
 });
 
 it("formats date and time labels for Brazilian Portuguese", () => {
