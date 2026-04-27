@@ -7,6 +7,7 @@ import {
   type SiteSnapshot
 } from "@4ibib/core";
 import {
+  BookOpen,
   CalendarDays,
   HeartHandshake,
   Instagram,
@@ -15,6 +16,7 @@ import {
   MapPin,
   Megaphone,
   Send,
+  Sparkles,
   UserRound,
   UsersRound,
   Youtube
@@ -201,16 +203,29 @@ function App() {
                 <strong>{formatTimeRange(item.startsAt, item.endsAt)}</strong>
               </div>
               <div>
+                {item.specialDate && <span className="schedule-tag">{item.specialDate}</span>}
                 <h3>{item.title}</h3>
-                <p>{item.summary}</p>
+                {item.summary && <p>{item.summary}</p>}
+                {item.passage && (
+                  <p className="schedule-passage">
+                    <BookOpen size={14} /> {item.passage}
+                  </p>
+                )}
               </div>
               <div className="schedule-meta">
                 <span>
                   <MapPin size={16} /> {item.location}
                 </span>
-                <span>
-                  <UserRound size={16} /> {item.leader}
-                </span>
+                {item.preacher && (
+                  <span>
+                    <UserRound size={16} /> {item.preacher}
+                  </span>
+                )}
+                {item.director && (
+                  <span>
+                    <Sparkles size={16} /> {item.director}
+                  </span>
+                )}
               </div>
             </article>
           ))}
