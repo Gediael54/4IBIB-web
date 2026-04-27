@@ -12,15 +12,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it("loads seeded public content", async () => {
+it("starts with an empty content snapshot", async () => {
   const backend = createMockBackend();
   const snapshot = await backend.content.getSnapshot();
 
   expect(backend.mode).toBe("mock");
   expect(snapshot.profile.id).toBe("main");
-  expect(snapshot.announcements.length).toBeGreaterThan(0);
-  expect(snapshot.ministries.length).toBeGreaterThan(0);
-  expect(snapshot.schedule.length).toBeGreaterThan(0);
+  expect(snapshot.announcements).toEqual([]);
+  expect(snapshot.ministries).toEqual([]);
+  expect(snapshot.schedule).toEqual([]);
 });
 
 it("updates profile data", async () => {
@@ -34,6 +34,15 @@ it("updates profile data", async () => {
 
 it("creates, updates and deletes announcements", async () => {
   const backend = createMockBackend();
+  const sibling = await backend.content.saveAnnouncement({
+    title: "Outro aviso",
+    summary: "Resumo",
+    category: "geral",
+    publishedAt: "2030-01-01T08:00:00.000Z",
+    pinned: false,
+    ctaLabel: "",
+    ctaUrl: ""
+  });
   const created = await backend.content.saveAnnouncement({
     title: "Novo aviso",
     summary: "Resumo",
@@ -46,7 +55,9 @@ it("creates, updates and deletes announcements", async () => {
   const updated = await backend.content.saveAnnouncement({ ...created, title: "Aviso editado" });
 
   expect(updated.id).toBe(created.id);
-  expect((await backend.content.listAnnouncements()).some((item) => item.title === "Aviso editado")).toBe(true);
+  const list = await backend.content.listAnnouncements();
+  expect(list.some((item) => item.title === "Aviso editado")).toBe(true);
+  expect(list.some((item) => item.id === sibling.id)).toBe(true);
 
   await backend.content.deleteAnnouncement(created.id);
 
@@ -97,6 +108,71 @@ it("creates, updates and deletes schedule items", async () => {
   await backend.content.deleteScheduleItem(created.id);
 
   expect((await backend.content.listSchedule()).some((item) => item.id === created.id)).toBe(false);
+});
+
+it("persists all extended schedule fields through save and reload", async () => {
+  const backend = createMockBackend();
+  const saved = await backend.content.saveScheduleItem({
+    title: "Culto Solene",
+    ministry: "Culto",
+    startsAt: "2030-04-21T20:00:00.000Z",
+    endsAt: "2030-04-21T22:00:00.000Z",
+    location: "Templo principal",
+    summary: "Resumo do culto",
+    preacher: "Pr. Augusto Lopes",
+    director: "Diac. Ana",
+    passage: "Marcos 1",
+    specialDate: "PASCOA",
+    googleEventId: "abc@google.com",
+    status: "scheduled",
+    featured: true
+  });
+
+  const reloaded = (await backend.content.listSchedule()).find((item) => item.id === saved.id);
+  expect(reloaded).toEqual(saved);
+  expect(reloaded?.preacher).toBe("Pr. Augusto Lopes");
+  expect(reloaded?.director).toBe("Diac. Ana");
+  expect(reloaded?.passage).toBe("Marcos 1");
+  expect(reloaded?.specialDate).toBe("PASCOA");
+  expect(reloaded?.googleEventId).toBe("abc@google.com");
+  expect(reloaded?.status).toBe("scheduled");
+});
+
+it("keeps suspended and free schedule items in listSchedule but not in upcoming", async () => {
+  const backend = createMockBackend();
+  await backend.content.saveScheduleItem({
+    title: "Culto Suspenso",
+    ministry: "Culto",
+    startsAt: "2030-05-01T20:00:00.000Z",
+    endsAt: "2030-05-01T22:00:00.000Z",
+    location: "",
+    summary: "",
+    preacher: "",
+    director: "",
+    passage: "",
+    specialDate: "",
+    googleEventId: "",
+    status: "suspended",
+    featured: false
+  });
+  await backend.content.saveScheduleItem({
+    title: "Livre",
+    ministry: "Geral",
+    startsAt: "2030-05-08T20:00:00.000Z",
+    endsAt: "2030-05-08T22:00:00.000Z",
+    location: "",
+    summary: "",
+    preacher: "",
+    director: "",
+    passage: "",
+    specialDate: "",
+    googleEventId: "",
+    status: "free",
+    featured: false
+  });
+
+  const all = await backend.content.listSchedule();
+  expect(all.map((item) => item.status).sort()).toEqual(["free", "suspended"]);
 });
 
 it("creates and updates prayer requests", async () => {

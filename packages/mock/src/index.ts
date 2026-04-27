@@ -34,13 +34,6 @@ export const MOCK_ADMIN = {
   password: "123456"
 };
 
-function isoDaysAhead(days: number, hour: number, minute: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  date.setHours(hour, minute, 0, 0);
-  return date.toISOString();
-}
-
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -65,177 +58,26 @@ function seedStore(): MockStore {
   return {
     profile: {
       id: "main",
-      name: "4a Igreja Batista Betel",
+      name: "4a Igreja Batista Independente Betel",
       shortName: "4a Betel",
-      tagline: "Uma igreja para servir a cidade com Palavra, comunhao e cuidado.",
-      city: "Boa Vista, RR",
-      pastorName: "Pr. Samuel Costa",
-      address: "Av. Central, 420 - Centro",
-      email: "contato@4abetel.org",
-      whatsapp: "5595980000000",
-      instagramUrl: "https://www.instagram.com/4abetel",
-      youtubeUrl: "https://www.youtube.com/@4abetel",
-      mapsUrl: "https://maps.google.com/?q=Av.+Central,+420+-+Centro",
-      heroVerse: "Assim brilhe a luz de voces diante dos homens. Mateus 5:16",
-      mission: "Cultivar discipulos de Jesus que servem com excelencia, oracao e acolhimento.",
-      foundedText: "Desde 1986 servindo familias e formando lideres.",
-      regularMeetings: [
-        {
-          id: "domingo-manha",
-          title: "Escola Biblica",
-          weekday: "Domingo",
-          time: "09:00",
-          description: "Classes por faixa etaria e cafe comunitario."
-        },
-        {
-          id: "domingo-noite",
-          title: "Culto de Celebracao",
-          weekday: "Domingo",
-          time: "18:30",
-          description: "Louvor congregacional, mensagem e recepcao aos visitantes."
-        },
-        {
-          id: "quarta",
-          title: "Culto de Oracao",
-          weekday: "Quarta",
-          time: "19:30",
-          description: "Intercessao, estudo biblico e cuidado pastoral."
-        }
-      ],
+      tagline: "",
+      city: "",
+      pastorName: "",
+      address: "",
+      email: "",
+      whatsapp: "",
+      instagramUrl: "",
+      youtubeUrl: "",
+      mapsUrl: "",
+      heroVerse: "",
+      mission: "",
+      foundedText: "",
+      regularMeetings: [],
       updatedAt: nowIso()
     },
-    announcements: [
-      {
-        id: "conferencia",
-        title: "Conferencia de Avivamento",
-        summary: "Tres noites com preletores convidados, ministerio infantil e recepcao especial.",
-        category: "evento",
-        publishedAt: isoDaysAhead(3, 9, 0),
-        pinned: true,
-        ctaLabel: "Ver programacao",
-        ctaUrl: "#programacao"
-      },
-      {
-        id: "cestas",
-        title: "Campanha de cestas basicas",
-        summary: "Receberemos alimentos e itens de higiene ate a ultima quarta-feira do mes.",
-        category: "geral",
-        publishedAt: isoDaysAhead(1, 8, 0),
-        pinned: true,
-        ctaLabel: "Falar com a equipe",
-        ctaUrl: "https://wa.me/5595980000000"
-      },
-      {
-        id: "retiro",
-        title: "Retiro da juventude",
-        summary: "Inscricoes abertas para jovens e adolescentes. Vagas limitadas.",
-        category: "juventude",
-        publishedAt: isoDaysAhead(8, 10, 30),
-        pinned: false,
-        ctaLabel: "Reservar vaga",
-        ctaUrl: "https://wa.me/5595980000000?text=Quero%20participar%20do%20retiro"
-      }
-    ],
-    ministries: [
-      {
-        id: "louvor",
-        name: "Louvor e Midia",
-        summary: "Musica, som, transmissao e apoio tecnico dos cultos.",
-        meetingTime: "Sexta, 20:00",
-        contact: "Ana Paula",
-        color: "#b45309"
-      },
-      {
-        id: "infantil",
-        name: "Infantil",
-        summary: "Acolhimento e ensino biblico para criancas durante os cultos.",
-        meetingTime: "Domingo, 18:30",
-        contact: "Iris Nascimento",
-        color: "#0f766e"
-      },
-      {
-        id: "acao-social",
-        name: "Acao Social",
-        summary: "Visitas, cestas, escuta e cuidado pratico com familias.",
-        meetingTime: "Sabado, 08:00",
-        contact: "Lucas Menezes",
-        color: "#be123c"
-      },
-      {
-        id: "ensino",
-        name: "Ensino",
-        summary: "Escola biblica, discipulado e formacao de liderancas.",
-        meetingTime: "Domingo, 09:00",
-        contact: "Equipe pastoral",
-        color: "#2563eb"
-      }
-    ],
-    schedule: [
-      {
-        id: "domingo-celebracao",
-        title: "Culto de Celebracao",
-        ministry: "Igreja",
-        startsAt: isoDaysAhead(1, 18, 30),
-        endsAt: isoDaysAhead(1, 20, 30),
-        location: "Templo principal",
-        summary: "Louvor, mensagem e recepcao aos visitantes.",
-        preacher: "Pr. Samuel Costa",
-        director: "",
-        passage: "",
-        specialDate: "",
-        googleEventId: "",
-        status: "scheduled",
-        featured: true
-      },
-      {
-        id: "quarta-oracao",
-        title: "Culto de Oracao",
-        ministry: "Intercessao",
-        startsAt: isoDaysAhead(4, 19, 30),
-        endsAt: isoDaysAhead(4, 21, 0),
-        location: "Templo principal",
-        summary: "Noite de intercessao e estudo biblico.",
-        preacher: "Pra. Debora Almeida",
-        director: "",
-        passage: "",
-        specialDate: "",
-        googleEventId: "",
-        status: "scheduled",
-        featured: true
-      },
-      {
-        id: "ensaio-louvor",
-        title: "Ensaio do Louvor",
-        ministry: "Louvor e Midia",
-        startsAt: isoDaysAhead(6, 20, 0),
-        endsAt: isoDaysAhead(6, 22, 0),
-        location: "Sala de musica",
-        summary: "Alinhamento musical e tecnico da semana.",
-        preacher: "Ana Paula",
-        director: "",
-        passage: "",
-        specialDate: "",
-        googleEventId: "",
-        status: "scheduled",
-        featured: false
-      },
-      {
-        id: "ebd",
-        title: "Escola Biblica",
-        ministry: "Ensino",
-        startsAt: isoDaysAhead(8, 9, 0),
-        endsAt: isoDaysAhead(8, 10, 30),
-        location: "Salas por classe",
-        summary: "Turmas infantis, jovens e adultos.",
-        preacher: "Equipe de ensino",
-        director: "",
-        passage: "",
-        specialDate: "",
-        googleEventId: "",
-        status: "scheduled",
-        featured: false
-      }
-    ],
+    announcements: [],
+    ministries: [],
+    schedule: [],
     prayerRequests: []
   };
 }
