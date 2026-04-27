@@ -10,6 +10,7 @@ export default defineConfig({
       include: [
         "packages/core/src/**/*.ts",
         "packages/mock/src/**/*.ts",
+        "packages/runtime/src/**/*.ts",
         "packages/supabase/src/**/*.ts"
       ],
       thresholds: {
