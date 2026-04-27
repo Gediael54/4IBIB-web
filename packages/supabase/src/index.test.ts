@@ -389,6 +389,36 @@ describe("SupabaseContentRepository", () => {
     expect(items[0]?.title).toBe("Reuniao");
   });
 
+  it("maps every extended schedule column from supabase row", async () => {
+    const row = {
+      ...scheduleRow,
+      preacher: "Pr. Augusto",
+      director: "Diac. Ana",
+      passage: "Marcos 1",
+      special_date: "PASCOA",
+      google_event_id: "abc@google.com",
+      status: "suspended"
+    };
+    client.setNext({ data: [row], error: null });
+    const [item] = await backend().content.listSchedule();
+    expect(item).toEqual({
+      id: "s1",
+      title: "Reuniao",
+      ministry: "Louvor",
+      startsAt: "2030-01-01T10:00:00.000Z",
+      endsAt: "2030-01-01T12:00:00.000Z",
+      location: "Salao",
+      summary: "Resumo",
+      preacher: "Pr. Augusto",
+      director: "Diac. Ana",
+      passage: "Marcos 1",
+      specialDate: "PASCOA",
+      googleEventId: "abc@google.com",
+      status: "suspended",
+      featured: true
+    });
+  });
+
   it("propagates supabase error on listSchedule", async () => {
     client.setNext({ data: null, error: { message: "sch-list" } });
     await expect(backend().content.listSchedule()).rejects.toThrow("sch-list");

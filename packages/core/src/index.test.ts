@@ -143,6 +143,47 @@ it("sorts schedule by start date and returns upcoming scheduled events", () => {
   expect(getUpcomingSchedule(schedule).map((item) => item.id)).toEqual(["soon", "later"]);
 });
 
+it("excludes free and suspended items from upcoming schedule", () => {
+  const items: ScheduleItem[] = [
+    { ...schedule[0], id: "free-future", status: "free" },
+    { ...schedule[0], id: "suspended-future", status: "suspended" },
+    { ...schedule[0], id: "scheduled-future", status: "scheduled" }
+  ];
+
+  const ids = getUpcomingSchedule(items).map((item) => item.id);
+  expect(ids).toEqual(["scheduled-future"]);
+});
+
+it("returns empty results when given empty arrays", () => {
+  expect(sortSchedule([])).toEqual([]);
+  expect(getUpcomingSchedule([])).toEqual([]);
+  expect(sortAnnouncements([])).toEqual([]);
+  expect(getPinnedAnnouncements([])).toEqual([]);
+  expect(sortMinistries([])).toEqual([]);
+});
+
+it("preserves all schedule fields through sort", () => {
+  const item: ScheduleItem = {
+    id: "x",
+    title: "Culto Solene",
+    ministry: "Culto",
+    startsAt: "2030-01-01T20:00:00.000Z",
+    endsAt: "2030-01-01T22:00:00.000Z",
+    location: "Templo principal",
+    summary: "Resumo",
+    preacher: "Pr. Augusto",
+    director: "Diac. Ana",
+    passage: "Marcos 1",
+    specialDate: "PASCOA",
+    googleEventId: "abc@google.com",
+    status: "scheduled",
+    featured: true
+  };
+
+  const [result] = sortSchedule([item]);
+  expect(result).toEqual(item);
+});
+
 it("formats date and time labels for Brazilian Portuguese", () => {
   expect(formatDateLabel("2030-01-01T10:00:00.000Z")).toContain("01");
   expect(formatTimeRange("2030-01-01T10:00:00.000Z", "2030-01-01T12:00:00.000Z")).toContain(" - ");
