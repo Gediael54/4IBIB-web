@@ -11,7 +11,7 @@ await cp(resolve(root, "apps/admin/dist"), resolve(outputDir, "admin"), { recurs
 
 await writeFile(
   resolve(outputDir, "_redirects"),
-  ["/admin/* /admin/index.html 200", "/* /index.html 200", ""].join("\n")
+  ["/admin/* /admin/ 200", "/* / 200", ""].join("\n")
 );
 
 console.log("dist generated for Cloudflare Pages");
