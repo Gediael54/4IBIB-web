@@ -141,3 +141,29 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Editor / IDE
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*~
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Agent / assistant caches
+.codex
+.codex/
+.claude
+.claude/
+
+# Local artifacts that should not be committed
+/assets/
+/coverage/
+/dist/
+**/dist/
