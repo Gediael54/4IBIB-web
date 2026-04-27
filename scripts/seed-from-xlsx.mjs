@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import * as XLSX from "xlsx";
 
 const ROOT = process.cwd();
-const XLSX_PATH = resolve(ROOT, "Escala de cultos.xlsx");
+const XLSX_PATH = resolve(ROOT, "supabase/sources/Escala-de-cultos.xlsx");
 const OUT_PATH = resolve(ROOT, "supabase/seed.sql");
 const BR_OFFSET_HOURS = 3;
 
