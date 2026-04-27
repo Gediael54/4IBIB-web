@@ -58,13 +58,20 @@ create table if not exists public.schedule_items (
   ends_at timestamptz not null,
   location text not null,
   summary text not null,
-  leader text not null,
+  preacher text not null default '',
+  director text not null default '',
+  passage text not null default '',
+  special_date text not null default '',
+  google_event_id text not null default '',
+  status text not null default 'scheduled',
   featured boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint schedule_time_order check (ends_at > starts_at)
+  constraint schedule_time_order check (ends_at > starts_at),
+  constraint schedule_status_valid check (status in ('scheduled', 'suspended', 'free'))
 );
 
+-- Idempotent guards for databases provisioned before the extended schedule columns landed.
 do $$
 begin
   if exists (
@@ -266,6 +273,7 @@ to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
+-- Bootstrap singleton row so the public site has a profile to render before the admin fills it in.
 insert into public.church_profile (
   id,
   name,
@@ -276,32 +284,20 @@ insert into public.church_profile (
   address,
   email,
   whatsapp,
-  instagram_url,
-  youtube_url,
-  maps_url,
   hero_verse,
   mission,
-  founded_text,
-  regular_meetings
+  founded_text
 ) values (
   'main',
-  '4a Igreja Batista Betel',
+  '4a Igreja Batista Independente Betel',
   '4a Betel',
-  'Uma igreja para servir a cidade com Palavra, comunhao e cuidado.',
-  'Boa Vista, RR',
-  'Pr. Samuel Costa',
-  'Av. Central, 420 - Centro',
-  'contato@4abetel.org',
-  '5595980000000',
-  'https://www.instagram.com/4abetel',
-  'https://www.youtube.com/@4abetel',
-  'https://maps.google.com/?q=Av.+Central,+420+-+Centro',
-  'Assim brilhe a luz de voces diante dos homens. Mateus 5:16',
-  'Cultivar discipulos de Jesus que servem com excelencia, oracao e acolhimento.',
-  'Desde 1986 servindo familias e formando lideres.',
-  '[
-    {"id":"domingo-manha","title":"Escola Biblica","weekday":"Domingo","time":"09:00","description":"Classes por faixa etaria e cafe comunitario."},
-    {"id":"domingo-noite","title":"Culto de Celebracao","weekday":"Domingo","time":"18:30","description":"Louvor congregacional, mensagem e recepcao aos visitantes."},
-    {"id":"quarta","title":"Culto de Oracao","weekday":"Quarta","time":"19:30","description":"Intercessao, estudo biblico e cuidado pastoral."}
-  ]'::jsonb
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  ''
 ) on conflict (id) do nothing;
