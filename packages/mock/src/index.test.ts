@@ -219,8 +219,8 @@ it("handles mock authentication lifecycle", async () => {
 });
 
 it("resets invalid local storage state", async () => {
-  window.localStorage.setItem("4ibib.mock.store.v1", "{bad json");
-  window.localStorage.setItem("4ibib.mock.session.v1", "{bad json");
+  window.localStorage.setItem("4ibib.mock.store.v2", "{bad json");
+  window.localStorage.setItem("4ibib.mock.session.v2", "{bad json");
 
   const backend = createMockBackend();
 

@@ -12,9 +12,6 @@ import {
   type ScheduleItem,
   type SiteSnapshot
 } from "@4ibib/core";
-const DEV_PREFILL = import.meta.env.DEV
-  ? { email: "admin@4ibib.local", password: "123456" }
-  : null;
 import {
   CalendarDays,
   Church,
@@ -31,6 +28,10 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { createBackend } from "./backend";
 import "./styles.css";
+
+const DEV_PREFILL = import.meta.env.DEV
+  ? { email: "admin@4ibib.local", password: "123456" }
+  : null;
 
 const backend = createBackend();
 const showDevPrefill = DEV_PREFILL !== null && backend.mode === "mock";

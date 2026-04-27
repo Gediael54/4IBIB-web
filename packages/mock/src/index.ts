@@ -26,8 +26,8 @@ interface MockStore {
   prayerRequests: PrayerRequest[];
 }
 
-const STORE_KEY = "4ibib.mock.store.v1";
-const SESSION_KEY = "4ibib.mock.session.v1";
+const STORE_KEY = "4ibib.mock.store.v2";
+const SESSION_KEY = "4ibib.mock.session.v2";
 
 export const MOCK_ADMIN = {
   email: "admin@4ibib.local",
