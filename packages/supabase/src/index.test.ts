@@ -147,7 +147,12 @@ const scheduleRow = {
   ends_at: "2030-01-01T12:00:00.000Z",
   location: "Salao",
   summary: "Resumo",
-  leader: "Lider",
+  preacher: "Lider",
+  director: "",
+  passage: "",
+  special_date: "",
+  google_event_id: "",
+  status: "scheduled",
   featured: true
 };
 
@@ -399,7 +404,12 @@ describe("SupabaseContentRepository", () => {
       endsAt: "2030-01-01T12:00:00.000Z",
       location: "Salao",
       summary: "Resumo",
-      leader: "Lider",
+      preacher: "Lider",
+      director: "",
+      passage: "",
+      specialDate: "",
+      googleEventId: "",
+      status: "scheduled",
       featured: true
     });
     expect(result.id).toBe("s1");
@@ -415,7 +425,12 @@ describe("SupabaseContentRepository", () => {
       endsAt: "2030-01-01T12:00:00.000Z",
       location: "Salao",
       summary: "Resumo",
-      leader: "Lider",
+      preacher: "Lider",
+      director: "",
+      passage: "",
+      specialDate: "",
+      googleEventId: "",
+      status: "scheduled",
       featured: false
     });
     expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
@@ -434,7 +449,12 @@ describe("SupabaseContentRepository", () => {
         endsAt: "2030-01-01T11:00:00.000Z",
         location: "",
         summary: "",
-        leader: "",
+        preacher: "",
+        director: "",
+        passage: "",
+        specialDate: "",
+        googleEventId: "",
+        status: "scheduled",
         featured: false
       })
     ).rejects.toThrow("sch-save");

@@ -150,7 +150,12 @@ function mapSchedule(row: JsonObject): ScheduleItem {
     endsAt: String(row.ends_at),
     location: String(row.location),
     summary: String(row.summary),
-    leader: String(row.leader),
+    preacher: String(row.preacher),
+    director: String(row.director),
+    passage: String(row.passage),
+    specialDate: String(row.special_date),
+    googleEventId: String(row.google_event_id),
+    status: row.status as ScheduleItem["status"],
     featured: Boolean(row.featured)
   };
 }
@@ -164,7 +169,12 @@ function toScheduleRow(input: ScheduleItem): JsonObject {
     ends_at: input.endsAt,
     location: input.location,
     summary: input.summary,
-    leader: input.leader,
+    preacher: input.preacher,
+    director: input.director,
+    passage: input.passage,
+    special_date: input.specialDate,
+    google_event_id: input.googleEventId,
+    status: input.status,
     featured: input.featured
   };
 }
@@ -281,7 +291,12 @@ class SupabaseContentRepository implements ContentRepository {
       endsAt: input.endsAt,
       location: input.location,
       summary: input.summary,
-      leader: input.leader,
+      preacher: input.preacher,
+      director: input.director,
+      passage: input.passage,
+      specialDate: input.specialDate,
+      googleEventId: input.googleEventId,
+      status: input.status,
       featured: input.featured
     };
     const { data, error } = await this.client
