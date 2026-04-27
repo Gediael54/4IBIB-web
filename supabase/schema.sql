@@ -65,6 +65,43 @@ create table if not exists public.schedule_items (
   constraint schedule_time_order check (ends_at > starts_at)
 );
 
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'leader'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'preacher'
+  ) then
+    alter table public.schedule_items rename column leader to preacher;
+  end if;
+end $$;
+
+alter table public.schedule_items add column if not exists preacher text not null default '';
+alter table public.schedule_items add column if not exists director text not null default '';
+alter table public.schedule_items add column if not exists passage text not null default '';
+alter table public.schedule_items add column if not exists special_date text not null default '';
+alter table public.schedule_items add column if not exists google_event_id text not null default '';
+alter table public.schedule_items add column if not exists status text not null default 'scheduled';
+
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.constraint_column_usage
+    where table_schema = 'public' and table_name = 'schedule_items' and constraint_name = 'schedule_status_valid'
+  ) then
+    alter table public.schedule_items
+      add constraint schedule_status_valid check (status in ('scheduled', 'suspended', 'free'));
+  end if;
+end $$;
+
+create unique index if not exists schedule_google_event_id_unique
+  on public.schedule_items (google_event_id)
+  where google_event_id <> '';
+
+create index if not exists schedule_starts_at_idx on public.schedule_items (starts_at);
+
 create table if not exists public.prayer_requests (
   id uuid primary key default gen_random_uuid(),
   name text not null,
