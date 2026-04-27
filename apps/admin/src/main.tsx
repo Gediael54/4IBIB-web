@@ -46,7 +46,10 @@ function uniqueSorted(values: string[]): string[] {
 }
 
 function formatScheduleDetail(item: ScheduleItem): string {
-  return `${formatDateLabel(item.startsAt)} - ${formatTimeRange(item.startsAt, item.endsAt)} - ${item.ministry}`;
+  const base = `${formatDateLabel(item.startsAt)} - ${formatTimeRange(item.startsAt, item.endsAt)} - ${item.ministry}`;
+  if (item.status === "suspended") return `${base} (SUSPENSO)`;
+  if (item.status === "free") return `${base} (LIVRE)`;
+  return base;
 }
 
 type AdminView = "dashboard" | "announcements" | "schedule" | "ministries" | "profile" | "prayers";
@@ -79,7 +82,12 @@ function emptyScheduleItem(): ScheduleItem {
     endsAt: end.toISOString(),
     location: "Templo principal",
     summary: "",
-    leader: "",
+    preacher: "",
+    director: "",
+    passage: "",
+    specialDate: "",
+    googleEventId: "",
+    status: "scheduled",
     featured: false
   };
 }
@@ -143,8 +151,13 @@ function App() {
     [snapshot]
   );
 
-  const scheduleLeaders = useMemo(
-    () => uniqueSorted(snapshot?.schedule.map((item) => item.leader) ?? []),
+  const schedulePreachers = useMemo(
+    () => uniqueSorted(snapshot?.schedule.map((item) => item.preacher) ?? []),
+    [snapshot]
+  );
+
+  const scheduleDirectors = useMemo(
+    () => uniqueSorted(snapshot?.schedule.map((item) => item.director) ?? []),
     [snapshot]
   );
 
@@ -208,7 +221,12 @@ function App() {
       endsAt: inputDateTimeToIso(String(formData.get("endsAt"))),
       location: String(formData.get("location") ?? ""),
       summary: String(formData.get("summary") ?? ""),
-      leader: String(formData.get("leader") ?? ""),
+      preacher: String(formData.get("preacher") ?? ""),
+      director: String(formData.get("director") ?? ""),
+      passage: String(formData.get("passage") ?? ""),
+      specialDate: String(formData.get("specialDate") ?? ""),
+      googleEventId: scheduleDraft.googleEventId,
+      status: String(formData.get("status") ?? "scheduled") as ScheduleItem["status"],
       featured: formData.get("featured") === "on"
     });
     setScheduleDraft(emptyScheduleItem());
@@ -499,7 +517,8 @@ function App() {
               draft={scheduleDraft}
               ministries={ministryNames}
               locations={scheduleLocations}
-              leaders={scheduleLeaders}
+              preachers={schedulePreachers}
+              directors={scheduleDirectors}
               saving={saving}
               onSubmit={saveSchedule}
               onCancel={() => setScheduleDraft(emptyScheduleItem())}
@@ -728,7 +747,8 @@ function ScheduleForm(props: {
   draft: ScheduleItem;
   ministries: string[];
   locations: string[];
-  leaders: string[];
+  preachers: string[];
+  directors: string[];
   saving: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
@@ -806,13 +826,44 @@ function ScheduleForm(props: {
           maxLength={TEXT_MAX}
           required
         />
-        <input
-          name="leader"
-          list="schedule-leaders"
-          placeholder="Responsavel"
-          defaultValue={props.draft.leader}
-          maxLength={TEXT_MAX}
+        <select
+          name="status"
+          defaultValue={props.draft.status}
           required
+        >
+          <option value="scheduled">Agendado</option>
+          <option value="suspended">Suspenso</option>
+          <option value="free">Livre</option>
+        </select>
+      </div>
+      <div className="form-grid">
+        <input
+          name="preacher"
+          list="schedule-preachers"
+          placeholder="Pregador"
+          defaultValue={props.draft.preacher}
+          maxLength={TEXT_MAX}
+        />
+        <input
+          name="director"
+          list="schedule-directors"
+          placeholder="Dirigente"
+          defaultValue={props.draft.director}
+          maxLength={TEXT_MAX}
+        />
+      </div>
+      <div className="form-grid">
+        <input
+          name="passage"
+          placeholder="Passagem biblica"
+          defaultValue={props.draft.passage}
+          maxLength={TEXT_MAX}
+        />
+        <input
+          name="specialDate"
+          placeholder="Data especial (ex: PASCOA)"
+          defaultValue={props.draft.specialDate}
+          maxLength={TEXT_MAX}
         />
       </div>
       <datalist id="schedule-locations">
@@ -820,8 +871,13 @@ function ScheduleForm(props: {
           <option key={value} value={value} />
         ))}
       </datalist>
-      <datalist id="schedule-leaders">
-        {props.leaders.map((value) => (
+      <datalist id="schedule-preachers">
+        {props.preachers.map((value) => (
+          <option key={value} value={value} />
+        ))}
+      </datalist>
+      <datalist id="schedule-directors">
+        {props.directors.map((value) => (
           <option key={value} value={value} />
         ))}
       </datalist>
@@ -830,7 +886,6 @@ function ScheduleForm(props: {
         placeholder="Resumo"
         defaultValue={props.draft.summary}
         maxLength={TEXTAREA_MAX}
-        required
       />
       <label className="check-row">
         <input name="featured" type="checkbox" defaultChecked={props.draft.featured} />
