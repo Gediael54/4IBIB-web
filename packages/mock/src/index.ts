@@ -179,7 +179,12 @@ function seedStore(): MockStore {
         endsAt: isoDaysAhead(1, 20, 30),
         location: "Templo principal",
         summary: "Louvor, mensagem e recepcao aos visitantes.",
-        leader: "Pr. Samuel Costa",
+        preacher: "Pr. Samuel Costa",
+        director: "",
+        passage: "",
+        specialDate: "",
+        googleEventId: "",
+        status: "scheduled",
         featured: true
       },
       {
@@ -190,7 +195,12 @@ function seedStore(): MockStore {
         endsAt: isoDaysAhead(4, 21, 0),
         location: "Templo principal",
         summary: "Noite de intercessao e estudo biblico.",
-        leader: "Pra. Debora Almeida",
+        preacher: "Pra. Debora Almeida",
+        director: "",
+        passage: "",
+        specialDate: "",
+        googleEventId: "",
+        status: "scheduled",
         featured: true
       },
       {
@@ -201,7 +211,12 @@ function seedStore(): MockStore {
         endsAt: isoDaysAhead(6, 22, 0),
         location: "Sala de musica",
         summary: "Alinhamento musical e tecnico da semana.",
-        leader: "Ana Paula",
+        preacher: "Ana Paula",
+        director: "",
+        passage: "",
+        specialDate: "",
+        googleEventId: "",
+        status: "scheduled",
         featured: false
       },
       {
@@ -212,7 +227,12 @@ function seedStore(): MockStore {
         endsAt: isoDaysAhead(8, 10, 30),
         location: "Salas por classe",
         summary: "Turmas infantis, jovens e adultos.",
-        leader: "Equipe de ensino",
+        preacher: "Equipe de ensino",
+        director: "",
+        passage: "",
+        specialDate: "",
+        googleEventId: "",
+        status: "scheduled",
         featured: false
       }
     ],
@@ -340,7 +360,12 @@ class MockContentRepository implements ContentRepository {
       endsAt: input.endsAt,
       location: input.location,
       summary: input.summary,
-      leader: input.leader,
+      preacher: input.preacher,
+      director: input.director,
+      passage: input.passage,
+      specialDate: input.specialDate,
+      googleEventId: input.googleEventId,
+      status: input.status,
       featured: input.featured
     };
     store.schedule = upsertById(store.schedule, item);

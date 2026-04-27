@@ -81,7 +81,12 @@ it("creates, updates and deletes schedule items", async () => {
     endsAt: "2030-01-01T11:00:00.000Z",
     location: "Sala",
     summary: "Planejamento",
-    leader: "Pastor",
+    preacher: "Pastor",
+    director: "",
+    passage: "",
+    specialDate: "",
+    googleEventId: "",
+    status: "scheduled",
     featured: false
   });
   const updated = await backend.content.saveScheduleItem({ ...created, featured: true });
