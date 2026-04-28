@@ -360,8 +360,11 @@ textarea {
   width: auto;
 }
 
-.editor-form > label,
-.profile-form > label {
+.editor-form label:not(.check-row),
+.profile-form label:not(.check-row),
+.form-grid label,
+.list-toolbar label,
+.prayer-row label {
   display: grid;
   gap: 6px;
   color: #4b5563;
@@ -420,6 +423,40 @@ select:focus-visible {
   gap: 10px;
 }
 
+.list-toolbar {
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, auto) minmax(140px, auto) auto;
+  gap: 12px;
+  align-items: end;
+  border-bottom: 1px solid #eceee8;
+  background: #f8f9f4;
+}
+
+.list-toolbar > span {
+  color: #667085;
+  font-size: 0.88rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pagination {
+  padding: 14px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #eceee8;
+  background: #f8f9f4;
+}
+
+.pagination span {
+  margin-right: auto;
+  color: #667085;
+  font-weight: 800;
+}
+
 .form-error {
   margin: 0;
   color: #b42318;
@@ -444,6 +481,10 @@ select:focus-visible {
 }
 
 .prayer-row select {
+  min-width: 150px;
+}
+
+.prayer-row > label {
   min-width: 150px;
 }
 
@@ -480,7 +521,8 @@ select:focus-visible {
   }
 
   .crud-layout,
-  .stats-grid {
+  .stats-grid,
+  .list-toolbar {
     grid-template-columns: 1fr;
   }
 }

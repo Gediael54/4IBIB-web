@@ -24,13 +24,26 @@ import {
   Trash2,
   UsersRound
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type InputHTMLAttributes,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes
+} from "react";
 import { createRoot } from "react-dom/client";
 import { createBackend } from "./backend";
 import "./styles.css";
 
 const DEV_PREFILL = import.meta.env.DEV
-  ? { email: "admin@4ibib.local", password: "123456" }
+  && import.meta.env.VITE_MOCK_ADMIN_EMAIL
+  && import.meta.env.VITE_MOCK_ADMIN_PASSWORD
+  ? {
+      email: import.meta.env.VITE_MOCK_ADMIN_EMAIL,
+      password: import.meta.env.VITE_MOCK_ADMIN_PASSWORD
+    }
   : null;
 
 const backend = createBackend();
@@ -39,6 +52,64 @@ const showDevPrefill = DEV_PREFILL !== null && backend.mode === "mock";
 const TEXT_MAX = 200;
 const TEXTAREA_MAX = 2000;
 const URL_MAX = 500;
+const PAGE_SIZE = 8;
+
+type ListView = "announcements" | "schedule" | "ministries" | "prayers";
+
+interface ListState {
+  search: string;
+  sort: string;
+  page: number;
+}
+
+interface VisibleList<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageCount: number;
+}
+
+const INITIAL_LIST_STATE: Record<ListView, ListState> = {
+  announcements: { search: "", sort: "publishedDesc", page: 1 },
+  schedule: { search: "", sort: "startsAsc", page: 1 },
+  ministries: { search: "", sort: "nameAsc", page: 1 },
+  prayers: { search: "", sort: "createdDesc", page: 1 }
+};
+
+const ANNOUNCEMENT_SORT_OPTIONS = [
+  { value: "publishedDesc", label: "Mais recentes" },
+  { value: "publishedAsc", label: "Mais antigos" },
+  { value: "titleAsc", label: "Titulo A-Z" },
+  { value: "categoryAsc", label: "Categoria A-Z" }
+];
+
+const SCHEDULE_SORT_OPTIONS = [
+  { value: "startsAsc", label: "Data crescente" },
+  { value: "startsDesc", label: "Data decrescente" },
+  { value: "titleAsc", label: "Titulo A-Z" },
+  { value: "ministryAsc", label: "Ministerio A-Z" },
+  { value: "statusAsc", label: "Status A-Z" }
+];
+
+const MINISTRY_SORT_OPTIONS = [
+  { value: "nameAsc", label: "Nome A-Z" },
+  { value: "meetingTimeAsc", label: "Horario A-Z" },
+  { value: "contactAsc", label: "Contato A-Z" }
+];
+
+const PRAYER_SORT_OPTIONS = [
+  { value: "createdDesc", label: "Mais recentes" },
+  { value: "createdAsc", label: "Mais antigos" },
+  { value: "statusAsc", label: "Status A-Z" },
+  { value: "nameAsc", label: "Nome A-Z" }
+];
+
+const PRAYER_STATUS_OPTIONS: Array<{ value: PrayerRequest["status"] | "all"; label: string }> = [
+  { value: "all", label: "Todos" },
+  { value: "novo", label: "Novo" },
+  { value: "em_oracao", label: "Em oracao" },
+  { value: "concluido", label: "Concluido" }
+];
 
 function uniqueSorted(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((left, right) =>
@@ -51,6 +122,63 @@ function formatScheduleDetail(item: ScheduleItem): string {
   if (item.status === "suspended") return `${base} (SUSPENSO)`;
   if (item.status === "free") return `${base} (LIVRE)`;
   return base;
+}
+
+function formatDateTimeLabel(value: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function normalizeSearch(value: string): string {
+  return value.trim().toLocaleLowerCase("pt-BR");
+}
+
+function matchesSearch(query: string, values: string[]): boolean {
+  if (!query) {
+    return true;
+  }
+
+  return values.some((value) => normalizeSearch(value).includes(query));
+}
+
+function compareText(left: string, right: string): number {
+  return left.localeCompare(right, "pt-BR");
+}
+
+function paginateItems<T>(items: T[], page: number): VisibleList<T> {
+  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 1), pageCount);
+  const start = (safePage - 1) * PAGE_SIZE;
+
+  return {
+    items: items.slice(start, start + PAGE_SIZE),
+    total: items.length,
+    page: safePage,
+    pageCount
+  };
+}
+
+function normalizeOptionalHttpUrl(value: string, label: string): string {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("invalid protocol");
+    }
+    return url.toString();
+  } catch {
+    throw new Error(`Informe uma URL http/https valida para ${label}.`);
+  }
 }
 
 type AdminView = "dashboard" | "announcements" | "schedule" | "ministries" | "profile" | "prayers";
@@ -115,12 +243,23 @@ function App() {
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleItem>(emptyScheduleItem);
   const [ministryDraft, setMinistryDraft] = useState<Ministry>(emptyMinistry);
   const [saving, setSaving] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [listState, setListState] = useState<Record<ListView, ListState>>(INITIAL_LIST_STATE);
+  const [prayerStatusFilter, setPrayerStatusFilter] = useState<PrayerRequest["status"] | "all">("all");
 
   useEffect(() => {
     return backend.auth.subscribe((nextSession) => {
       setSession(nextSession);
       setAuthReady(true);
     });
+  }, []);
+
+  useEffect(() => {
+    const link = document.createElement("link");
+    link.rel = "prefetch";
+    link.href = "/";
+    document.head.append(link);
+    return () => link.remove();
   }, []);
 
   useEffect(() => {
@@ -161,6 +300,110 @@ function App() {
     () => uniqueSorted(snapshot?.schedule.map((item) => item.director) ?? []),
     [snapshot]
   );
+
+  const announcementList = useMemo(() => {
+    const state = listState.announcements;
+    const query = normalizeSearch(state.search);
+    const filtered = (snapshot?.announcements ?? []).filter((item) =>
+      matchesSearch(query, [item.title, item.summary, item.category])
+    );
+    const sorted = [...filtered].sort((left, right) => {
+      if (state.sort === "publishedAsc") {
+        return Date.parse(left.publishedAt) - Date.parse(right.publishedAt);
+      }
+      if (state.sort === "titleAsc") {
+        return compareText(left.title, right.title);
+      }
+      if (state.sort === "categoryAsc") {
+        return compareText(left.category, right.category);
+      }
+      return Date.parse(right.publishedAt) - Date.parse(left.publishedAt);
+    });
+    return paginateItems(sorted, state.page);
+  }, [snapshot, listState.announcements]);
+
+  const scheduleList = useMemo(() => {
+    const state = listState.schedule;
+    const query = normalizeSearch(state.search);
+    const filtered = (snapshot?.schedule ?? []).filter((item) =>
+      matchesSearch(query, [
+        item.title,
+        item.ministry,
+        item.location,
+        item.preacher,
+        item.director,
+        item.passage,
+        item.specialDate,
+        item.status
+      ])
+    );
+    const sorted = [...filtered].sort((left, right) => {
+      if (state.sort === "startsDesc") {
+        return Date.parse(right.startsAt) - Date.parse(left.startsAt);
+      }
+      if (state.sort === "titleAsc") {
+        return compareText(left.title, right.title);
+      }
+      if (state.sort === "ministryAsc") {
+        return compareText(left.ministry, right.ministry);
+      }
+      if (state.sort === "statusAsc") {
+        return compareText(left.status, right.status);
+      }
+      return Date.parse(left.startsAt) - Date.parse(right.startsAt);
+    });
+    return paginateItems(sorted, state.page);
+  }, [snapshot, listState.schedule]);
+
+  const ministryList = useMemo(() => {
+    const state = listState.ministries;
+    const query = normalizeSearch(state.search);
+    const filtered = (snapshot?.ministries ?? []).filter((item) =>
+      matchesSearch(query, [item.name, item.summary, item.meetingTime, item.contact])
+    );
+    const sorted = [...filtered].sort((left, right) => {
+      if (state.sort === "meetingTimeAsc") {
+        return compareText(left.meetingTime, right.meetingTime);
+      }
+      if (state.sort === "contactAsc") {
+        return compareText(left.contact, right.contact);
+      }
+      return compareText(left.name, right.name);
+    });
+    return paginateItems(sorted, state.page);
+  }, [snapshot, listState.ministries]);
+
+  const prayerList = useMemo(() => {
+    const state = listState.prayers;
+    const query = normalizeSearch(state.search);
+    const filtered = prayers.filter((item) => {
+      const statusMatches = prayerStatusFilter === "all" || item.status === prayerStatusFilter;
+      return statusMatches && matchesSearch(query, [item.name, item.contact, item.message, item.status]);
+    });
+    const sorted = [...filtered].sort((left, right) => {
+      if (state.sort === "createdAsc") {
+        return Date.parse(left.createdAt) - Date.parse(right.createdAt);
+      }
+      if (state.sort === "statusAsc") {
+        return compareText(left.status, right.status);
+      }
+      if (state.sort === "nameAsc") {
+        return compareText(left.name, right.name);
+      }
+      return Date.parse(right.createdAt) - Date.parse(left.createdAt);
+    });
+    return paginateItems(sorted, state.page);
+  }, [prayers, listState.prayers, prayerStatusFilter]);
+
+  function updateListState(viewName: ListView, patch: Partial<ListState>) {
+    setListState((current) => ({
+      ...current,
+      [viewName]: {
+        ...current[viewName],
+        ...patch
+      }
+    }));
+  }
 
   async function refresh() {
     const [nextSnapshot, nextPrayers] = await Promise.all([
@@ -260,6 +503,16 @@ function App() {
     }
 
     const formData = new FormData(event.currentTarget);
+    setProfileError("");
+
+    let mapsUrl = "";
+    try {
+      mapsUrl = normalizeOptionalHttpUrl(String(formData.get("mapsUrl") ?? ""), "Google Maps");
+    } catch (reason) {
+      setProfileError(reason instanceof Error ? reason.message : "URL invalida.");
+      return;
+    }
+
     const nextProfile: ChurchProfile = {
       ...snapshot.profile,
       name: String(formData.get("name") ?? ""),
@@ -272,7 +525,7 @@ function App() {
       whatsapp: String(formData.get("whatsapp") ?? ""),
       instagramUrl: String(formData.get("instagramUrl") ?? ""),
       youtubeUrl: String(formData.get("youtubeUrl") ?? ""),
-      mapsUrl: String(formData.get("mapsUrl") ?? ""),
+      mapsUrl,
       heroVerse: String(formData.get("heroVerse") ?? ""),
       mission: String(formData.get("mission") ?? ""),
       foundedText: String(formData.get("foundedText") ?? "")
@@ -345,6 +598,7 @@ function App() {
                 type="email"
                 defaultValue={showDevPrefill ? DEV_PREFILL.email : ""}
                 autoComplete="email"
+                maxLength={TEXT_MAX}
                 required
               />
             </label>
@@ -355,6 +609,7 @@ function App() {
                 type="password"
                 defaultValue={showDevPrefill ? DEV_PREFILL.password : ""}
                 autoComplete="current-password"
+                maxLength={TEXT_MAX}
                 required
               />
             </label>
@@ -423,7 +678,25 @@ function App() {
         {view === "announcements" && (
           <CrudPanel
             title="Avisos"
-            items={snapshot.announcements}
+            items={announcementList.items}
+            toolbar={
+              <ListToolbar
+                search={listState.announcements.search}
+                searchLabel="Titulo, resumo ou categoria"
+                sort={listState.announcements.sort}
+                sortOptions={ANNOUNCEMENT_SORT_OPTIONS}
+                total={announcementList.total}
+                onSearch={(search) => updateListState("announcements", { search, page: 1 })}
+                onSort={(sort) => updateListState("announcements", { sort, page: 1 })}
+              />
+            }
+            footer={
+              <Pagination
+                list={announcementList}
+                onPageChange={(page) => updateListState("announcements", { page })}
+              />
+            }
+            emptyLabel="Nenhum aviso encontrado."
             renderItem={(item) => (
               <ItemRow key={item.id} title={item.title} detail={item.category}>
                 <button onClick={() => setAnnouncementDraft(item)} type="button">Editar</button>
@@ -443,14 +716,16 @@ function App() {
               className="editor-form"
               onSubmit={saveAnnouncement}
             >
-              <input
+              <Field
+                label="Titulo"
                 name="title"
                 placeholder="Titulo"
                 defaultValue={announcementDraft.title}
                 maxLength={TEXT_MAX}
                 required
               />
-              <textarea
+              <TextAreaField
+                label="Resumo"
                 name="summary"
                 placeholder="Resumo"
                 defaultValue={announcementDraft.summary}
@@ -458,13 +733,14 @@ function App() {
                 required
               />
               <div className="form-grid">
-                <select name="category" defaultValue={announcementDraft.category}>
+                <SelectField label="Categoria" name="category" defaultValue={announcementDraft.category}>
                   <option value="geral">Geral</option>
                   <option value="evento">Evento</option>
                   <option value="juventude">Juventude</option>
                   <option value="oracao">Oracao</option>
-                </select>
-                <input
+                </SelectField>
+                <Field
+                  label="Publicacao"
                   name="publishedAt"
                   type="datetime-local"
                   defaultValue={formatInputDateTime(announcementDraft.publishedAt)}
@@ -472,13 +748,15 @@ function App() {
                 />
               </div>
               <div className="form-grid">
-                <input
+                <Field
+                  label="Texto do botao"
                   name="ctaLabel"
                   placeholder="Texto do botao"
                   defaultValue={announcementDraft.ctaLabel}
                   maxLength={TEXT_MAX}
                 />
-                <input
+                <Field
+                  label="URL do botao"
                   name="ctaUrl"
                   type="url"
                   placeholder="URL do botao (https://...)"
@@ -498,7 +776,25 @@ function App() {
         {view === "schedule" && (
           <CrudPanel
             title="Programacao"
-            items={snapshot.schedule}
+            items={scheduleList.items}
+            toolbar={
+              <ListToolbar
+                search={listState.schedule.search}
+                searchLabel="Titulo, ministerio, local ou status"
+                sort={listState.schedule.sort}
+                sortOptions={SCHEDULE_SORT_OPTIONS}
+                total={scheduleList.total}
+                onSearch={(search) => updateListState("schedule", { search, page: 1 })}
+                onSort={(sort) => updateListState("schedule", { sort, page: 1 })}
+              />
+            }
+            footer={
+              <Pagination
+                list={scheduleList}
+                onPageChange={(page) => updateListState("schedule", { page })}
+              />
+            }
+            emptyLabel="Nenhum item de programacao encontrado."
             renderItem={(item) => (
               <ItemRow key={item.id} title={item.title} detail={formatScheduleDetail(item)}>
                 <button onClick={() => setScheduleDraft(item)} type="button">Editar</button>
@@ -530,7 +826,25 @@ function App() {
         {view === "ministries" && (
           <CrudPanel
             title="Ministerios"
-            items={snapshot.ministries}
+            items={ministryList.items}
+            toolbar={
+              <ListToolbar
+                search={listState.ministries.search}
+                searchLabel="Nome, resumo, horario ou contato"
+                sort={listState.ministries.sort}
+                sortOptions={MINISTRY_SORT_OPTIONS}
+                total={ministryList.total}
+                onSearch={(search) => updateListState("ministries", { search, page: 1 })}
+                onSort={(sort) => updateListState("ministries", { sort, page: 1 })}
+              />
+            }
+            footer={
+              <Pagination
+                list={ministryList}
+                onPageChange={(page) => updateListState("ministries", { page })}
+              />
+            }
+            emptyLabel="Nenhum ministerio encontrado."
             renderItem={(item) => (
               <ItemRow key={item.id} title={item.name} detail={item.meetingTime}>
                 <button onClick={() => setMinistryDraft(item)} type="button">Editar</button>
@@ -551,14 +865,16 @@ function App() {
               onSubmit={saveMinistry}
             >
               <div className="form-grid">
-                <input
+                <Field
+                  label="Nome"
                   name="name"
                   placeholder="Nome"
                   defaultValue={ministryDraft.name}
                   maxLength={TEXT_MAX}
                   required
                 />
-                <input
+                <Field
+                  label="Horario"
                   name="meetingTime"
                   placeholder="Horario"
                   defaultValue={ministryDraft.meetingTime}
@@ -566,7 +882,8 @@ function App() {
                   required
                 />
               </div>
-              <textarea
+              <TextAreaField
+                label="Resumo"
                 name="summary"
                 placeholder="Resumo"
                 defaultValue={ministryDraft.summary}
@@ -574,14 +891,15 @@ function App() {
                 required
               />
               <div className="form-grid">
-                <input
+                <Field
+                  label="Contato"
                   name="contact"
                   placeholder="Contato"
                   defaultValue={ministryDraft.contact}
                   maxLength={TEXT_MAX}
                   required
                 />
-                <input name="color" type="color" defaultValue={ministryDraft.color} />
+                <Field label="Cor" name="color" type="color" defaultValue={ministryDraft.color} />
               </div>
               <FormActions saving={saving} onCancel={() => setMinistryDraft(emptyMinistry())} />
             </form>
@@ -602,27 +920,127 @@ function App() {
               onSubmit={saveProfile}
             >
               <div className="form-grid">
-                <input name="name" placeholder="Nome" defaultValue={snapshot.profile.name} required />
-                <input name="shortName" placeholder="Nome curto" defaultValue={snapshot.profile.shortName} required />
+                <Field
+                  label="Nome"
+                  name="name"
+                  placeholder="Nome"
+                  defaultValue={snapshot.profile.name}
+                  maxLength={TEXT_MAX}
+                  required
+                />
+                <Field
+                  label="Nome curto"
+                  name="shortName"
+                  placeholder="Nome curto"
+                  defaultValue={snapshot.profile.shortName}
+                  maxLength={TEXT_MAX}
+                  required
+                />
               </div>
-              <input name="tagline" placeholder="Chamada" defaultValue={snapshot.profile.tagline} required />
-              <textarea name="mission" placeholder="Missao" defaultValue={snapshot.profile.mission} required />
+              <Field
+                label="Chamada"
+                name="tagline"
+                placeholder="Chamada"
+                defaultValue={snapshot.profile.tagline}
+                maxLength={TEXT_MAX}
+                required
+              />
+              <TextAreaField
+                label="Missao"
+                name="mission"
+                placeholder="Missao"
+                defaultValue={snapshot.profile.mission}
+                maxLength={TEXTAREA_MAX}
+                required
+              />
               <div className="form-grid">
-                <input name="city" placeholder="Cidade" defaultValue={snapshot.profile.city} required />
-                <input name="pastorName" placeholder="Pastor" defaultValue={snapshot.profile.pastorName} required />
+                <Field
+                  label="Cidade"
+                  name="city"
+                  placeholder="Cidade"
+                  defaultValue={snapshot.profile.city}
+                  maxLength={TEXT_MAX}
+                  required
+                />
+                <Field
+                  label="Pastor"
+                  name="pastorName"
+                  placeholder="Pastor"
+                  defaultValue={snapshot.profile.pastorName}
+                  maxLength={TEXT_MAX}
+                  required
+                />
               </div>
-              <input name="address" placeholder="Endereco" defaultValue={snapshot.profile.address} required />
+              <Field
+                label="Endereco"
+                name="address"
+                placeholder="Endereco"
+                defaultValue={snapshot.profile.address}
+                maxLength={TEXT_MAX}
+                required
+              />
               <div className="form-grid">
-                <input name="email" placeholder="Email" defaultValue={snapshot.profile.email} required />
-                <input name="whatsapp" placeholder="WhatsApp" defaultValue={snapshot.profile.whatsapp} required />
+                <Field
+                  label="Email"
+                  name="email"
+                  type="email"
+                  placeholder="Email"
+                  defaultValue={snapshot.profile.email}
+                  maxLength={TEXT_MAX}
+                  required
+                />
+                <Field
+                  label="WhatsApp"
+                  name="whatsapp"
+                  placeholder="WhatsApp"
+                  defaultValue={snapshot.profile.whatsapp}
+                  maxLength={TEXT_MAX}
+                  required
+                />
               </div>
               <div className="form-grid">
-                <input name="instagramUrl" placeholder="Instagram" defaultValue={snapshot.profile.instagramUrl} />
-                <input name="youtubeUrl" placeholder="YouTube" defaultValue={snapshot.profile.youtubeUrl} />
+                <Field
+                  label="Instagram"
+                  name="instagramUrl"
+                  type="url"
+                  placeholder="Instagram"
+                  defaultValue={snapshot.profile.instagramUrl}
+                  maxLength={URL_MAX}
+                />
+                <Field
+                  label="YouTube"
+                  name="youtubeUrl"
+                  type="url"
+                  placeholder="YouTube"
+                  defaultValue={snapshot.profile.youtubeUrl}
+                  maxLength={URL_MAX}
+                />
               </div>
-              <input name="mapsUrl" placeholder="Google Maps" defaultValue={snapshot.profile.mapsUrl} />
-              <input name="heroVerse" placeholder="Versiculo" defaultValue={snapshot.profile.heroVerse} required />
-              <input name="foundedText" placeholder="Texto historico" defaultValue={snapshot.profile.foundedText} required />
+              <Field
+                label="Google Maps"
+                name="mapsUrl"
+                type="url"
+                placeholder="Google Maps"
+                defaultValue={snapshot.profile.mapsUrl}
+                maxLength={URL_MAX}
+              />
+              <Field
+                label="Versiculo"
+                name="heroVerse"
+                placeholder="Versiculo"
+                defaultValue={snapshot.profile.heroVerse}
+                maxLength={TEXTAREA_MAX}
+                required
+              />
+              <Field
+                label="Texto historico"
+                name="foundedText"
+                placeholder="Texto historico"
+                defaultValue={snapshot.profile.foundedText}
+                maxLength={TEXTAREA_MAX}
+                required
+              />
+              {profileError && <p className="form-error">{profileError}</p>}
               <button className="button primary" disabled={saving} type="submit">
                 <Save size={18} /> Salvar igreja
               </button>
@@ -639,24 +1057,54 @@ function App() {
               </div>
             </header>
             <div className="list-panel">
-              {prayers.map((request) => (
+              <ListToolbar
+                search={listState.prayers.search}
+                searchLabel="Nome, contato, pedido ou status"
+                sort={listState.prayers.sort}
+                sortOptions={PRAYER_SORT_OPTIONS}
+                total={prayerList.total}
+                onSearch={(search) => updateListState("prayers", { search, page: 1 })}
+                onSort={(sort) => updateListState("prayers", { sort, page: 1 })}
+              >
+                <SelectField
+                  label="Status"
+                  value={prayerStatusFilter}
+                  onChange={(event) => {
+                    setPrayerStatusFilter(event.currentTarget.value as PrayerRequest["status"] | "all");
+                    updateListState("prayers", { page: 1 });
+                  }}
+                >
+                  {PRAYER_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </SelectField>
+              </ListToolbar>
+              {prayerList.items.map((request) => (
                 <article className="prayer-row" key={request.id}>
                   <div>
                     <strong>{request.name}</strong>
+                    <span>{formatDateTimeLabel(request.createdAt)}</span>
                     <span>{request.contact || "Sem contato"}</span>
                     <p>{request.message}</p>
                   </div>
-                  <select
+                  <SelectField
+                    label="Status"
                     value={request.status}
                     onChange={(event) => updatePrayerStatus(request.id, event.currentTarget.value as PrayerRequest["status"])}
                   >
                     <option value="novo">Novo</option>
                     <option value="em_oracao">Em oracao</option>
                     <option value="concluido">Concluido</option>
-                  </select>
+                  </SelectField>
                 </article>
               ))}
-              {prayers.length === 0 && <p className="empty-note">Nenhum pedido recebido.</p>}
+              {prayerList.items.length === 0 && <p className="empty-note">Nenhum pedido encontrado.</p>}
+              <Pagination
+                list={prayerList}
+                onPageChange={(page) => updateListState("prayers", { page })}
+              />
             </div>
           </section>
         )}
@@ -672,11 +1120,13 @@ function NavButton(props: {
   label: string;
   onClick: (view: AdminView) => void;
 }) {
+  const active = props.current === props.target;
   return (
     <button
-      className={props.current === props.target ? "active" : ""}
+      className={active ? "active" : ""}
       onClick={() => props.onClick(props.target)}
       type="button"
+      aria-current={active ? "page" : undefined}
     >
       {props.icon}
       {props.label}
@@ -698,6 +1148,9 @@ function CrudPanel<T>(props: {
   items: T[];
   children: React.ReactNode;
   renderItem: (item: T) => React.ReactNode;
+  toolbar?: React.ReactNode;
+  footer?: React.ReactNode;
+  emptyLabel?: string;
 }) {
   return (
     <section>
@@ -708,7 +1161,12 @@ function CrudPanel<T>(props: {
         </div>
       </header>
       <div className="crud-layout">
-        <div className="list-panel">{props.items.map(props.renderItem)}</div>
+        <div className="list-panel">
+          {props.toolbar}
+          {props.items.map(props.renderItem)}
+          {props.items.length === 0 && <p className="empty-note">{props.emptyLabel ?? "Nenhum registro encontrado."}</p>}
+          {props.footer}
+        </div>
         <div className="editor-panel">{props.children}</div>
       </div>
     </section>
@@ -744,6 +1202,106 @@ function FormActions(props: { saving: boolean; onCancel: () => void }) {
   );
 }
 
+function Field(props: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+  const { label, ...inputProps } = props;
+  return (
+    <label>
+      <span className="field-label">{label}</span>
+      <input {...inputProps} />
+    </label>
+  );
+}
+
+function TextAreaField(props: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }) {
+  const { label, ...textareaProps } = props;
+  return (
+    <label>
+      <span className="field-label">{label}</span>
+      <textarea {...textareaProps} />
+    </label>
+  );
+}
+
+function SelectField(props: SelectHTMLAttributes<HTMLSelectElement> & { label: string; children: React.ReactNode }) {
+  const { label, children, ...selectProps } = props;
+  return (
+    <label>
+      <span className="field-label">{label}</span>
+      <select {...selectProps}>{children}</select>
+    </label>
+  );
+}
+
+function ListToolbar(props: {
+  search: string;
+  searchLabel: string;
+  sort: string;
+  sortOptions: Array<{ value: string; label: string }>;
+  total: number;
+  onSearch: (value: string) => void;
+  onSort: (value: string) => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="list-toolbar">
+      <Field
+        label="Buscar"
+        type="search"
+        value={props.search}
+        placeholder={props.searchLabel}
+        maxLength={TEXT_MAX}
+        onChange={(event) => props.onSearch(event.currentTarget.value)}
+      />
+      <SelectField
+        label="Ordenar"
+        value={props.sort}
+        onChange={(event) => props.onSort(event.currentTarget.value)}
+      >
+        {props.sortOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </SelectField>
+      {props.children}
+      <span>{props.total} itens</span>
+    </div>
+  );
+}
+
+function Pagination(props: {
+  list: VisibleList<unknown>;
+  onPageChange: (page: number) => void;
+}) {
+  if (props.list.pageCount <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="pagination">
+      <span>
+        Pagina {props.list.page} de {props.list.pageCount}
+      </span>
+      <button
+        className="button ghost"
+        type="button"
+        disabled={props.list.page <= 1}
+        onClick={() => props.onPageChange(props.list.page - 1)}
+      >
+        Anterior
+      </button>
+      <button
+        className="button ghost"
+        type="button"
+        disabled={props.list.page >= props.list.pageCount}
+        onClick={() => props.onPageChange(props.list.page + 1)}
+      >
+        Proxima
+      </button>
+    </div>
+  );
+}
+
 function ScheduleForm(props: {
   draft: ScheduleItem;
   ministries: string[];
@@ -770,14 +1328,16 @@ function ScheduleForm(props: {
   return (
     <form className="editor-form" onSubmit={props.onSubmit}>
       <div className="form-grid">
-        <input
+        <Field
+          label="Titulo"
           name="title"
           placeholder="Titulo"
           defaultValue={props.draft.title}
           maxLength={TEXT_MAX}
           required
         />
-        <input
+        <Field
+          label="Ministerio"
           name="ministry"
           list="schedule-ministries"
           placeholder="Ministerio"
@@ -792,34 +1352,31 @@ function ScheduleForm(props: {
         ))}
       </datalist>
       <div className="form-grid">
-        <label>
-          <span className="field-label">Inicio</span>
-          <input
-            name="startsAt"
-            type="datetime-local"
-            value={startsAt}
-            onChange={(event) => {
-              const next = event.currentTarget.value;
-              setStartsAt(next);
-              shiftEndsAt(next);
-            }}
-            required
-          />
-        </label>
-        <label>
-          <span className="field-label">Termino</span>
-          <input
-            name="endsAt"
-            type="datetime-local"
-            value={endsAt}
-            min={startsAt}
-            onChange={(event) => setEndsAt(event.currentTarget.value)}
-            required
-          />
-        </label>
+        <Field
+          label="Inicio"
+          name="startsAt"
+          type="datetime-local"
+          value={startsAt}
+          onChange={(event) => {
+            const next = event.currentTarget.value;
+            setStartsAt(next);
+            shiftEndsAt(next);
+          }}
+          required
+        />
+        <Field
+          label="Termino"
+          name="endsAt"
+          type="datetime-local"
+          value={endsAt}
+          min={startsAt}
+          onChange={(event) => setEndsAt(event.currentTarget.value)}
+          required
+        />
       </div>
       <div className="form-grid">
-        <input
+        <Field
+          label="Local"
           name="location"
           list="schedule-locations"
           placeholder="Local"
@@ -827,7 +1384,8 @@ function ScheduleForm(props: {
           maxLength={TEXT_MAX}
           required
         />
-        <select
+        <SelectField
+          label="Status"
           name="status"
           defaultValue={props.draft.status}
           required
@@ -835,17 +1393,19 @@ function ScheduleForm(props: {
           <option value="scheduled">Agendado</option>
           <option value="suspended">Suspenso</option>
           <option value="free">Livre</option>
-        </select>
+        </SelectField>
       </div>
       <div className="form-grid">
-        <input
+        <Field
+          label="Pregador"
           name="preacher"
           list="schedule-preachers"
           placeholder="Pregador"
           defaultValue={props.draft.preacher}
           maxLength={TEXT_MAX}
         />
-        <input
+        <Field
+          label="Dirigente"
           name="director"
           list="schedule-directors"
           placeholder="Dirigente"
@@ -854,13 +1414,15 @@ function ScheduleForm(props: {
         />
       </div>
       <div className="form-grid">
-        <input
+        <Field
+          label="Passagem biblica"
           name="passage"
           placeholder="Passagem biblica"
           defaultValue={props.draft.passage}
           maxLength={TEXT_MAX}
         />
-        <input
+        <Field
+          label="Data especial"
           name="specialDate"
           placeholder="Data especial (ex: PASCOA)"
           defaultValue={props.draft.specialDate}
@@ -882,7 +1444,8 @@ function ScheduleForm(props: {
           <option key={value} value={value} />
         ))}
       </datalist>
-      <textarea
+      <TextAreaField
+        label="Resumo"
         name="summary"
         placeholder="Resumo"
         defaultValue={props.draft.summary}
