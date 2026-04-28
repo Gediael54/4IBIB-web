@@ -1,36 +1,32 @@
 # Supabase
 
-Use `apply-now.sql` no SQL Editor do Supabase para aplicar tudo de uma vez.
+`schema.sql` e o unico script. Cole ele inteiro no SQL Editor do Supabase para
+aplicar (ou reaplicar) tudo: estrutura, indices, RLS, bootstrap e seed dos
+eventos.
 
-## Arquivos
+## Estrutura do arquivo
 
-- `schema.sql`: versao canonica do banco organizada em secoes:
-  1. Extensoes
-  2. Tabelas (estado final)
-  3. Funcoes
-  4. Migracoes legadas (idempotentes; viram no-op em bancos novos)
-  5. Indices
-  6. Views
-  7. Triggers
-  8. RLS e policies
-  9. Bootstrap (singleton de `church_profile` + reunioes recorrentes padrao)
-- `seed.sql`: programacao gerada a partir de `sources/Escala-de-cultos.xlsx`.
-- `apply-now.sql`: arquivo consolidado gerado a partir de `schema.sql` + `seed.sql`.
-- `sources/`: arquivos externos usados para gerar seeds.
+1. Extensoes
+2. Tabelas (estado final, todas as constraints inline)
+3. Funcoes
+4. Indices
+5. Views
+6. Triggers
+7. RLS e policies
+8. Bootstrap (singleton de `church_profile` + reunioes recorrentes padrao)
+9. Seed da programacao (entre os marcadores `BEGIN SEED` / `END SEED`,
+   gerado a partir de `sources/Escala-de-cultos.xlsx`)
 
-## Como ler `schema.sql`
+Tudo e idempotente: rodar de novo nao duplica dados nem quebra dados ja
+existentes.
 
-Para entender o estado final do banco, leia da secao 1 ate a 3 e depois 5 a 9.
-A secao 4 so existe para subir bancos antigos ate a forma canonica e e
-totalmente segura em bancos novos. Cada subsecao explica de onde para onde
-estao migrando.
+## Atualizar o seed
 
-## Regenerar o consolidado
-
-Apos alterar `schema.sql`, a planilha ou `scripts/seed-from-xlsx.mjs`:
+Edite a planilha em `sources/Escala-de-cultos.xlsx` e rode:
 
 ```bash
-npm run supabase:build
+npm run seed:schedule
 ```
 
-Isso regera `seed.sql` e `apply-now.sql`.
+O script substitui apenas o bloco entre os marcadores `BEGIN SEED` e
+`END SEED` no fim de `schema.sql`. As demais secoes nao sao tocadas.

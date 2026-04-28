@@ -3,15 +3,19 @@
 -- =============================================================================
 -- Sections:
 --   1. Extensions
---   2. Tables (final shape)
+--   2. Tables (final shape, all constraints inline)
 --   3. Functions
---   4. Legacy migrations (idempotent; no-op on fresh installs)
---   5. Indexes
---   6. Views
---   7. Triggers
---   8. Row Level Security and policies
---   9. Bootstrap data
+--   4. Indexes
+--   5. Views
+--   6. Triggers
+--   7. Row Level Security and policies
+--   8. Bootstrap data (idempotent on re-runs)
+--   9. Schedule seed (auto-generated; do not edit between SEED markers)
 -- =============================================================================
+-- The whole script runs inside a single transaction so a failure rolls back
+-- without leaving partial migrations or dropped policies behind.
+
+begin;
 
 
 -- =============================================================================
@@ -24,7 +28,7 @@ create extension if not exists unaccent with schema extensions;
 
 
 -- =============================================================================
--- 2. Tables (final shape)
+-- 2. Tables
 -- =============================================================================
 
 create table if not exists public.admin_users (
@@ -34,7 +38,7 @@ create table if not exists public.admin_users (
 );
 
 create table if not exists public.church_profile (
-  id text primary key default 'main',
+  id text primary key default 'main' check (id = 'main'),
   name text not null,
   short_name text not null,
   tagline text not null,
@@ -51,17 +55,6 @@ create table if not exists public.church_profile (
   founded_text text not null,
   updated_at timestamptz not null default now()
 );
-
-do $$
-begin
-  if not exists (
-    select 1 from information_schema.table_constraints
-    where table_schema = 'public' and table_name = 'church_profile' and constraint_name = 'church_profile_singleton_id'
-  ) then
-    alter table public.church_profile
-      add constraint church_profile_singleton_id check (id = 'main');
-  end if;
-end $$;
 
 create table if not exists public.announcements (
   id uuid primary key default gen_random_uuid(),
@@ -115,12 +108,11 @@ create table if not exists public.schedule_items (
   passage text not null default '',
   occasion_label text not null default '',
   google_event_id text,
-  status text not null default 'scheduled',
+  status text not null default 'scheduled' check (status in ('scheduled', 'suspended', 'free')),
   featured boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint schedule_time_order check (ends_at > starts_at),
-  constraint schedule_status_valid check (status in ('scheduled', 'suspended', 'free'))
+  constraint schedule_time_order check (ends_at > starts_at)
 );
 
 create table if not exists public.prayer_requests (
@@ -213,34 +205,6 @@ begin
 end;
 $$;
 
-create or replace function public.parse_meeting_time(value text, occurrence integer, fallback_value time)
-returns time
-language plpgsql
-stable
-as $$
-declare
-  match text[];
-begin
-  select matched
-  into match
-  from (
-    select regexp_matches(coalesce(value, ''), '([0-9]{1,2})(?::|h)?([0-9]{2})?', 'gi') as matched
-  ) as matches
-  offset greatest(occurrence - 1, 0)
-  limit 1;
-
-  if match is null then
-    return fallback_value;
-  end if;
-
-  return make_time(
-    least(match[1]::integer, 23),
-    least(coalesce(nullif(match[2], ''), '0')::integer, 59),
-    0
-  );
-end;
-$$;
-
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
@@ -324,188 +288,12 @@ $$;
 
 
 -- =============================================================================
--- 4. Legacy migrations (idempotent; no-op on fresh installs)
+-- 4. Indexes
 -- =============================================================================
--- This whole block exists so that databases provisioned before the canonical
--- shape above can be upgraded in place. On a brand new database, every
--- statement here either matches reality or is gated behind an existence check.
-
--- 4.1 Old column renames -------------------------------------------------------
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'leader'
-  ) and not exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'preacher'
-  ) then
-    alter table public.schedule_items rename column leader to preacher;
-  end if;
-end $$;
-
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'special_date'
-  ) and not exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'occasion_label'
-  ) then
-    alter table public.schedule_items rename column special_date to occasion_label;
-  end if;
-end $$;
-
--- 4.2 Add columns that legacy databases were missing --------------------------
-alter table public.ministries add column if not exists slug text;
-alter table public.schedule_items add column if not exists preacher text not null default '';
-alter table public.schedule_items add column if not exists director text not null default '';
-alter table public.schedule_items add column if not exists passage text not null default '';
-alter table public.schedule_items add column if not exists occasion_label text not null default '';
-alter table public.schedule_items add column if not exists google_event_id text;
-alter table public.schedule_items add column if not exists status text not null default 'scheduled';
-alter table public.schedule_items add column if not exists ministry_id uuid;
-
--- 4.3 Backfill, deduplicate and lock down ministries.slug ---------------------
-update public.ministries
-set slug = public.ministry_slug(name)
-where slug is null or slug = '';
-
-with duplicate_slugs as (
-  select
-    id,
-    slug,
-    row_number() over (partition by slug order by created_at, id) as duplicate_rank
-  from public.ministries
-)
-update public.ministries as ministry
-set slug = ministry.slug || '-' || left(ministry.id::text, 8)
-from duplicate_slugs
-where ministry.id = duplicate_slugs.id
-  and duplicate_slugs.duplicate_rank > 1;
-
-alter table public.ministries alter column slug set default '';
-alter table public.ministries alter column slug set not null;
-
--- The slug trigger and unique index live in this section because the
--- ministry_id backfill in 4.4 calls upsert_ministry_id, which relies on
--- on conflict (slug) to be idempotent.
-drop trigger if exists set_ministries_slug on public.ministries;
-create trigger set_ministries_slug
-before insert or update of name on public.ministries
-for each row execute function public.set_ministry_slug();
 
 create unique index if not exists ministries_slug_unique on public.ministries (slug);
 
--- 4.4 Backfill schedule_items.ministry_id from the legacy text column ---------
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'ministry'
-  ) then
-    execute $sql$
-      update public.schedule_items
-      set ministry_id = public.upsert_ministry_id(ministry)
-      where ministry_id is null
-    $sql$;
-  end if;
-end $$;
-
-update public.schedule_items
-set ministry_id = public.upsert_ministry_id('Geral')
-where ministry_id is null;
-
-do $$
-begin
-  if not exists (
-    select 1 from information_schema.table_constraints
-    where table_schema = 'public'
-      and table_name = 'schedule_items'
-      and constraint_name = 'schedule_items_ministry_id_fkey'
-  ) then
-    alter table public.schedule_items
-      add constraint schedule_items_ministry_id_fkey
-      foreign key (ministry_id) references public.ministries(id) on delete restrict;
-  end if;
-end $$;
-
-alter table public.schedule_items alter column ministry_id set not null;
-alter table public.schedule_items drop column if exists ministry;
-
--- 4.5 google_event_id: drop empty-string default and allow NULL ---------------
-update public.schedule_items
-set google_event_id = null
-where google_event_id = '';
-
-alter table public.schedule_items alter column google_event_id drop not null;
-alter table public.schedule_items alter column google_event_id drop default;
-
--- 4.6 schedule_items.status check constraint guard ----------------------------
-do $$
-begin
-  if not exists (
-    select 1 from information_schema.constraint_column_usage
-    where table_schema = 'public' and table_name = 'schedule_items' and constraint_name = 'schedule_status_valid'
-  ) then
-    alter table public.schedule_items
-      add constraint schedule_status_valid check (status in ('scheduled', 'suspended', 'free'));
-  end if;
-end $$;
-
--- 4.7 church_profile.regular_meetings (jsonb) -> recurring_meetings table -----
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'church_profile' and column_name = 'regular_meetings'
-  ) then
-    insert into public.recurring_meetings (
-      id,
-      profile_id,
-      title,
-      weekday,
-      starts_at,
-      ends_at,
-      description,
-      sort_order
-    )
-    select
-      case
-        when meeting.item ->> 'id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-          then (meeting.item ->> 'id')::uuid
-        else gen_random_uuid()
-      end,
-      profile.id,
-      coalesce(nullif(meeting.item ->> 'title', ''), 'Reuniao'),
-      coalesce(nullif(meeting.item ->> 'weekday', ''), ''),
-      public.parse_meeting_time(meeting.item ->> 'time', 1, '00:00'::time),
-      public.parse_meeting_time(
-        meeting.item ->> 'time',
-        2,
-        public.parse_meeting_time(meeting.item ->> 'time', 1, '00:00'::time) + interval '1 hour'
-      ),
-      coalesce(meeting.item ->> 'description', ''),
-      meeting.ordinality::integer - 1
-    from public.church_profile as profile
-    cross join lateral jsonb_array_elements(profile.regular_meetings) with ordinality as meeting(item, ordinality)
-    where profile.regular_meetings is not null
-      and jsonb_typeof(profile.regular_meetings) = 'array'
-    on conflict do nothing;
-  end if;
-end $$;
-
-alter table public.church_profile drop column if exists regular_meetings;
-
-
--- =============================================================================
--- 5. Indexes
--- =============================================================================
--- ministries_slug_unique lives in section 4.3 because the migrations need it.
-
-drop index if exists public.schedule_google_event_id_unique;
-create unique index schedule_google_event_id_unique
+create unique index if not exists schedule_google_event_id_unique
   on public.schedule_items (google_event_id)
   where google_event_id is not null;
 
@@ -533,7 +321,7 @@ create index if not exists content_audit_log_table_row_idx
 
 
 -- =============================================================================
--- 6. Views
+-- 5. Views
 -- =============================================================================
 
 create or replace view public.schedule_items_app
@@ -562,11 +350,16 @@ join public.ministries on ministries.id = schedule_items.ministry_id;
 
 
 -- =============================================================================
--- 7. Triggers
+-- 6. Triggers
 -- =============================================================================
--- The set_ministries_slug trigger lives in section 4.3.
 
--- 7.1 updated_at touch --------------------------------------------------------
+-- 6.1 Auto-populate ministries.slug from name -------------------------------
+drop trigger if exists set_ministries_slug on public.ministries;
+create trigger set_ministries_slug
+before insert or update of name on public.ministries
+for each row execute function public.set_ministry_slug();
+
+-- 6.2 updated_at touch ------------------------------------------------------
 drop trigger if exists touch_church_profile_updated_at on public.church_profile;
 create trigger touch_church_profile_updated_at
 before update on public.church_profile
@@ -597,7 +390,7 @@ create trigger touch_prayer_requests_updated_at
 before update on public.prayer_requests
 for each row execute function public.touch_updated_at();
 
--- 7.2 audit log ---------------------------------------------------------------
+-- 6.3 Audit log -------------------------------------------------------------
 drop trigger if exists audit_church_profile on public.church_profile;
 create trigger audit_church_profile
 after insert or update or delete on public.church_profile
@@ -630,7 +423,7 @@ for each row execute function public.log_content_audit();
 
 
 -- =============================================================================
--- 8. Row Level Security and policies
+-- 7. Row Level Security and policies
 -- =============================================================================
 
 alter table public.admin_users enable row level security;
@@ -721,8 +514,6 @@ to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
-drop policy if exists "public can create prayer requests" on public.prayer_requests;
-
 drop policy if exists "admins can manage prayer requests" on public.prayer_requests;
 create policy "admins can manage prayer requests"
 on public.prayer_requests for all
@@ -738,11 +529,9 @@ using (public.is_admin());
 
 
 -- =============================================================================
--- 9. Bootstrap data
+-- 8. Bootstrap data
 -- =============================================================================
 
--- Singleton church_profile row so the public site has something to render
--- before an admin fills it in. Only rewrites blank fields.
 insert into public.church_profile (
   id,
   name,
@@ -769,49 +558,285 @@ insert into public.church_profile (
   '',
   '',
   ''
-) on conflict (id) do update set
-  address = case
-    when trim(public.church_profile.address) = '' then excluded.address
-    else public.church_profile.address
-  end,
-  whatsapp = case
-    when trim(public.church_profile.whatsapp) = '' then excluded.whatsapp
-    else public.church_profile.whatsapp
-  end,
-  city = case
-    when trim(public.church_profile.city) = '' then excluded.city
-    else public.church_profile.city
-  end
-where trim(public.church_profile.address) = ''
-  or trim(public.church_profile.whatsapp) = ''
-  or trim(public.church_profile.city) = '';
+) on conflict (id) do nothing;
 
--- Default recurring meetings, only inserted if no rows exist for the singleton.
-insert into public.recurring_meetings (
-  id,
-  profile_id,
-  title,
-  weekday,
-  starts_at,
-  ends_at,
-  description,
-  sort_order
-)
-select
-  seed.id,
-  seed.profile_id,
-  seed.title,
-  seed.weekday,
-  seed.starts_at,
-  seed.ends_at,
-  seed.description,
-  seed.sort_order
-from (
+insert into public.recurring_meetings (id, profile_id, title, weekday, starts_at, ends_at, description, sort_order)
+values
+  ('00000000-0000-4000-8000-000000000101'::uuid, 'main', 'Culto de louvor', 'Quinta', '19:30'::time, '21:00'::time, '', 10),
+  ('00000000-0000-4000-8000-000000000102'::uuid, 'main', 'Escola Biblica', 'Domingo', '09:30'::time, '11:00'::time, '', 20),
+  ('00000000-0000-4000-8000-000000000103'::uuid, 'main', 'Culto solene', 'Domingo', '17:00'::time, '19:00'::time, '', 30)
+on conflict (id) do nothing;
+
+
+-- =============================================================================
+-- 9. Schedule seed (auto-generated from supabase/sources/Escala-de-cultos.xlsx)
+-- =============================================================================
+-- Run `npm run seed:schedule` to regenerate everything between the SEED markers
+-- below. Do not edit by hand: changes will be overwritten.
+
+-- BEGIN SEED ------------------------------------------------------------------
+with schedule_seed (
+  title, ministry_name, starts_at, ends_at, location, summary,
+  preacher, director, passage, occasion_label, google_event_id, status
+) as (
   values
-    ('00000000-0000-4000-8000-000000000101'::uuid, 'main', 'Culto de louvor', 'Quinta', '19:30'::time, '21:00'::time, '', 10),
-    ('00000000-0000-4000-8000-000000000102'::uuid, 'main', 'Escola Biblica', 'Domingo', '09:30'::time, '11:00'::time, '', 20),
-    ('00000000-0000-4000-8000-000000000103'::uuid, 'main', 'Culto solene', 'Domingo', '17:00'::time, '19:00'::time, '', 30)
-) as seed(id, profile_id, title, weekday, starts_at, ends_at, description, sort_order)
-where not exists (
-  select 1 from public.recurring_meetings where profile_id = 'main'
-);
+    ('Culto Solene', 'Culto', '2026-01-04T20:00:00.000Z'::timestamptz, '2026-01-04T22:00:00.000Z'::timestamptz, 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Aparecido Regino', 'Marcos 1', '', '745c83dhr16636rs1l0qbl57d0@google.com', 'scheduled'),
+    ('Culto de Oração', 'Culto', '2026-01-06T22:30:00.000Z', '2026-01-07T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '0mc4cqfvv7cse610trk9qesvcs@google.com', 'scheduled'),
+    ('Culto de oração', 'Culto', '2026-01-08T22:30:00.000Z', '2026-01-09T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'mug7bo4i5htfjqo1gv193tpaco@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-01-11T20:00:00.000Z', '2026-01-11T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Ir. Gilmar Fonseca', 'Marcos 2', '', '36o84dbdrh4gvdlcof9o2v89s8@google.com', 'scheduled'),
+    ('Culto de oração', 'Culto', '2026-01-13T22:30:00.000Z', '2026-01-14T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'ufep8squ17guti3e037t9ljhdc@google.com', 'scheduled'),
+    ('Culto de oração', 'Culto', '2026-01-15T22:30:00.000Z', '2026-01-16T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '2k6ntnk9ulpkvu7oomnddq4slk@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-01-18T20:00:00.000Z', '2026-01-18T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Graça Lira', 'Marcos 3', '', 'ng28ktrqujld0mf7c81j43c9lo@google.com', 'scheduled'),
+    ('Culto de oração', 'Culto', '2026-01-20T22:30:00.000Z', '2026-01-21T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'f196uj39qan893e5eq08b30enc@google.com', 'scheduled'),
+    ('Culto de oração', 'Culto', '2026-01-22T22:30:00.000Z', '2026-01-23T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '23ucd8q40gu03koodt2jeco6to@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-01-25T20:00:00.000Z', '2026-01-25T22:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'Diac. Juliana Goberto', 'Marcos 4', '', 'kad2lr3342ng0h81qlgqdmiud8@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-01-25T12:30:00.000Z', '2026-01-25T14:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', '', '', '', 'mmr2vcic83l35b0b08lfl4d75k@google.com', 'scheduled'),
+    ('Culto de oração', 'Culto', '2026-01-27T22:30:00.000Z', '2026-01-28T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '1antt8fc5bu5torkdj268u4vsc@google.com', 'scheduled'),
+    ('Culto de Doutrina', 'Culto', '2026-01-29T22:30:00.000Z', '2026-01-30T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '7e90f0jer3259pt4baa2bv2cpo@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-02-01T20:00:00.000Z', '2026-02-01T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Salete de Kássia', 'Marcos 5', '', 'puqbuld8hbs73kvgfqfdgm3534@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-02-01T12:30:00.000Z', '2026-02-01T14:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', '', '', '', '5s79eur648vc6g2hvt4a2j9us4@google.com', 'scheduled'),
+    ('Culto de Oração', 'Culto', '2026-02-03T22:30:00.000Z', '2026-02-03T23:30:00.000Z', 'Templo principal', '', '', '', '', '', '8br1tpu0qaamj6conpv45cueec@google.com', 'scheduled'),
+    ('Culto de Doutrina', 'Culto', '2026-02-05T22:30:00.000Z', '2026-02-06T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '814969bsu2n9naf0vhv78lnb3k@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-02-08T20:00:00.000Z', '2026-02-08T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Ir. Lisiane Flavia Lopes', 'Marcos 6', '', 'f718ukji2verfo8ji49bc2eldo@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-02-08T12:30:00.000Z', '2026-02-08T14:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', '', '', '', 'l7tet8dj3fn59u9bghgrslg5kk@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-02-10T22:30:00.000Z', '2026-02-11T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'gjchkth4knokrmuin9j2cikuuo@google.com', 'scheduled'),
+    ('Culto de Doutrina', 'Culto', '2026-02-12T22:30:00.000Z', '2026-02-13T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'jm1769tv7e8hb5q6sd1l62888s@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-02-15T20:00:00.000Z', '2026-02-15T22:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'Diac. Simone Oliveira', 'Marcos 7', 'CARNAVAL', '1nachb7ee9j2pdrhhh629rkrts@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-02-15T12:30:00.000Z', '2026-02-15T14:00:00.000Z', 'Templo principal', '', '', '', '', 'CARNAVAL', 'npdhnl05b9i4iqduuf2augpd50@google.com', 'suspended'),
+    ('Culto de Oração', 'Culto', '2026-02-17T22:30:00.000Z', '2026-02-18T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '9nmkfl7j4dpmnhte9fcman0e7o@google.com', 'suspended'),
+    ('Culto de Doutrina', 'Culto', '2026-02-19T22:30:00.000Z', '2026-02-20T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'i5k13o7qqcd2lhv1opjtsl3bgs@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-02-22T20:00:00.000Z', '2026-02-22T22:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'Diac. Adeildo Natalício', '', '', 'llnkr6sh3b7rac3ir7o8cbmafk@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-02-22T12:30:00.000Z', '2026-02-22T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '5q1m05rdsrcu9ptfl3jq544hsc@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-02-24T22:30:00.000Z', '2026-02-25T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'japolbm16a7191lhocad4s59m8@google.com', 'scheduled'),
+    ('Culto de Doutrina', 'Culto', '2026-02-26T22:30:00.000Z', '2026-02-27T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '7ji4qgnq0072pngun6sk3r5sv0@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-03-01T20:00:00.000Z', '2026-03-01T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Ana Amélia', 'Marcos 9', '', '0eq4ic9ea60gpnoujpbg6ova10@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-03-01T12:30:00.000Z', '2026-03-01T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'dt80tsfkg53q5so4umviocrtbo@google.com', 'scheduled'),
+    ('Culto de Oração', 'Culto', '2026-03-03T22:30:00.000Z', '2026-03-04T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'p1dp8a9m2f2gpeq0q2r5lnd6ac@google.com', 'scheduled'),
+    ('Culto de Doutrina', 'Culto', '2026-03-05T22:30:00.000Z', '2026-03-06T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'vap9e3be54d02dv3cegkhj6u10@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-03-08T20:00:00.000Z', '2026-03-08T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Ir. Ana Dupont', 'Marcos 10', 'Dia Internacional da Mulher', 'ie00p9kbqoom992bkm52usdm4s@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-03-08T12:30:00.000Z', '2026-03-08T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '9k89ri66m111dn42v0u7at78io@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-03-10T22:30:00.000Z', '2026-03-11T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '701oq76l80am0pd2kdq4ptnjqc@google.com', 'scheduled'),
+    ('Culto de Doutrina', 'Culto', '2026-03-12T22:30:00.000Z', '2026-03-13T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '8gbr457dl6132hg7muqibrmd4c@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-03-15T20:00:00.000Z', '2026-03-15T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Aparecido Regino', 'Marcos 11', '', 'p1q9dbp52d8f44cssea1n3rnd0@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-03-15T12:30:00.000Z', '2026-03-15T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '5u0dt3i3asrf1oe1oitveumsf8@google.com', 'scheduled'),
+    ('Culto de Oração', 'Culto', '2026-03-17T22:30:00.000Z', '2026-03-18T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'fa6iqsepjb6onaao6rqd6r3d3s@google.com', 'scheduled'),
+    ('Culto de Doutrina', 'Culto', '2026-03-19T22:30:00.000Z', '2026-03-20T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'hsa07ipp8gdhbi76hpok8pl4sc@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-03-22T20:00:00.000Z', '2026-03-22T22:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'Ir. Gilmar Fonseca', 'Marcos 12', '', 'p0s5juh7lbqpqr9coitu6gq4bk@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-03-22T12:30:00.000Z', '2026-03-22T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'k466odad1478cqif7k18tucc4c@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-03-24T22:30:00.000Z', '2026-03-25T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '66egt8dbd4jkrtctpmhmqgjpeo@google.com', 'scheduled'),
+    ('Culto de Doutrina', 'Culto', '2026-03-26T22:30:00.000Z', '2026-03-27T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'mlrhamc49m34phr1unprgv92ag@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-03-29T20:00:00.000Z', '2026-03-29T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Graça Lira', 'Marcos 13', '', 'n9eaml3s8pteevg8k8iqkm2v54@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-03-29T12:30:00.000Z', '2026-03-29T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'uuf0gu4kp9gui00rq8ed78ohus@google.com', 'scheduled'),
+    ('Culto de Oração', 'Culto', '2026-03-31T22:30:00.000Z', '2026-04-01T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'phs0kk5nbhk4gghs77393q67vk@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-04-02T22:30:00.000Z', '2026-04-03T00:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', '', '', '', 'oj28efuf9tk75rfeh4ecv7pdvg@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-04-05T20:00:00.000Z', '2026-04-05T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Juliana Goberto', 'Marcos 14', 'PÁSCOA', 'msuakrv8q94lesbcsd2o560fsc@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-04-05T12:30:00.000Z', '2026-04-05T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '8imcj88q17lm0tnpo3mmg77sdo@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-04-07T22:30:00.000Z', '2026-04-08T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'dbrgcu395j1beknmjerbdd5nfo@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-04-09T22:30:00.000Z', '2026-04-10T00:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'Ir. Dilma Martins', '', '', '539cn6bd3ptoc2mnghoc0vt9d8@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-04-12T20:00:00.000Z', '2026-04-12T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Salete de Kássia', 'Marcos 15', '', 'ahtthpmbrllmltjjka4dc11p34@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-04-12T12:30:00.000Z', '2026-04-12T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'ihcc1prtnlkmr4bve3uvcmi9es@google.com', 'scheduled'),
+    ('Culto de Oração', 'Culto', '2026-04-14T22:30:00.000Z', '2026-04-15T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '90isqp9j84vigbrb0h6pr6omf0@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-04-16T22:30:00.000Z', '2026-04-17T00:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Semin. Ruth Alves', '', '', 'pooanpiudfcfep46r8f2v95qos@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-04-19T20:00:00.000Z', '2026-04-19T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Lisiane Flavia Lopes', 'Marcos 16', '', 'q4bgrs75i8h3o0cfj2c131l9bk@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-04-19T12:30:00.000Z', '2026-04-19T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'phifgas1ad2eoa5j6pq4iki56k@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-04-21T22:30:00.000Z', '2026-04-22T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '610lgi919ulnjcf78iv3fs3k08@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-04-23T22:30:00.000Z', '2026-04-24T00:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'Ir. Edjane', '', '', 'utd4sa366tn96tn0umjhbtbkb4@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-04-26T20:00:00.000Z', '2026-04-26T22:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'Diac. Simone Oliveira', 'Apocalipse 1', '', 'i5das8qu68pojqcj75rbagv67c@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-04-26T12:30:00.000Z', '2026-04-26T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '7ao0fj8ojq9gc4gd7s220su5tg@google.com', 'scheduled'),
+    ('Culto de Oração', 'Culto', '2026-04-28T22:30:00.000Z', '2026-04-29T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'mhkok286ik1pjbd8ho8g61l604@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-04-30T22:30:00.000Z', '2026-05-01T00:00:00.000Z', 'Templo principal', '', 'Ir. Ana Claudia', 'ADOLESCENTES', '', '', '59u9e0429u5jvr1hur1kohpvrc@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-05-03T20:00:00.000Z', '2026-05-03T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Adeildo Natalício', 'Apocalipse 2', 'MÊS DE MISSÕES', '5kkuvenqbf5qd6svgj55l5v5j8@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-05-03T12:30:00.000Z', '2026-05-03T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'o693dpmo7299sb9kt3topmjjko@google.com', 'scheduled'),
+    ('Encontro de Mulheres', 'Mulheres', '2026-05-05T22:30:00.000Z', '2026-05-06T00:00:00.000Z', 'Templo principal', '', '', 'Sem. Ruth Alves', '', '', 'a4hnaq72ti7hdaik0inqqoaf2k@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-05-07T22:30:00.000Z', '2026-05-08T00:00:00.000Z', 'Templo principal', '', 'Diac. Adeildo Natalício', 'Ir. Fabiana', '', '', 'n8l7uouajms3576b8e6jot2l24@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-05-10T20:00:00.000Z', '2026-05-10T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Ir. Ana Amélia', 'Apocalipse 3', 'MÊS DE MISSÕES (Dia das mães)', 'm16vkf88hrskt7b6rpiivl5rtg@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-05-10T12:30:00.000Z', '2026-05-10T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '75ua4e458pgompft8ngu3b2p9s@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-05-12T22:30:00.000Z', '2026-05-13T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'bds1ml2bgu953ufeum1ct4sdlc@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-05-14T22:30:00.000Z', '2026-05-15T00:00:00.000Z', 'Templo principal', '', 'Diac. Aparecido Regino', 'Semin. Gediael Kallebe', '', '', '0nl325sjpdrjgoc9qdoe94mkok@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-05-17T20:00:00.000Z', '2026-05-17T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Ana Dupont', 'Apocalipse 4', 'MÊS DE MISSÕES', '0b0j1rnu82vkj2j6ekgsp8tdmk@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-05-17T12:30:00.000Z', '2026-05-17T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'k0dc82h1jft0g720pr5at00bl8@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-05-19T22:30:00.000Z', '2026-05-20T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'bfb9ibm2op61useat4lpdlj1og@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-05-21T22:30:00.000Z', '2026-05-22T00:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Graça Lira', '', '', '0onvcc5k6gc1nuhuo9v68chkq4@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-05-24T20:00:00.000Z', '2026-05-24T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Aparecido Regino', 'Apocalipse 5', 'MÊS DE MISSÕES', 'nssamhhlqk2qk2h2dr0l1gdg9c@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-05-24T12:30:00.000Z', '2026-05-24T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'eug4tnln3jpa77jdnenijiq4ac@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-05-26T22:30:00.000Z', '2026-05-27T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'ktb9sl2as7ub4005nmpg0ck2bk@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-05-28T22:30:00.000Z', '2026-05-29T00:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'VARÕES', '', '', 'mnvkluumd84lo40r83d4v8rusg@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-05-31T20:00:00.000Z', '2026-05-31T22:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'Ir. Gilmar Fonseca', 'Apocalipse 6', 'MÊS DE MISSÕES', '6661c2s7ig727jo6mbj4f6hes0@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-05-31T12:30:00.000Z', '2026-05-31T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '9l8ol60egb552o33dpup60uqqg@google.com', 'scheduled'),
+    ('Encontro de Mulheres', 'Mulheres', '2026-06-02T22:30:00.000Z', '2026-06-03T00:00:00.000Z', 'Templo principal', '', '', 'Sem. Ruth Alves', '', '', '8sov41kgrmd91bhh80ldjm5f4o@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-06-04T22:30:00.000Z', '2026-06-05T00:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Salete de Kássia', '', '', '52tqadshvfojbub7ngpkdf1ag8@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-06-07T20:00:00.000Z', '2026-06-07T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Graça Lira', 'Apocalipse 7', '', '4dp937pltqisdogpi664ep84hg@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-06-07T12:30:00.000Z', '2026-06-07T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'culvp6sv3s5laih5earmopomu4@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-06-09T22:30:00.000Z', '2026-06-10T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'f7jhdcrt4inlkaq3qfpkdc7bf4@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-06-11T22:30:00.000Z', '2026-06-12T00:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'Ir. Ana Amélia', '', '', 'g1sdf7vhteqbdh9u3629drf2ao@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-06-14T20:00:00.000Z', '2026-06-14T22:00:00.000Z', 'Templo principal', '', 'Convidado', 'Pr. Augusto Lopes', 'Apocalipse 8', '', '0ksfpg7k92ufc3rbhpldpinvec@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-06-14T12:30:00.000Z', '2026-06-14T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'ghu4s9jsenfm03sq4m88hl3unk@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-06-16T22:30:00.000Z', '2026-06-17T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'g9i98lcff7ljqo197ha56isq0o@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-06-18T22:30:00.000Z', '2026-06-19T00:00:00.000Z', 'Templo principal', '', 'Ir. Ana Claudia', 'Ir. Lisiane Flavia Lopes', '', '', 'uk7j5u9qshsvcmm1bpspa1kb40@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-06-21T20:00:00.000Z', '2026-06-21T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Juliana Goberto', 'Apocalipse 9', '', 'avh7l4evlvv9jgpr9qkasmoglo@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-06-21T12:30:00.000Z', '2026-06-21T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'k4nd1vbpgmfkcnrlp5c7dnn39k@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-06-23T22:30:00.000Z', '2026-06-24T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'miundvo45rtfhumasih0uc8lbg@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-06-25T22:30:00.000Z', '2026-06-26T00:00:00.000Z', 'Templo principal', '', 'Diac. Adeildo Natalício', 'UFBB', '', '', 'uuc7u52it4eftlfshrmro34r8o@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-06-28T20:00:00.000Z', '2026-06-28T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Salete de Kássia', 'Apocalipse 10', '', '9vcrmn6rtkb3u63m1a3cd96r5k@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-06-28T12:30:00.000Z', '2026-06-28T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'tp5pll9iqheducl00cnpo704g4@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-06-30T22:30:00.000Z', '2026-07-01T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'pgqpg2tvdp4r61epg9j1onth9k@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-07-02T22:30:00.000Z', '2026-07-03T00:00:00.000Z', 'Templo principal', '', 'Diac. Aparecido Regino', 'Diac. Luciano', '', '', 's8m432o1ccltegvpmo40ci6pks@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-07-05T20:00:00.000Z', '2026-07-05T22:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'Ir. Lisiane Flavia Lopes', 'Apocalipse 11', '', 'qhbhh72h1iadp4s7r8f840vpt4@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-07-05T12:30:00.000Z', '2026-07-05T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'm0iml2e46s3luq2c46up2btrek@google.com', 'scheduled'),
+    ('Encontro de Mulheres', 'Mulheres', '2026-07-07T22:30:00.000Z', '2026-07-08T00:00:00.000Z', 'Templo principal', '', '', 'Sem. Ruth Alves', '', '', 'takgm3igde77tja0isi72413ak@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-07-09T22:30:00.000Z', '2026-07-10T00:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Juliana Goberto', '', '', '47ga7cgkm9l4en0k57uc1nqrak@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-07-12T20:00:00.000Z', '2026-07-12T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Simone Oliveira', 'Apocalipse 12', '', 'gnsqv6uhfb04obmk032h0lrrg0@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-07-12T12:30:00.000Z', '2026-07-12T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '9loj76479a6okrbjju1o0mo2ko@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-07-14T22:30:00.000Z', '2026-07-15T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'bo6vomchhsupqd457uqrq5nfr0@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-07-16T22:30:00.000Z', '2026-07-17T00:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'Ir. Gilmar Fonseca', '', '', 'q5oracqfqmjud8ps3r5hopp6q0@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-07-19T20:00:00.000Z', '2026-07-19T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Adeildo Natalício', 'Apocalipse 13', '', 'fambc2g1a0tj4udi8e0iqeucvc@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-07-19T12:30:00.000Z', '2026-07-19T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '4ccmmtd3vdc53o2re00s8met14@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-07-21T22:30:00.000Z', '2026-07-22T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'egbafn1fo9lp3ugm2ti2539nek@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-07-23T22:30:00.000Z', '2026-07-24T00:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Simone Oliveira', '', '', 'ibjojg5jrkmec80v1bkmd1itl8@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-07-26T20:00:00.000Z', '2026-07-26T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Ana Amélia', 'Apocalipse 14', '', '9laak0oh9bvlqte3bkr4fd73lk@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-07-26T12:30:00.000Z', '2026-07-26T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '2d2pbemusgm2ascbl04dp0s9l4@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-07-28T22:30:00.000Z', '2026-07-29T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'd21merqp9al7jdr5cqbaat1j9c@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-07-30T22:30:00.000Z', '2026-07-31T00:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'GRUPO DE LOUVOR', '', '', 'jpi2p92mqjqtfs1b9t315rk2q4@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-08-02T20:00:00.000Z', '2026-08-02T22:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'Ir. Ana Dupont', 'Apocalipse 15', 'MÊS DA FAMÍLIA', 'etcg49qg34hc5l0cj41f5erd14@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-08-02T12:30:00.000Z', '2026-08-02T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '90fier3tvjolkq8s7vq6e054ao@google.com', 'scheduled'),
+    ('Encontro de Mulheres', 'Mulheres', '2026-08-04T22:30:00.000Z', '2026-08-05T00:00:00.000Z', 'Templo principal', '', '', 'Sem. Ruth Alves', '', '', '1dji6lkrdrb9v5oen0rft89ikk@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-08-06T22:30:00.000Z', '2026-08-07T00:00:00.000Z', 'Templo principal', '', 'Ir. Ana Claudia', 'Ir. Naim', '', '', 'u9dssuhlbojv8dsgt11nbdqj58@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-08-09T20:00:00.000Z', '2026-08-09T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Aparecido Regino', 'Apocalipse 16', 'MÊS DA FAMÍLIA (dia dos pais)', 'nvtfn6pruinkk3a5tn1tnkl5lo@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-08-09T12:30:00.000Z', '2026-08-09T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 't99u2505j7nvctk40nhl11egog@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-08-11T22:30:00.000Z', '2026-08-12T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'm3l71546klge6p07vbb7040pl8@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-08-13T22:30:00.000Z', '2026-08-14T00:00:00.000Z', 'Templo principal', '', 'Diac. Adeildo Natalício', 'Ir. Dilma Martins', '', '', 'babacmkr21lqfh3ms8dthk1j7o@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-08-16T20:00:00.000Z', '2026-08-16T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Ir. Gilmar Fonseca', 'Apocalipse 17', 'MÊS DA FAMÍLIA', 'cusodk941ckhedg1h9094s4v88@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-08-16T12:30:00.000Z', '2026-08-16T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '77m3l8dmuct7mjjaovl29rg4dg@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-08-18T22:30:00.000Z', '2026-08-19T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'kq3s4f2hi62ccb0lvgf5qpbfdg@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-08-20T22:30:00.000Z', '2026-08-21T00:00:00.000Z', 'Templo principal', '', 'Diac. Aparecido Regino', 'Semin. Ruth Alves', '', '', '9icv7rittskjippuboa5idblj0@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-08-23T20:00:00.000Z', '2026-08-23T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Graça Lira', 'Apocalipse 18', 'MÊS DA FAMÍLIA', 'rc6mc8t6h9q8g97ea7ptn1v3gg@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-08-23T12:30:00.000Z', '2026-08-23T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'glgtqqrpbkpvf5c6lctui7gbjc@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-08-25T22:30:00.000Z', '2026-08-26T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'e8el363um20asbfvisbkh7ue20@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-08-27T22:30:00.000Z', '2026-08-28T00:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Edjane', '', '', 'hrg374t8lb7ql8ib1hsf8hnbpc@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-08-30T20:00:00.000Z', '2026-08-30T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Juliana Goberto', 'Apocalipse 19', 'MÊS DA FAMÍLIA', 'p8d21nok170odnsmr5u73kghig@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-08-30T12:30:00.000Z', '2026-08-30T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'a6qufac6ur8cs7sjbtono37m80@google.com', 'scheduled'),
+    ('Encontro de Mulheres', 'Mulheres', '2026-09-01T22:30:00.000Z', '2026-09-02T00:00:00.000Z', 'Templo principal', '', '', 'Sem. Ruth Alves', '', '', 'v6ibgdk8d4hq0ed2tromevdeto@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-09-03T22:30:00.000Z', '2026-09-04T00:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'ADOLESCENTES', '', '', 'se5hv606kfjegsnl6qaa3ndvr4@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-09-06T20:00:00.000Z', '2026-09-06T22:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'Diac. Salete de Kássia', 'Apocalipse 20', '', 'iel4eut7nen05pidkegisui1n0@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-09-06T12:30:00.000Z', '2026-09-06T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'cnts65ofeevm07t7carrr8mul8@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-09-08T22:30:00.000Z', '2026-09-09T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'pvhphmn1om6pdt5eceb00isjhg@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-09-10T22:30:00.000Z', '2026-09-11T00:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Ir. Fabiana', '', '', 'g30q07t254boh4blj35fkf1ojk@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-09-13T20:00:00.000Z', '2026-09-13T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Lisiane Flavia Lopes', 'Apocalipse 21', '', 'tfe38et5nq2ukj6a17kvs8up5g@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-09-13T12:30:00.000Z', '2026-09-13T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'cjhnmeqn3gjsj5jimpu6h1hksg@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-09-15T22:30:00.000Z', '2026-09-16T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'qo7iono2c3hk84qmgjvk2ct2uk@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-09-17T22:30:00.000Z', '2026-09-18T00:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'Semin. Gediael Kallebe', '', '', 'q7f9driv312utd9t1up75hd84g@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-09-20T20:00:00.000Z', '2026-09-20T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Simone Oliveira', 'Apocalipse 22', '', '66vb9ousr7jvn4g1u4erm5f640@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-09-20T12:30:00.000Z', '2026-09-20T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'thl3ifun4il97ahc03c05fj3f0@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-09-22T22:30:00.000Z', '2026-09-23T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'ph19oqkcilnc2dl1hvcr55rl70@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-09-24T22:30:00.000Z', '2026-09-25T00:00:00.000Z', 'Templo principal', '', 'Ir. Ana Claudia', 'Diac. Graça Lira', '', '', 'mlonc2g6f5guhqedbrohv7e30s@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-09-27T20:00:00.000Z', '2026-09-27T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Adeildo Natalício', '2 Coríntios 1', '', '531ub5bcf24bftvnvg2istqvr8@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-09-27T12:30:00.000Z', '2026-09-27T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'eg3cprnh7shdecnn3s9a3s2frc@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-09-29T22:30:00.000Z', '2026-09-30T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '5el860nauiun674v69h0o8hmn0@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-10-01T22:30:00.000Z', '2026-10-02T00:00:00.000Z', 'Templo principal', '', 'Diac. Adeildo Natalício', 'VARÕES', '', '', '2nuqda7jv4v6uhophauatesklg@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-10-04T20:00:00.000Z', '2026-10-04T22:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'Ir. Ana Amélia', '2 Coríntios 2', 'MÊS DE MISSÕES', 'naho5g6crpm9qd00muh5us2boo@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-10-04T12:30:00.000Z', '2026-10-04T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'nlpgtvtjmqutsc0ihm16eq1ad4@google.com', 'scheduled'),
+    ('Encontro de Mulheres', 'Mulheres', '2026-10-06T22:30:00.000Z', '2026-10-07T00:00:00.000Z', 'Templo principal', '', '', 'Sem. Ruth Alves', '', '', 'p76qasq61k579ok1r15c5res9c@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-10-08T22:30:00.000Z', '2026-10-09T00:00:00.000Z', 'Templo principal', '', 'Diac. Aparecido Regino', 'Diac. Salete de Kássia', '', '', 'mhur7k3un15d6sjkpnlmga7150@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-10-11T20:00:00.000Z', '2026-10-11T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Ana Dupont', '2 Coríntios 3', 'MÊS DE MISSÕES', 'jd577a7ojms6v9nake9f0is334@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-10-11T12:30:00.000Z', '2026-10-11T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '0qeoh0j9a0neh5deefr0rabqok@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-10-13T22:30:00.000Z', '2026-10-14T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'gvp10s6g9vc4dni0grm5enjcos@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-10-15T22:30:00.000Z', '2026-10-16T00:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Ana Amélia', '', '', 'hjhleg25mb6rg395nu1n7se6u4@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-10-18T20:00:00.000Z', '2026-10-18T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Aparecido Regino', '2 Coríntios 4', 'MÊS DE MISSÕES', '09td4vekuoiok63qb4uqr00gts@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-10-18T12:30:00.000Z', '2026-10-18T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'ralsf252urna07l8fbpf39cais@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-10-20T22:30:00.000Z', '2026-10-21T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'oalu3c1hjmdc04tb8f0fqiqfqk@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-10-22T22:30:00.000Z', '2026-10-23T00:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'Ir. Lisiane Flavia Lopes', '', '', 'sojtln96i1oflntpu7vv579d4g@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-10-25T20:00:00.000Z', '2026-10-25T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Gilmar Fonseca', '2 Coríntios 5', 'MÊS DE MISSÕES', 'qji4ag4jmk64j458k4rfbq12uk@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-10-25T12:30:00.000Z', '2026-10-25T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'ch2dbmi91rphgdipg4s9q810po@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-10-27T22:30:00.000Z', '2026-10-28T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '3qjve0tntvug7d3k2rvit2n5go@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-10-29T22:30:00.000Z', '2026-10-30T00:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'UFBB', '', '', 'rmhukvohh43bheujjt6c95ut1o@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-11-01T20:00:00.000Z', '2026-11-01T22:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'Diac. Graça Lira', '2 Coríntios 6', '', 'ds3b2pqifjt9o2nnboahbun47g@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-11-01T12:30:00.000Z', '2026-11-01T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'fvs2qirhei6nqo16v3o2nn7uj4@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-11-03T22:30:00.000Z', '2026-11-04T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '4vjhchfc506gkbk73mus96bo0o@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-11-05T22:30:00.000Z', '2026-11-06T00:00:00.000Z', 'Templo principal', '', 'Semin. Ruth Alves', 'Diac. Luciano', '', '', 'o66st83nurhiq4n9uuuat5qv6k@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-11-08T20:00:00.000Z', '2026-11-08T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Juliana Goberto', '2 Coríntios 7', '', 'fur9mntvr7u989re0kkj73dgh4@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-11-08T12:30:00.000Z', '2026-11-08T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'c0m50cbfp72p0crs9ngr71b9g0@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-11-10T22:30:00.000Z', '2026-11-11T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'moipenbj0db1vpmam88ilftgno@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-11-12T22:30:00.000Z', '2026-11-13T00:00:00.000Z', 'Templo principal', '', 'Ir. Ana Claudia', 'Diac. Juliana Goberto', '', '', 'lefu1qbfvlr5un72rn6cl5t424@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-11-15T20:00:00.000Z', '2026-11-15T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Salete de Kássia', '2 Coríntios 8', '', 'bh9ldiscce6jro0fs9jo2qsht4@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-11-15T12:30:00.000Z', '2026-11-15T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'medi3ccmjm7i25etiba0gk08e8@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-11-17T22:30:00.000Z', '2026-11-18T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '850aab2c6abkrl7pho6eqg9rj0@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-11-19T22:30:00.000Z', '2026-11-20T00:00:00.000Z', 'Templo principal', '', 'Diac. Adeildo Natalício', 'Ir. Gilmar Fonseca', '', '', 'mve2h5mtgdkv8l3nj6jp4k53bs@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-11-22T20:00:00.000Z', '2026-11-22T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Lisiane Flavia Lopes', '2 Coríntios 9', '', '0bvivgbn3lm54etpbl2d3c2cks@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-11-22T12:30:00.000Z', '2026-11-22T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'e2s5t67gh8q2oe836u87g8ag54@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-11-24T22:30:00.000Z', '2026-11-25T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'qcl5gm3u6v6tmmesacm209rmns@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-11-26T22:30:00.000Z', '2026-11-27T00:00:00.000Z', 'Templo principal', '', 'Diac. Aparecido Regino', 'Diac. Simone Oliveira', '', '', '53gbjm4hd4pod7p6gfa0kkiq1s@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-11-29T20:00:00.000Z', '2026-11-29T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Diac. Simone Oliveira', '2 Coríntios 10', '', 'lfj9hanb7bhka1ddjbl2qbgj6k@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-11-29T12:30:00.000Z', '2026-11-29T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', '9h7f8mjlmis66v90a8douo8ric@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-12-01T22:30:00.000Z', '2026-12-02T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'p1ul9bpa6nk3b64r6ovbih150g@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-12-03T22:30:00.000Z', '2026-12-04T00:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'GRUPO DE LOUVOR', '', '', 'uu41favknrpvvev3r25cn2hbc0@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-12-06T20:00:00.000Z', '2026-12-06T22:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'Diac. Adeildo Natalício', '2 Coríntios 11', '', 'r9okq6ho9cgj50f0vqlhm9fe14@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-12-06T12:30:00.000Z', '2026-12-06T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'a516ouqjcus9kcf6mk8obdqp4k@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-12-08T22:30:00.000Z', '2026-12-09T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '8pjan05c1hv9brkd5qer5rf5bs@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-12-10T22:30:00.000Z', '2026-12-11T00:00:00.000Z', 'Templo principal', '', 'Semin. Gediael Kallebe', 'Ir. Naim', '', '', '2tho48dg2hajphdsovfejb44v0@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-12-13T20:00:00.000Z', '2026-12-13T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Ana Amélia', '2 Coríntios 12', '', 'cnk3p46tl2aj1v5cnl1hi8pats@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-12-13T12:30:00.000Z', '2026-12-13T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'vja28mqdiukfm18lg2lfv6uf2c@google.com', 'scheduled'),
+    ('Culto na praça', 'Culto', '2026-12-15T22:30:00.000Z', '2026-12-16T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'qr7o016lalrb0m06n7qfpdprgk@google.com', 'scheduled'),
+    ('Culto de Louvor', 'Culto', '2026-12-17T22:30:00.000Z', '2026-12-18T00:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Ir. Dilma Martins', '', '', '4qkpq309ldmh380jct9tsiauu4@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-12-20T20:00:00.000Z', '2026-12-20T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Ir. Ana Dupont', '2 Coríntios 13', 'CULTO DE NATAL', 'kliet7qsphlnaucncmvvr3pnk8@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-12-20T12:30:00.000Z', '2026-12-20T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'bnuladi5se31luregib6r9j3vc@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-12-22T22:30:00.000Z', '2026-12-23T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'rup93mhmnf36vv6km8enigicvs@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-12-24T22:30:00.000Z', '2026-12-25T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'mo1e59j8qb5n46ormbt3fldd1g@google.com', 'scheduled'),
+    ('Culto Solene', 'Culto', '2026-12-27T20:00:00.000Z', '2026-12-27T22:00:00.000Z', 'Templo principal', '', 'Pr. Augusto Lopes', 'Ir. Lisiane Flavia Lopes', '', '', 'nsdsri1l0j66rkuoav4qluh9f8@google.com', 'scheduled'),
+    ('Escola Bíblica', 'Escola Biblica', '2026-12-27T12:30:00.000Z', '2026-12-27T14:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', '', 'n02bu43n0kh1unvra9l5d707fc@google.com', 'scheduled'),
+    ('Livre', 'Geral', '2026-12-29T22:30:00.000Z', '2026-12-30T00:00:00.000Z', 'Templo principal', '', '', '', '', '', '0v3nummo04c1ssk7oi3hub4r5g@google.com', 'free'),
+    ('Culto de Louvor', 'Culto', '2026-12-31T22:30:00.000Z', '2027-01-01T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'u8q8d1evnv80o10bsmpkerqmu4@google.com', 'scheduled'),
+    ('Escola Bíblica de Férias', 'Escola Biblica', '2026-07-25T18:00:00.000Z', '2026-07-25T21:00:00.000Z', 'Templo principal', '', '', 'DEPARTAMENTO INFANTIL', '', 'EBF', '0l63n5tuoolm2qlcbf3n7pqukg@google.com', 'scheduled'),
+    ('Culto dos VARÕES', 'Culto', '2026-08-15T22:30:00.000Z', '2026-08-16T00:00:00.000Z', 'Templo principal', '', '', 'Diac. Adeildo Natalício', '', 'CULTO DOS VARÕES', '5pa157hukq9lj7ejifsvhnu524@google.com', 'scheduled'),
+    ('Culto da FAMÍLIA', 'Culto', '2026-08-29T22:30:00.000Z', '2026-08-30T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', 'CULTO DA FAMÍLIA', 'mb22mch1lm2rcph3jlqtudadac@google.com', 'scheduled'),
+    ('CULTO UFBB', 'Culto', '2026-10-17T22:30:00.000Z', '2026-10-18T00:00:00.000Z', 'Templo principal', '', '', 'UFBB', '', 'CULTO PARA MULHERES', 'rnae3ekhft8kes4c2ickmau29o@google.com', 'scheduled'),
+    ('Culto dos VARÕES', 'Culto', '2026-11-07T22:30:00.000Z', '2026-11-08T00:00:00.000Z', 'Templo principal', '', '', 'Diac. Adeildo Natalício', '', 'CULTO DOS VARÕES', 'h66o4ar5ig7n6r2recq67811mk@google.com', 'scheduled'),
+    ('CULTO DE NATAL', 'Culto', '2026-12-20T22:00:00.000Z', '2026-12-21T00:00:00.000Z', 'Templo principal', '', '', 'Pr. Augusto Lopes', '', 'CULTO E CEIA DE NATAL', 'moo16hvfsmpu8kpudr3d366h3k@google.com', 'scheduled'),
+    ('CULTO ESPECIAL DE AGRADECIMENTO', 'Culto', '2026-12-27T20:00:00.000Z', '2026-12-27T22:00:00.000Z', 'Templo principal', '', '', '', '', 'CULTO ESPECIAL DE AGRADECIMENTO', 'p7iu1cbu3pfepn60kmtk60eo58@google.com', 'scheduled')
+)
+insert into public.schedule_items as si
+  (id, title, ministry_id, starts_at, ends_at, location, summary,
+   preacher, director, passage, occasion_label, google_event_id, status, featured)
+select
+  gen_random_uuid(),
+  ss.title,
+  public.upsert_ministry_id(ss.ministry_name),
+  ss.starts_at,
+  ss.ends_at,
+  ss.location,
+  ss.summary,
+  ss.preacher,
+  ss.director,
+  ss.passage,
+  ss.occasion_label,
+  ss.google_event_id,
+  ss.status,
+  false
+from schedule_seed ss
+on conflict (google_event_id) where google_event_id is not null do update set
+  title = excluded.title,
+  ministry_id = excluded.ministry_id,
+  starts_at = excluded.starts_at,
+  ends_at = excluded.ends_at,
+  location = excluded.location,
+  summary = excluded.summary,
+  preacher = excluded.preacher,
+  director = excluded.director,
+  passage = excluded.passage,
+  occasion_label = excluded.occasion_label,
+  status = excluded.status
+where si.title is distinct from excluded.title
+   or si.ministry_id is distinct from excluded.ministry_id
+   or si.starts_at is distinct from excluded.starts_at
+   or si.ends_at is distinct from excluded.ends_at
+   or si.location is distinct from excluded.location
+   or si.summary is distinct from excluded.summary
+   or si.preacher is distinct from excluded.preacher
+   or si.director is distinct from excluded.director
+   or si.passage is distinct from excluded.passage
+   or si.occasion_label is distinct from excluded.occasion_label
+   or si.status is distinct from excluded.status;
+-- END SEED --------------------------------------------------------------------
+
+
+commit;
+
