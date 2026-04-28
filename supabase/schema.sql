@@ -5,12 +5,13 @@
 --   1. Extensions
 --   2. Tables (final shape, all constraints inline)
 --   3. Functions
---   4. Indexes
---   5. Views
---   6. Triggers
---   7. Row Level Security and policies
---   8. Bootstrap data (idempotent on re-runs)
---   9. Schedule seed (auto-generated; do not edit between SEED markers)
+--   4. Schema upgrades for existing databases (idempotent; no-op on fresh)
+--   5. Indexes
+--   6. Views
+--   7. Triggers
+--   8. Row Level Security and policies
+--   9. Bootstrap data (idempotent on re-runs)
+--   10. Schedule seed (auto-generated; do not edit between SEED markers)
 -- =============================================================================
 -- The whole script runs inside a single transaction so a failure rolls back
 -- without leaving partial migrations or dropped policies behind.
@@ -38,7 +39,7 @@ create table if not exists public.admin_users (
 );
 
 create table if not exists public.church_profile (
-  id text primary key default 'main' check (id = 'main'),
+  id text primary key default 'main' constraint church_profile_singleton_id check (id = 'main'),
   name text not null,
   short_name text not null,
   tagline text not null,
@@ -108,7 +109,7 @@ create table if not exists public.schedule_items (
   passage text not null default '',
   occasion_label text not null default '',
   google_event_id text,
-  status text not null default 'scheduled' check (status in ('scheduled', 'suspended', 'free')),
+  status text not null default 'scheduled' constraint schedule_status_valid check (status in ('scheduled', 'suspended', 'free')),
   featured boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -288,10 +289,145 @@ $$;
 
 
 -- =============================================================================
--- 4. Indexes
+-- 4. Schema upgrades for existing databases (idempotent; no-op on fresh)
 -- =============================================================================
+-- `create table if not exists` above is a no-op on tables that already exist,
+-- so any column that was added to the canonical shape after the table was
+-- first created has to be applied here. Every statement is guarded so this
+-- whole block is safe on a brand-new database (no row matches the guard).
+
+-- 4.1 Renames of columns that changed name --------------------------------
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'schedule_items'
+               and column_name = 'leader')
+     and not exists (select 1 from information_schema.columns
+                     where table_schema = 'public' and table_name = 'schedule_items'
+                       and column_name = 'preacher') then
+    alter table public.schedule_items rename column leader to preacher;
+  end if;
+end $$;
+
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'schedule_items'
+               and column_name = 'special_date')
+     and not exists (select 1 from information_schema.columns
+                     where table_schema = 'public' and table_name = 'schedule_items'
+                       and column_name = 'occasion_label') then
+    alter table public.schedule_items rename column special_date to occasion_label;
+  end if;
+end $$;
+
+-- 4.2 Add missing columns -------------------------------------------------
+alter table public.ministries add column if not exists slug text not null default '';
+
+alter table public.schedule_items add column if not exists preacher text not null default '';
+alter table public.schedule_items add column if not exists director text not null default '';
+alter table public.schedule_items add column if not exists passage text not null default '';
+alter table public.schedule_items add column if not exists occasion_label text not null default '';
+alter table public.schedule_items add column if not exists google_event_id text;
+alter table public.schedule_items add column if not exists status text not null default 'scheduled';
+alter table public.schedule_items add column if not exists ministry_id uuid;
+
+-- 4.3 Backfill ministries.slug and dedupe ---------------------------------
+update public.ministries
+set slug = public.ministry_slug(name)
+where slug is null or slug = '';
+
+with duplicate_slugs as (
+  select id, slug,
+         row_number() over (partition by slug order by created_at, id) as duplicate_rank
+  from public.ministries
+)
+update public.ministries as m
+set slug = m.slug || '-' || left(m.id::text, 8)
+from duplicate_slugs
+where m.id = duplicate_slugs.id and duplicate_slugs.duplicate_rank > 1;
+
+-- 4.4 Slug trigger and unique index (must exist before ministry_id backfill,
+-- which calls upsert_ministry_id and uses on conflict (slug)) ---------------
+drop trigger if exists set_ministries_slug on public.ministries;
+create trigger set_ministries_slug
+before insert or update of name on public.ministries
+for each row execute function public.set_ministry_slug();
 
 create unique index if not exists ministries_slug_unique on public.ministries (slug);
+
+-- 4.5 schedule_items.ministry_id: backfill, FK, NOT NULL, drop legacy ------
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'schedule_items'
+               and column_name = 'ministry') then
+    execute $sql$
+      update public.schedule_items
+      set ministry_id = public.upsert_ministry_id(ministry)
+      where ministry_id is null
+    $sql$;
+  end if;
+end $$;
+
+update public.schedule_items
+set ministry_id = public.upsert_ministry_id('Geral')
+where ministry_id is null;
+
+do $$
+begin
+  if not exists (select 1 from information_schema.table_constraints
+                 where table_schema = 'public' and table_name = 'schedule_items'
+                   and constraint_name = 'schedule_items_ministry_id_fkey') then
+    alter table public.schedule_items
+      add constraint schedule_items_ministry_id_fkey
+      foreign key (ministry_id) references public.ministries(id) on delete restrict;
+  end if;
+end $$;
+
+alter table public.schedule_items alter column ministry_id set not null;
+alter table public.schedule_items drop column if exists ministry;
+
+-- 4.6 google_event_id: drop empty default and allow NULL ------------------
+update public.schedule_items
+set google_event_id = nullif(google_event_id, '');
+
+alter table public.schedule_items alter column google_event_id drop default;
+alter table public.schedule_items alter column google_event_id drop not null;
+
+-- 4.7 status check constraint --------------------------------------------
+do $$
+begin
+  if not exists (select 1 from information_schema.constraint_column_usage
+                 where table_schema = 'public' and table_name = 'schedule_items'
+                   and constraint_name = 'schedule_status_valid') then
+    alter table public.schedule_items
+      add constraint schedule_status_valid
+      check (status in ('scheduled', 'suspended', 'free'));
+  end if;
+end $$;
+
+-- 4.8 church_profile singleton constraint --------------------------------
+do $$
+begin
+  if not exists (select 1 from information_schema.table_constraints
+                 where table_schema = 'public' and table_name = 'church_profile'
+                   and constraint_name = 'church_profile_singleton_id') then
+    alter table public.church_profile
+      add constraint church_profile_singleton_id check (id = 'main');
+  end if;
+end $$;
+
+-- 4.9 Drop legacy church_profile.regular_meetings (data lives in
+-- recurring_meetings now) -------------------------------------------------
+alter table public.church_profile drop column if exists regular_meetings;
+
+
+-- =============================================================================
+-- 5. Indexes
+-- =============================================================================
+-- ministries_slug_unique lives in section 4.4 because the upgrades depend on
+-- it before this section runs.
 
 create unique index if not exists schedule_google_event_id_unique
   on public.schedule_items (google_event_id)
@@ -321,7 +457,7 @@ create index if not exists content_audit_log_table_row_idx
 
 
 -- =============================================================================
--- 5. Views
+-- 6. Views
 -- =============================================================================
 
 create or replace view public.schedule_items_app
@@ -350,16 +486,13 @@ join public.ministries on ministries.id = schedule_items.ministry_id;
 
 
 -- =============================================================================
--- 6. Triggers
+-- 7. Triggers
 -- =============================================================================
 
--- 6.1 Auto-populate ministries.slug from name -------------------------------
-drop trigger if exists set_ministries_slug on public.ministries;
-create trigger set_ministries_slug
-before insert or update of name on public.ministries
-for each row execute function public.set_ministry_slug();
+-- 7.1 Slug auto-populate trigger lives in section 4.4 (it must exist before
+-- the ministry_id backfill runs).
 
--- 6.2 updated_at touch ------------------------------------------------------
+-- 7.2 updated_at touch ------------------------------------------------------
 drop trigger if exists touch_church_profile_updated_at on public.church_profile;
 create trigger touch_church_profile_updated_at
 before update on public.church_profile
@@ -390,7 +523,7 @@ create trigger touch_prayer_requests_updated_at
 before update on public.prayer_requests
 for each row execute function public.touch_updated_at();
 
--- 6.3 Audit log -------------------------------------------------------------
+-- 7.3 Audit log -------------------------------------------------------------
 drop trigger if exists audit_church_profile on public.church_profile;
 create trigger audit_church_profile
 after insert or update or delete on public.church_profile
@@ -423,7 +556,7 @@ for each row execute function public.log_content_audit();
 
 
 -- =============================================================================
--- 7. Row Level Security and policies
+-- 8. Row Level Security and policies
 -- =============================================================================
 
 alter table public.admin_users enable row level security;
@@ -529,7 +662,7 @@ using (public.is_admin());
 
 
 -- =============================================================================
--- 8. Bootstrap data
+-- 9. Bootstrap data
 -- =============================================================================
 
 insert into public.church_profile (
@@ -569,7 +702,7 @@ on conflict (id) do nothing;
 
 
 -- =============================================================================
--- 9. Schedule seed (auto-generated from supabase/sources/Escala-de-cultos.xlsx)
+-- 10. Schedule seed (auto-generated from supabase/sources/Escala-de-cultos.xlsx)
 -- =============================================================================
 -- Run `npm run seed:schedule` to regenerate everything between the SEED markers
 -- below. Do not edit by hand: changes will be overwritten.
