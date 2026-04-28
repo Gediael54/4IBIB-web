@@ -35,16 +35,18 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 import { createBackend } from "./backend";
+import { initMonitoring } from "./monitoring";
 import "./styles.css";
 
-const DEV_PREFILL = import.meta.env.DEV
-  && import.meta.env.VITE_MOCK_ADMIN_EMAIL
-  && import.meta.env.VITE_MOCK_ADMIN_PASSWORD
-  ? {
-      email: import.meta.env.VITE_MOCK_ADMIN_EMAIL,
-      password: import.meta.env.VITE_MOCK_ADMIN_PASSWORD
-    }
-  : null;
+void initMonitoring();
+
+const DEV_PREFILL =
+  import.meta.env.DEV && import.meta.env.VITE_MOCK_ADMIN_EMAIL && import.meta.env.VITE_MOCK_ADMIN_PASSWORD
+    ? {
+        email: import.meta.env.VITE_MOCK_ADMIN_EMAIL,
+        password: import.meta.env.VITE_MOCK_ADMIN_PASSWORD
+      }
+    : null;
 
 const backend = createBackend();
 const showDevPrefill = DEV_PREFILL !== null && backend.mode === "mock";
@@ -214,7 +216,7 @@ function emptyScheduleItem(): ScheduleItem {
     preacher: "",
     director: "",
     passage: "",
-    specialDate: "",
+    occasionLabel: "",
     googleEventId: "",
     status: "scheduled",
     featured: false
@@ -333,7 +335,7 @@ function App() {
         item.preacher,
         item.director,
         item.passage,
-        item.specialDate,
+        item.occasionLabel,
         item.status
       ])
     );
@@ -420,10 +422,7 @@ function App() {
     const formData = new FormData(event.currentTarget);
 
     try {
-      await backend.auth.signIn(
-        String(formData.get("email") ?? ""),
-        String(formData.get("password") ?? "")
-      );
+      await backend.auth.signIn(String(formData.get("email") ?? ""), String(formData.get("password") ?? ""));
     } catch (reason) {
       setAuthError(reason instanceof Error ? reason.message : "Falha ao entrar.");
     }
@@ -468,7 +467,7 @@ function App() {
       preacher: String(formData.get("preacher") ?? ""),
       director: String(formData.get("director") ?? ""),
       passage: String(formData.get("passage") ?? ""),
-      specialDate: String(formData.get("specialDate") ?? ""),
+      occasionLabel: String(formData.get("occasionLabel") ?? ""),
       googleEventId: scheduleDraft.googleEventId,
       status: String(formData.get("status") ?? "scheduled") as ScheduleItem["status"],
       featured: formData.get("featured") === "on"
@@ -505,7 +504,7 @@ function App() {
     const formData = new FormData(event.currentTarget);
     setProfileError("");
 
-    let mapsUrl = "";
+    let mapsUrl: string;
     try {
       mapsUrl = normalizeOptionalHttpUrl(String(formData.get("mapsUrl") ?? ""), "Google Maps");
     } catch (reason) {
@@ -645,12 +644,42 @@ function App() {
           </div>
         </div>
         <nav>
-          <NavButton current={view} target="dashboard" icon={<ClipboardList />} label="Resumo" onClick={setView} />
-          <NavButton current={view} target="announcements" icon={<Megaphone />} label="Avisos" onClick={setView} />
-          <NavButton current={view} target="schedule" icon={<CalendarDays />} label="Programacao" onClick={setView} />
-          <NavButton current={view} target="ministries" icon={<UsersRound />} label="Ministerios" onClick={setView} />
+          <NavButton
+            current={view}
+            target="dashboard"
+            icon={<ClipboardList />}
+            label="Resumo"
+            onClick={setView}
+          />
+          <NavButton
+            current={view}
+            target="announcements"
+            icon={<Megaphone />}
+            label="Avisos"
+            onClick={setView}
+          />
+          <NavButton
+            current={view}
+            target="schedule"
+            icon={<CalendarDays />}
+            label="Programacao"
+            onClick={setView}
+          />
+          <NavButton
+            current={view}
+            target="ministries"
+            icon={<UsersRound />}
+            label="Ministerios"
+            onClick={setView}
+          />
           <NavButton current={view} target="profile" icon={<Church />} label="Igreja" onClick={setView} />
-          <NavButton current={view} target="prayers" icon={<HeartHandshake />} label="Oracao" onClick={setView} />
+          <NavButton
+            current={view}
+            target="prayers"
+            icon={<HeartHandshake />}
+            label="Oracao"
+            onClick={setView}
+          />
         </nav>
         <button className="sidebar-logout" onClick={handleLogout} type="button">
           <LogOut size={18} /> Sair
@@ -699,7 +728,9 @@ function App() {
             emptyLabel="Nenhum aviso encontrado."
             renderItem={(item) => (
               <ItemRow key={item.id} title={item.title} detail={item.category}>
-                <button onClick={() => setAnnouncementDraft(item)} type="button">Editar</button>
+                <button onClick={() => setAnnouncementDraft(item)} type="button">
+                  Editar
+                </button>
                 <button
                   onClick={() => removeAnnouncement(item)}
                   type="button"
@@ -797,7 +828,9 @@ function App() {
             emptyLabel="Nenhum item de programacao encontrado."
             renderItem={(item) => (
               <ItemRow key={item.id} title={item.title} detail={formatScheduleDetail(item)}>
-                <button onClick={() => setScheduleDraft(item)} type="button">Editar</button>
+                <button onClick={() => setScheduleDraft(item)} type="button">
+                  Editar
+                </button>
                 <button
                   onClick={() => removeScheduleItem(item)}
                   type="button"
@@ -847,7 +880,9 @@ function App() {
             emptyLabel="Nenhum ministerio encontrado."
             renderItem={(item) => (
               <ItemRow key={item.id} title={item.name} detail={item.meetingTime}>
-                <button onClick={() => setMinistryDraft(item)} type="button">Editar</button>
+                <button onClick={() => setMinistryDraft(item)} type="button">
+                  Editar
+                </button>
                 <button
                   onClick={() => removeMinistry(item)}
                   type="button"
@@ -859,11 +894,7 @@ function App() {
               </ItemRow>
             )}
           >
-            <form
-              key={ministryDraft.id || "new-ministry"}
-              className="editor-form"
-              onSubmit={saveMinistry}
-            >
+            <form key={ministryDraft.id || "new-ministry"} className="editor-form" onSubmit={saveMinistry}>
               <div className="form-grid">
                 <Field
                   label="Nome"
@@ -914,11 +945,7 @@ function App() {
                 <h1>Dados da igreja</h1>
               </div>
             </header>
-            <form
-              key={snapshot.profile.updatedAt}
-              className="profile-form"
-              onSubmit={saveProfile}
-            >
+            <form key={snapshot.profile.updatedAt} className="profile-form" onSubmit={saveProfile}>
               <div className="form-grid">
                 <Field
                   label="Nome"
@@ -1092,7 +1119,9 @@ function App() {
                   <SelectField
                     label="Status"
                     value={request.status}
-                    onChange={(event) => updatePrayerStatus(request.id, event.currentTarget.value as PrayerRequest["status"])}
+                    onChange={(event) =>
+                      updatePrayerStatus(request.id, event.currentTarget.value as PrayerRequest["status"])
+                    }
                   >
                     <option value="novo">Novo</option>
                     <option value="em_oracao">Em oracao</option>
@@ -1101,10 +1130,7 @@ function App() {
                 </article>
               ))}
               {prayerList.items.length === 0 && <p className="empty-note">Nenhum pedido encontrado.</p>}
-              <Pagination
-                list={prayerList}
-                onPageChange={(page) => updateListState("prayers", { page })}
-              />
+              <Pagination list={prayerList} onPageChange={(page) => updateListState("prayers", { page })} />
             </div>
           </section>
         )}
@@ -1164,7 +1190,9 @@ function CrudPanel<T>(props: {
         <div className="list-panel">
           {props.toolbar}
           {props.items.map(props.renderItem)}
-          {props.items.length === 0 && <p className="empty-note">{props.emptyLabel ?? "Nenhum registro encontrado."}</p>}
+          {props.items.length === 0 && (
+            <p className="empty-note">{props.emptyLabel ?? "Nenhum registro encontrado."}</p>
+          )}
           {props.footer}
         </div>
         <div className="editor-panel">{props.children}</div>
@@ -1173,11 +1201,7 @@ function CrudPanel<T>(props: {
   );
 }
 
-function ItemRow(props: {
-  title: string;
-  detail: string;
-  children: React.ReactNode;
-}) {
+function ItemRow(props: { title: string; detail: string; children: React.ReactNode }) {
   return (
     <article className="item-row">
       <div>
@@ -1222,7 +1246,9 @@ function TextAreaField(props: TextareaHTMLAttributes<HTMLTextAreaElement> & { la
   );
 }
 
-function SelectField(props: SelectHTMLAttributes<HTMLSelectElement> & { label: string; children: React.ReactNode }) {
+function SelectField(
+  props: SelectHTMLAttributes<HTMLSelectElement> & { label: string; children: React.ReactNode }
+) {
   const { label, children, ...selectProps } = props;
   return (
     <label>
@@ -1269,10 +1295,7 @@ function ListToolbar(props: {
   );
 }
 
-function Pagination(props: {
-  list: VisibleList<unknown>;
-  onPageChange: (page: number) => void;
-}) {
+function Pagination(props: { list: VisibleList<unknown>; onPageChange: (page: number) => void }) {
   if (props.list.pageCount <= 1) {
     return null;
   }
@@ -1384,12 +1407,7 @@ function ScheduleForm(props: {
           maxLength={TEXT_MAX}
           required
         />
-        <SelectField
-          label="Status"
-          name="status"
-          defaultValue={props.draft.status}
-          required
-        >
+        <SelectField label="Status" name="status" defaultValue={props.draft.status} required>
           <option value="scheduled">Agendado</option>
           <option value="suspended">Suspenso</option>
           <option value="free">Livre</option>
@@ -1423,9 +1441,9 @@ function ScheduleForm(props: {
         />
         <Field
           label="Data especial"
-          name="specialDate"
+          name="occasionLabel"
           placeholder="Data especial (ex: PASCOA)"
-          defaultValue={props.draft.specialDate}
+          defaultValue={props.draft.occasionLabel}
           maxLength={TEXT_MAX}
         />
       </div>
