@@ -35,11 +35,40 @@ const CATEGORY_LABELS: Record<string, string> = {
   oracao: "Oracao"
 };
 
+const SITE_TITLE = "4a Igreja Batista Independente Betel";
+const SECTION_TITLES: Record<string, string> = {
+  inicio: SITE_TITLE,
+  avisos: `Avisos | ${SITE_TITLE}`,
+  programacao: `Programacao | ${SITE_TITLE}`,
+  ministerios: `Ministerios | ${SITE_TITLE}`,
+  contato: `Pedido de oracao | ${SITE_TITLE}`
+};
+const PRAYER_FIELD_LIMITS = {
+  name: 120,
+  contact: 160,
+  message: 1200
+};
+
+function getDocumentTitle(hash: string) {
+  const sectionId = hash.replace(/^#/, "");
+  return SECTION_TITLES[sectionId] ?? SITE_TITLE;
+}
+
 function App() {
   const [snapshot, setSnapshot] = useState<SiteSnapshot | null>(null);
   const [error, setError] = useState("");
   const [requestState, setRequestState] = useState<"idle" | "saving" | "sent" | "error">("idle");
   const [requestError, setRequestError] = useState("");
+
+  useEffect(() => {
+    const updateTitle = () => {
+      document.title = getDocumentTitle(window.location.hash);
+    };
+
+    updateTitle();
+    window.addEventListener("hashchange", updateTitle);
+    return () => window.removeEventListener("hashchange", updateTitle);
+  }, []);
 
   useEffect(() => {
     backend.content
@@ -103,20 +132,20 @@ function App() {
   return (
     <main>
       <a className="skip-link" href="#inicio">Pular para o conteudo</a>
-      <header className="hero">
-        <nav className="nav" aria-label="Navegacao principal">
-          <a className="brand" href="#inicio">
-            <img src="/logo.png" alt="" className="brand-logo" />
-            <span>{profile.shortName}</span>
-          </a>
-          <div className="nav-links">
-            <a href="#avisos">Avisos</a>
-            <a href="#programacao">Programacao</a>
-            <a href="#ministerios">Ministerios</a>
-            <a href="/admin">Admin</a>
-          </div>
-        </nav>
+      <nav className="nav" aria-label="Navegacao principal">
+        <a className="brand" href="#inicio">
+          <img src="/logo.png" alt="" className="brand-logo" />
+          <span>{profile.shortName}</span>
+        </a>
+        <div className="nav-links">
+          <a href="#avisos">Avisos</a>
+          <a href="#programacao">Programacao</a>
+          <a href="#ministerios">Ministerios</a>
+          <a href="/admin">Admin</a>
+        </div>
+      </nav>
 
+      <header className="hero">
         <section className="hero-content" id="inicio">
           <p className="eyebrow">{profile.city}</p>
           <h1>{profile.name}</h1>
@@ -242,8 +271,7 @@ function App() {
         </div>
         <div className="ministry-grid">
           {ministries.map((ministry) => (
-            <article className="ministry-card" key={ministry.id} style={{ borderColor: ministry.color }}>
-              <span style={{ backgroundColor: ministry.color }} />
+            <article className="ministry-card" key={ministry.id} style={{ borderLeftColor: ministry.color }}>
               <h3>{ministry.name}</h3>
               <p>{ministry.summary}</p>
               <strong>{ministry.meetingTime}</strong>
@@ -285,15 +313,21 @@ function App() {
         <form className="prayer-form" onSubmit={handlePrayerRequest}>
           <label>
             Nome
-            <input name="name" required placeholder="Seu nome" />
+            <input name="name" required maxLength={PRAYER_FIELD_LIMITS.name} placeholder="Seu nome" />
           </label>
           <label>
             Contato
-            <input name="contact" placeholder="WhatsApp ou email" />
+            <input name="contact" maxLength={PRAYER_FIELD_LIMITS.contact} placeholder="WhatsApp ou email" />
           </label>
           <label>
             Pedido
-            <textarea name="message" required rows={5} placeholder="Como podemos orar?" />
+            <textarea
+              name="message"
+              required
+              rows={5}
+              maxLength={PRAYER_FIELD_LIMITS.message}
+              placeholder="Como podemos orar?"
+            />
           </label>
           <button className="button primary" type="submit" disabled={requestState === "saving"}>
             <HeartHandshake size={18} />
@@ -318,6 +352,7 @@ function App() {
           </span>
         </div>
         <nav className="footer-nav" aria-label="Navegacao do rodape">
+          <a href="#inicio">Inicio</a>
           <a href="#avisos">Avisos</a>
           <a href="#programacao">Programacao</a>
           <a href="#ministerios">Ministerios</a>

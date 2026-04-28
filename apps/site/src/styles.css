@@ -46,7 +46,9 @@ body {
 }
 
 a:focus-visible,
-button:focus-visible {
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
   outline: 2px solid #c2410c;
   outline-offset: 2px;
   border-radius: 4px;
@@ -113,6 +115,7 @@ textarea {
   gap: 24px;
   padding: 18px clamp(20px, 6vw, 72px);
   background: rgba(11, 17, 23, 0.78);
+  color: #fff;
   backdrop-filter: saturate(140%) blur(8px);
   -webkit-backdrop-filter: saturate(140%) blur(8px);
 }
@@ -442,10 +445,6 @@ h2 {
   padding-left: 22px;
 }
 
-.ministry-card > span {
-  display: none;
-}
-
 .ministry-card strong,
 .ministry-card small {
   display: block;
@@ -511,8 +510,6 @@ h2 {
 
 .prayer-form input:focus-visible,
 .prayer-form textarea:focus-visible {
-  outline: 2px solid #c2410c;
-  outline-offset: 1px;
   border-color: #c2410c;
 }
 
@@ -607,8 +604,12 @@ h2 {
 
 @media (max-width: 560px) {
   .hero {
-    min-height: 86vh;
-    min-height: 86dvh;
+    min-height: 72vh;
+    min-height: 72dvh;
+  }
+
+  .hero-content {
+    padding: 56px 20px 64px;
   }
 
   .hero-actions .button,
