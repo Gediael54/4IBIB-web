@@ -113,7 +113,7 @@ const PRAYER_STATUS_OPTIONS: Array<{ value: PrayerRequest["status"] | "all"; lab
   { value: "concluido", label: "Concluido" }
 ];
 
-function uniqueSorted(values: string[]): string[] {
+export function uniqueSorted(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((left, right) =>
     left.localeCompare(right, "pt-BR")
   );
@@ -299,6 +299,26 @@ function App() {
 
   const scheduleDirectors = useMemo(
     () => uniqueSorted(snapshot?.schedule.map((item) => item.director) ?? []),
+    [snapshot]
+  );
+
+  const schedulePassages = useMemo(
+    () => uniqueSorted(snapshot?.schedule.map((item) => item.passage) ?? []),
+    [snapshot]
+  );
+
+  const scheduleOccasionLabels = useMemo(
+    () => uniqueSorted(snapshot?.schedule.map((item) => item.occasionLabel) ?? []),
+    [snapshot]
+  );
+
+  const announcementCtaLabels = useMemo(
+    () => uniqueSorted(snapshot?.announcements.map((item) => item.ctaLabel) ?? []),
+    [snapshot]
+  );
+
+  const ministryContacts = useMemo(
+    () => uniqueSorted(snapshot?.ministries.map((item) => item.contact) ?? []),
     [snapshot]
   );
 
@@ -780,6 +800,7 @@ function App() {
                 <Field
                   label="Texto do botao"
                   name="ctaLabel"
+                  list="announcement-cta-labels"
                   placeholder="Texto do botao"
                   defaultValue={announcementDraft.ctaLabel}
                   maxLength={TEXT_MAX}
@@ -793,6 +814,11 @@ function App() {
                   maxLength={URL_MAX}
                 />
               </div>
+              <datalist id="announcement-cta-labels">
+                {announcementCtaLabels.map((value) => (
+                  <option key={value} value={value} />
+                ))}
+              </datalist>
               <label className="check-row">
                 <input name="pinned" type="checkbox" defaultChecked={announcementDraft.pinned} />
                 Destacar aviso
@@ -847,6 +873,8 @@ function App() {
               locations={scheduleLocations}
               preachers={schedulePreachers}
               directors={scheduleDirectors}
+              passages={schedulePassages}
+              occasionLabels={scheduleOccasionLabels}
               saving={saving}
               onSubmit={saveSchedule}
               onCancel={() => setScheduleDraft(emptyScheduleItem())}
@@ -923,6 +951,7 @@ function App() {
                 <Field
                   label="Contato"
                   name="contact"
+                  list="ministry-contacts"
                   placeholder="Contato"
                   defaultValue={ministryDraft.contact}
                   maxLength={TEXT_MAX}
@@ -930,6 +959,11 @@ function App() {
                 />
                 <Field label="Cor" name="color" type="color" defaultValue={ministryDraft.color} />
               </div>
+              <datalist id="ministry-contacts">
+                {ministryContacts.map((value) => (
+                  <option key={value} value={value} />
+                ))}
+              </datalist>
               <FormActions saving={saving} onCancel={() => setMinistryDraft(emptyMinistry())} />
             </form>
           </CrudPanel>
@@ -1329,6 +1363,8 @@ function ScheduleForm(props: {
   locations: string[];
   preachers: string[];
   directors: string[];
+  passages: string[];
+  occasionLabels: string[];
   saving: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
@@ -1433,6 +1469,7 @@ function ScheduleForm(props: {
         <Field
           label="Passagem biblica"
           name="passage"
+          list="schedule-passages"
           placeholder="Passagem biblica"
           defaultValue={props.draft.passage}
           maxLength={TEXT_MAX}
@@ -1440,6 +1477,7 @@ function ScheduleForm(props: {
         <Field
           label="Data especial"
           name="occasionLabel"
+          list="schedule-occasion-labels"
           placeholder="Data especial (ex: PASCOA)"
           defaultValue={props.draft.occasionLabel}
           maxLength={TEXT_MAX}
@@ -1457,6 +1495,16 @@ function ScheduleForm(props: {
       </datalist>
       <datalist id="schedule-directors">
         {props.directors.map((value) => (
+          <option key={value} value={value} />
+        ))}
+      </datalist>
+      <datalist id="schedule-passages">
+        {props.passages.map((value) => (
+          <option key={value} value={value} />
+        ))}
+      </datalist>
+      <datalist id="schedule-occasion-labels">
+        {props.occasionLabels.map((value) => (
           <option key={value} value={value} />
         ))}
       </datalist>
