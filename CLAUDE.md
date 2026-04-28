@@ -87,6 +87,64 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 - **Funcionalidades futuras**: multi-admin fica preparado para o futuro; inscrições, newsletter e WhatsApp ficam como backlog posterior.
 - **Assets**: usar `assets/logo-main.png`, `assets/logo-source.jpg` e `assets/hero-source.png`; pode substituir referências atuais e remover `Logo da 4ibib.png`.
 
+## Checkpoint da sessão 2026-04-28 — onde paramos
+
+### Já entrou no `main`
+
+- ENUMs nativos no banco: `admin_role`, `announcement_category`, `schedule_status`, `prayer_status`. Migração idempotente em `supabase/schema.sql` seção 5.7 cobre policies/constraints/índices que dependem das colunas antes de converter.
+- Coluna `schedule_items.google_event_id` removida; seed usa UUID determinístico (sha256 de starts_at + ministry + title) pra re-run idempotente.
+- `apps/site` adotou TanStack Query (snapshot + prayer mutation). Stale 5min, sem refetch on focus.
+- `apps/admin` Fase 2 completa: TanStack Query + React Hook Form + Zod + `React.lazy` por view (`apps/admin/src/views/*`). Fechou TODO #28 (code-splitting) e #29 (refetch granular). Componentes compartilhados em `components/ui.tsx`, schemas em `schemas.ts`, hooks em `hooks.ts`, helpers em `utils.ts`.
+- CRUD de `recurring_meetings` no admin via `useFieldArray` dentro do form de perfil. Validação HH:MM + `endsAt > startsAt` + ordenação manual com setas. Fechou TODO #6.
+- `commit` skill em `~/.claude/skills/commit/SKILL.md` — regras de commit do projeto (sem Co-Authored-By, conventional commits, staging individual).
+
+### Em voo
+
+- **Agente Playwright** (TODO #48): rodando em background quando o checkpoint foi escrito. Já adicionou scripts `e2e` / `e2e:install` no `package.json`, criou `playwright.config.ts`, `e2e/`, mexeu em `.env.example`, `.github/workflows/ci.yml`, `.gitignore`, `docs/setup-checklist.md`. Aguardar notificação de conclusão antes de commitar esses arquivos.
+
+### Próximo passo (decidido com o usuário)
+
+**Implementar Calendário K** no `apps/site/`:
+
+- **Layout**: mini-grid sticky no topo (visão de mês compacta) + timeline vertical contínua abaixo. Sem switching de paradigma entre desktop e mobile.
+- **Mini-grid**: 7 colunas, dias do mês. Dia com evento = círculo preenchido com `--color-accent`. Hoje = anel contornado. Click no dia = `scrollIntoView` na seção da timeline.
+- **Header sticky**: "Fevereiro 2026" + setas ◀ ▶ + dropdown opcional de meses. Atualiza automaticamente via IntersectionObserver enquanto rola.
+- **Timeline**: uma `<section>` por dia, ordem cronológica, headers `──── Quinta · 5 fev ────` sticky. Dias sem evento são omitidos (não há linha vazia). Mês de ocasião (ex: "Marco · Mes das missoes") ganha sub-banner se algum evento naquele mês tem `occasion_label`.
+- **Próximos 5 eventos**: zona separada acima do calendário, em formato de cards compactos. Reusa o mesmo `EventCard.tsx` em variante compact.
+
+**Componente `EventCard.tsx`** (reuso entre as duas zonas):
+
+| Campo                                                               | Quando aparece       | Tratamento                                                                                                                                                                   |
+| ------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `occasion_label` ("PASCOA", "MES DAS MISSOES", "CARNAVAL", "NATAL") | só se preenchido     | badge colorido no topo do card; cor por tipo (Páscoa lavanda, Missões teal, Natal salmão, Carnaval âmbar)                                                                    |
+| `featured`                                                          | se true              | borda lateral colorida + ★                                                                                                                                                   |
+| `status='suspended'`                                                | sempre               | card opaco, título com tachado, sufixo `(SUSPENSO)`                                                                                                                          |
+| `status='free'`                                                     | sempre               | título "Livre" em itálico, card discreto                                                                                                                                     |
+| `preacher`                                                          | só se preenchido     | linha rotulada "Pregador"                                                                                                                                                    |
+| `director`                                                          | só se preenchido     | linha rotulada "Dirigente"                                                                                                                                                   |
+| `passage`                                                           | só se preenchido     | linha rotulada "Leitura"                                                                                                                                                     |
+| `location`                                                          | sempre, com fallback | vazio ou `Templo principal` → mostra `profile.shortName` ("4a Betel") + linha menor `profile.name` ("4a Igreja Batista Independente Betel"); outro lugar → renderiza literal |
+
+**Estrutura de arquivos prevista**:
+
+```
+apps/site/src/
+  lib/
+    date.ts              # startOfMonth, endOfMonth, addMonths, formatMonth, formatDay, formatTime (Intl + America/Recife)
+    event.ts             # displayLocation(item, profile), occasionBadgeStyle(label), eventBadges(item)
+  components/
+    EventCard.tsx        # card único, prop `compact?: boolean` pra densidade
+    UpcomingEvents.tsx   # próximos 5 via listUpcomingSchedule(5)
+    MonthScrollCalendar.tsx  # mini-grid sticky + timeline
+```
+
+`MonthAgenda.tsx` antigo é substituído pelo `MonthScrollCalendar`. `apps/site/src/main.tsx` consome `UpcomingEvents` (zona 1) e `MonthScrollCalendar` (zona 2).
+
+**Ainda pendente discutir/decidir**:
+
+- Cor por ministério no mini-grid: implementar agora ou depois? (decisão default: começar sem, só `--color-accent`; adicionar ministério-color depois.)
+- Auto-scroll inicial pra "hoje" ou primeiro evento próximo: começar com `scroll-margin-top` + sem auto-scroll; reavaliar.
+
 ## 🔴 Bugs reais
 
 - [x] **#1** Form do admin não preenche ao clicar "Editar" — `defaultValue` em form uncontrolled. Fix: `key={draft.id || 'new'}` no `<form>`. Afeta: avisos, programação, ministérios, perfil.
@@ -94,7 +152,7 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 - [x] **#3** Delete sem confirmação — adicionar `confirm()` antes de chamar delete.
 - [x] **#4** `endsAt < startsAt` só falha no save (constraint do banco). Adicionar `min={startsAt}` no input + auto-shift quando startsAt muda.
 - [x] **#5** Ministério/local/líder são free-text — vão criar duplicatas (`Louvor`/`louvor`/`LOUVOR`). Trocar por `<input list="...">` com `<datalist>` populado dos itens existentes.
-- [ ] **#6** `profile.regular_meetings` (jsonb) não é editável pelo admin — DB/adapter migrados para `recurring_meetings (id, profile_id fk, title, weekday, starts_at time, ends_at time, description, sort_order)`, preservando dados atuais do JSON. Falta expor CRUD visual no admin.
+- [x] **#6** `profile.regular_meetings` (jsonb) não é editável pelo admin — DB/adapter migrados para `recurring_meetings (id, profile_id fk, title, weekday, starts_at time, ends_at time, description, sort_order)`. CRUD inline no form de perfil com `useFieldArray`, validação HH:MM + `endsAt > startsAt`, ordenação manual com setas.
 - [x] **#7** `MOCK_ADMIN` (admin@4ibib.local/123456) entra no bundle de produção. Tree-shake ou mover pra package separado de seeds.
 
 ## 🟡 UX/UI
@@ -128,8 +186,8 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 
 ## ⚡ Performance
 
-- [ ] **#28** Bundle do admin: 412KB / 118KB gzip. Code-splitting por view com `React.lazy`.
-- [ ] **#29** `getSnapshot()` recarrega tudo a cada save — adicionar SWR ou React Query.
+- [x] **#28** Bundle do admin: code-splitting por view com `React.lazy` + `<Suspense>`. Cada view vira chunk próprio (≤7 KB raw cada), zod/RHF ficam fora do entry até o primeiro form abrir.
+- [x] **#29** `getSnapshot()` recarrega tudo a cada save — adotado TanStack Query (queries `['snapshot']` e `['prayers']`); cada mutation invalida o queryKey específico em vez de re-fetch geral.
 - [x] **#30** Sem prefetch entre site↔admin (cold-load).
 - [x] **#31** Verificar se React DevTools entra no bundle de produção (`mode === production`).
 
