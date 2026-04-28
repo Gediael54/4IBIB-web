@@ -17,6 +17,10 @@ await writeFile(
 await writeFile(
   resolve(outputDir, "_headers"),
   [
+    "/*",
+    "  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests",
+    "  X-Content-Type-Options: nosniff",
+    "  Referrer-Policy: strict-origin-when-cross-origin",
     "/index.html",
     "  Cache-Control: public, max-age=0, must-revalidate",
     "/admin/index.html",
