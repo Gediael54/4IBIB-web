@@ -1,7 +1,12 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
 
-const ENV_KEYS = ["VITE_BACKEND", "VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY", "VITE_SUPABASE_ANON_KEY"];
+const ENV_KEYS = [
+  "VITE_BACKEND",
+  "VITE_SUPABASE_URL",
+  "VITE_SUPABASE_PUBLISHABLE_KEY",
+  "VITE_SUPABASE_ANON_KEY"
+];
 
 export default defineConfig(({ mode }) => {
   const fileEnv = loadEnv(mode, "../..", "VITE_");

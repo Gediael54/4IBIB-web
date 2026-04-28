@@ -4,6 +4,7 @@ import {
   formatTimeRange,
   getPinnedAnnouncements,
   getUpcomingSchedule,
+  sortSchedule,
   type SiteSnapshot
 } from "@4ibib/core";
 import {
@@ -24,9 +25,13 @@ import {
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { createBackend } from "./backend";
+import { initMonitoring } from "./monitoring";
 import "./styles.css";
 
+void initMonitoring();
+
 const backend = createBackend();
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
 
 const CATEGORY_LABELS: Record<string, string> = {
   geral: "Geral",
@@ -49,12 +54,36 @@ const PRAYER_FIELD_LIMITS = {
   message: 1200
 };
 
+interface ScheduleMonth {
+  label: string;
+  items: ReturnType<typeof sortSchedule>;
+}
+
 function getDocumentTitle(hash: string) {
   const sectionId = hash.replace(/^#/, "");
   return SECTION_TITLES[sectionId] ?? SITE_TITLE;
 }
 
-function App() {
+function groupScheduleByMonth(items: SiteSnapshot["schedule"]): ScheduleMonth[] {
+  const formatter = new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric"
+  });
+  const groups = new Map<string, ScheduleMonth>();
+
+  sortSchedule(items).forEach((item) => {
+    const date = new Date(item.startsAt);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const label = formatter.format(date);
+    const group = groups.get(key) ?? { label, items: [] };
+    group.items.push(item);
+    groups.set(key, group);
+  });
+
+  return Array.from(groups.values());
+}
+
+export function App() {
   const [snapshot, setSnapshot] = useState<SiteSnapshot | null>(null);
   const [error, setError] = useState("");
   const [requestState, setRequestState] = useState<"idle" | "saving" | "sent" | "error">("idle");
@@ -87,6 +116,7 @@ function App() {
     () => (snapshot ? getUpcomingSchedule(snapshot.schedule) : []),
     [snapshot]
   );
+  const scheduleMonths = useMemo(() => (snapshot ? groupScheduleByMonth(snapshot.schedule) : []), [snapshot]);
 
   async function handlePrayerRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,7 +129,8 @@ function App() {
       await backend.content.createPrayerRequest({
         name: String(formData.get("name") ?? ""),
         contact: String(formData.get("contact") ?? ""),
-        message: String(formData.get("message") ?? "")
+        message: String(formData.get("message") ?? ""),
+        turnstileToken: String(formData.get("cf-turnstile-response") ?? "")
       });
       form.reset();
       setRequestState("sent");
@@ -131,7 +162,9 @@ function App() {
 
   return (
     <main>
-      <a className="skip-link" href="#inicio">Pular para o conteudo</a>
+      <a className="skip-link" href="#inicio">
+        Pular para o conteudo
+      </a>
       <nav className="nav" aria-label="Navegacao principal">
         <a className="brand" href="#inicio">
           <img src="/logo.png" alt="" className="brand-logo" />
@@ -232,7 +265,7 @@ function App() {
                 <strong>{formatTimeRange(item.startsAt, item.endsAt)}</strong>
               </div>
               <div>
-                {item.specialDate && <span className="schedule-tag">{item.specialDate}</span>}
+                {item.occasionLabel && <span className="schedule-tag">{item.occasionLabel}</span>}
                 <h3>{item.title}</h3>
                 {item.summary && <p>{item.summary}</p>}
                 {item.passage && (
@@ -259,6 +292,29 @@ function App() {
             </article>
           ))}
         </div>
+        <details className="calendar-panel">
+          <summary>
+            <CalendarDays size={18} />
+            Abrir calendario anual
+          </summary>
+          <div className="calendar-months">
+            {scheduleMonths.map((month) => (
+              <section className="calendar-month" key={month.label}>
+                <h3>{month.label}</h3>
+                <div className="calendar-events">
+                  {month.items.map((item) => (
+                    <article key={item.id}>
+                      <time dateTime={item.startsAt}>{formatDateLabel(item.startsAt)}</time>
+                      <strong>{item.title}</strong>
+                      <span>{formatTimeRange(item.startsAt, item.endsAt)}</span>
+                      {item.status !== "scheduled" && <small>{item.status}</small>}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </details>
       </section>
 
       <section className="section" id="ministerios">
@@ -329,6 +385,14 @@ function App() {
               placeholder="Como podemos orar?"
             />
           </label>
+          {TURNSTILE_SITE_KEY && (
+            <div
+              className="cf-turnstile"
+              data-sitekey={TURNSTILE_SITE_KEY}
+              data-theme="light"
+              data-language="pt-BR"
+            />
+          )}
           <button className="button primary" type="submit" disabled={requestState === "saving"}>
             <HeartHandshake size={18} />
             {requestState === "saving"
@@ -337,9 +401,7 @@ function App() {
                 ? "Pedido enviado"
                 : "Enviar pedido"}
           </button>
-          {requestState === "sent" && (
-            <p className="form-success">Recebemos seu pedido. Estamos orando.</p>
-          )}
+          {requestState === "sent" && <p className="form-success">Recebemos seu pedido. Estamos orando.</p>}
           {requestState === "error" && <p className="form-error">{requestError}</p>}
         </form>
       </section>
@@ -364,4 +426,8 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+const rootElement = document.getElementById("root");
+
+if (rootElement) {
+  createRoot(rootElement).render(<App />);
+}

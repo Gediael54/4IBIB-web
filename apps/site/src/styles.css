@@ -84,7 +84,12 @@ textarea {
 @media (min-width: 700px) {
   .hero {
     background-image:
-      linear-gradient(90deg, rgba(11, 17, 23, 0.92) 0%, rgba(11, 17, 23, 0.55) 50%, rgba(11, 17, 23, 0.2) 100%),
+      linear-gradient(
+        90deg,
+        rgba(11, 17, 23, 0.92) 0%,
+        rgba(11, 17, 23, 0.55) 50%,
+        rgba(11, 17, 23, 0.2) 100%
+      ),
       url("/hero.jpg");
   }
 }
@@ -221,7 +226,9 @@ h2 {
   gap: 10px;
   cursor: pointer;
   font-weight: 800;
-  transition: filter 120ms ease, transform 120ms ease;
+  transition:
+    filter 120ms ease,
+    transform 120ms ease;
 }
 
 .button:hover:not(:disabled) {
@@ -438,6 +445,57 @@ h2 {
   color: rgba(255, 255, 255, 0.8);
 }
 
+.calendar-panel {
+  margin-top: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.calendar-panel summary {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.calendar-months {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.calendar-month h3 {
+  margin: 0 0 10px;
+  text-transform: capitalize;
+}
+
+.calendar-events {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.calendar-events article {
+  min-height: 118px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.calendar-events time,
+.calendar-events span,
+.calendar-events small {
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .ministry-card {
   position: relative;
   border-left-width: 6px;
@@ -506,6 +564,10 @@ h2 {
   background: #fff;
   color: #1a1a1a;
   font-family: inherit;
+}
+
+.cf-turnstile {
+  min-height: 65px;
 }
 
 .prayer-form input:focus-visible,
