@@ -3,15 +3,16 @@
 -- =============================================================================
 -- Sections:
 --   1. Extensions
---   2. Tables (final shape, all constraints inline)
---   3. Functions
---   4. Schema upgrades for existing databases (idempotent; no-op on fresh)
---   5. Indexes
---   6. Views
---   7. Triggers
---   8. Row Level Security and policies
---   9. Bootstrap data (idempotent on re-runs)
---   10. Schedule seed (auto-generated; do not edit between SEED markers)
+--   2. Enum types
+--   3. Tables (final shape, all constraints inline)
+--   4. Functions
+--   5. Schema upgrades for existing databases (idempotent; no-op on fresh)
+--   6. Indexes
+--   7. Views
+--   8. Triggers
+--   9. Row Level Security and policies
+--   10. Bootstrap data (idempotent on re-runs)
+--   11. Schedule seed (auto-generated; do not edit between SEED markers)
 -- =============================================================================
 -- The whole script runs inside a single transaction so a failure rolls back
 -- without leaving partial migrations or dropped policies behind.
@@ -29,12 +30,45 @@ create extension if not exists unaccent with schema extensions;
 
 
 -- =============================================================================
--- 2. Tables
+-- 2. Enum types
+-- =============================================================================
+-- Native enums for columns whose values are a fixed, stable vocabulary.
+-- Storage is 4 bytes per value, validation is enforced by the type itself
+-- (no CHECK constraint needed) and adding a new option later is a one-line
+-- `alter type ... add value`.
+
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'admin_role' and typnamespace = 'public'::regnamespace) then
+    create type public.admin_role as enum ('owner', 'editor');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'announcement_category' and typnamespace = 'public'::regnamespace) then
+    create type public.announcement_category as enum ('geral', 'evento', 'juventude', 'oracao');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'schedule_status' and typnamespace = 'public'::regnamespace) then
+    create type public.schedule_status as enum ('scheduled', 'suspended', 'free');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'prayer_status' and typnamespace = 'public'::regnamespace) then
+    create type public.prayer_status as enum ('novo', 'em_oracao', 'concluido');
+  end if;
+end $$;
+
+
+-- =============================================================================
+-- 3. Tables
 -- =============================================================================
 
 create table if not exists public.admin_users (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  role text not null check (role in ('owner', 'editor')),
+  role public.admin_role not null,
   created_at timestamptz not null default now()
 );
 
@@ -61,7 +95,7 @@ create table if not exists public.announcements (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   summary text not null,
-  category text not null check (category in ('geral', 'evento', 'juventude', 'oracao')),
+  category public.announcement_category not null,
   published_at timestamptz not null default now(),
   pinned boolean not null default false,
   cta_label text not null default '',
@@ -108,7 +142,7 @@ create table if not exists public.schedule_items (
   director text not null default '',
   passage text not null default '',
   occasion_label text not null default '',
-  status text not null default 'scheduled' constraint schedule_status_valid check (status in ('scheduled', 'suspended', 'free')),
+  status public.schedule_status not null default 'scheduled',
   featured boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -120,7 +154,7 @@ create table if not exists public.prayer_requests (
   name text not null,
   contact text not null default '',
   message text not null,
-  status text not null default 'novo' check (status in ('novo', 'em_oracao', 'concluido')),
+  status public.prayer_status not null default 'novo',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -144,7 +178,7 @@ create table if not exists public.content_audit_log (
 
 
 -- =============================================================================
--- 3. Functions
+-- 4. Functions
 -- =============================================================================
 
 create or replace function public.ministry_slug(value text)
@@ -288,14 +322,14 @@ $$;
 
 
 -- =============================================================================
--- 4. Schema upgrades for existing databases (idempotent; no-op on fresh)
+-- 5. Schema upgrades for existing databases (idempotent; no-op on fresh)
 -- =============================================================================
 -- `create table if not exists` above is a no-op on tables that already exist,
 -- so any column that was added to the canonical shape after the table was
 -- first created has to be applied here. Every statement is guarded so this
 -- whole block is safe on a brand-new database (no row matches the guard).
 
--- 4.1 Renames of columns that changed name --------------------------------
+-- 5.1 Renames of columns that changed name --------------------------------
 do $$
 begin
   if exists (select 1 from information_schema.columns
@@ -320,7 +354,7 @@ begin
   end if;
 end $$;
 
--- 4.2 Add missing columns -------------------------------------------------
+-- 5.2 Add missing columns -------------------------------------------------
 -- Every column with a default in the canonical CREATE TABLE is repeated here
 -- with `add column if not exists` so an older shape is upgraded in place.
 
@@ -346,7 +380,7 @@ alter table public.schedule_items add column if not exists featured boolean not 
 alter table public.prayer_requests add column if not exists contact text not null default '';
 alter table public.prayer_requests add column if not exists status text not null default 'novo';
 
--- 4.3 Backfill ministries.slug and dedupe ---------------------------------
+-- 5.3 Backfill ministries.slug and dedupe ---------------------------------
 update public.ministries
 set slug = public.ministry_slug(name)
 where slug is null or slug = '';
@@ -361,7 +395,7 @@ set slug = m.slug || '-' || left(m.id::text, 8)
 from duplicate_slugs
 where m.id = duplicate_slugs.id and duplicate_slugs.duplicate_rank > 1;
 
--- 4.4 Slug trigger and unique index (must exist before ministry_id backfill,
+-- 5.4 Slug trigger and unique index (must exist before ministry_id backfill,
 -- which calls upsert_ministry_id and uses on conflict (slug)) ---------------
 drop trigger if exists set_ministries_slug on public.ministries;
 create trigger set_ministries_slug
@@ -389,7 +423,7 @@ end $$;
 drop index if exists public.ministries_slug_unique;
 create unique index ministries_slug_unique on public.ministries (slug);
 
--- 4.5 schedule_items.ministry_id: backfill, FK, NOT NULL, drop legacy ------
+-- 5.5 schedule_items.ministry_id: backfill, FK, NOT NULL, drop legacy ------
 do $$
 begin
   if exists (select 1 from information_schema.columns
@@ -421,24 +455,93 @@ end $$;
 alter table public.schedule_items alter column ministry_id set not null;
 alter table public.schedule_items drop column if exists ministry;
 
--- 4.6 Drop legacy schedule_items.google_event_id ------------------------
+-- 5.6 Drop legacy schedule_items.google_event_id ------------------------
 -- The system does not need to track external Google Calendar IDs anymore;
 -- the seed re-runs idempotently via deterministic ids.
 alter table public.schedule_items drop column if exists google_event_id;
 
--- 4.7 status check constraint --------------------------------------------
+-- 5.7 Convert text + check columns to enum types --------------------------
+-- Drops the (named or auto-named) check constraint, casts the column to the
+-- new enum type, and re-applies the default. Skipped if the column is
+-- already the enum type.
+
 do $$
+declare
+  cons_name text;
 begin
-  if not exists (select 1 from information_schema.constraint_column_usage
-                 where table_schema = 'public' and table_name = 'schedule_items'
-                   and constraint_name = 'schedule_status_valid') then
-    alter table public.schedule_items
-      add constraint schedule_status_valid
-      check (status in ('scheduled', 'suspended', 'free'));
+  if (select data_type from information_schema.columns
+      where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'status') = 'text' then
+    for cons_name in
+      select c.conname from pg_constraint c
+      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+      where c.conrelid = 'public.schedule_items'::regclass
+        and c.contype = 'c' and a.attname = 'status'
+    loop
+      execute format('alter table public.schedule_items drop constraint %I', cons_name);
+    end loop;
+    alter table public.schedule_items alter column status drop default;
+    alter table public.schedule_items alter column status type public.schedule_status using status::public.schedule_status;
+    alter table public.schedule_items alter column status set default 'scheduled'::public.schedule_status;
   end if;
 end $$;
 
--- 4.8 church_profile singleton constraint --------------------------------
+do $$
+declare
+  cons_name text;
+begin
+  if (select data_type from information_schema.columns
+      where table_schema = 'public' and table_name = 'announcements' and column_name = 'category') = 'text' then
+    for cons_name in
+      select c.conname from pg_constraint c
+      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+      where c.conrelid = 'public.announcements'::regclass
+        and c.contype = 'c' and a.attname = 'category'
+    loop
+      execute format('alter table public.announcements drop constraint %I', cons_name);
+    end loop;
+    alter table public.announcements alter column category type public.announcement_category using category::public.announcement_category;
+  end if;
+end $$;
+
+do $$
+declare
+  cons_name text;
+begin
+  if (select data_type from information_schema.columns
+      where table_schema = 'public' and table_name = 'prayer_requests' and column_name = 'status') = 'text' then
+    for cons_name in
+      select c.conname from pg_constraint c
+      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+      where c.conrelid = 'public.prayer_requests'::regclass
+        and c.contype = 'c' and a.attname = 'status'
+    loop
+      execute format('alter table public.prayer_requests drop constraint %I', cons_name);
+    end loop;
+    alter table public.prayer_requests alter column status drop default;
+    alter table public.prayer_requests alter column status type public.prayer_status using status::public.prayer_status;
+    alter table public.prayer_requests alter column status set default 'novo'::public.prayer_status;
+  end if;
+end $$;
+
+do $$
+declare
+  cons_name text;
+begin
+  if (select data_type from information_schema.columns
+      where table_schema = 'public' and table_name = 'admin_users' and column_name = 'role') = 'text' then
+    for cons_name in
+      select c.conname from pg_constraint c
+      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+      where c.conrelid = 'public.admin_users'::regclass
+        and c.contype = 'c' and a.attname = 'role'
+    loop
+      execute format('alter table public.admin_users drop constraint %I', cons_name);
+    end loop;
+    alter table public.admin_users alter column role type public.admin_role using role::public.admin_role;
+  end if;
+end $$;
+
+-- 5.8 church_profile singleton constraint --------------------------------
 do $$
 begin
   if not exists (select 1 from information_schema.table_constraints
@@ -449,15 +552,15 @@ begin
   end if;
 end $$;
 
--- 4.9 Drop legacy church_profile.regular_meetings (data lives in
+-- 5.9 Drop legacy church_profile.regular_meetings (data lives in
 -- recurring_meetings now) -------------------------------------------------
 alter table public.church_profile drop column if exists regular_meetings;
 
 
 -- =============================================================================
--- 5. Indexes
+-- 6. Indexes
 -- =============================================================================
--- ministries_slug_unique lives in section 4.4 because the upgrades depend on
+-- ministries_slug_unique lives in section 5.4 because the upgrades depend on
 -- it before this section runs.
 
 -- Tear down any leftover index from the legacy google_event_id column.
@@ -487,7 +590,7 @@ create index if not exists content_audit_log_table_row_idx
 
 
 -- =============================================================================
--- 6. Views
+-- 7. Views
 -- =============================================================================
 
 create or replace view public.schedule_items_app
@@ -515,13 +618,13 @@ join public.ministries on ministries.id = schedule_items.ministry_id;
 
 
 -- =============================================================================
--- 7. Triggers
+-- 8. Triggers
 -- =============================================================================
 
--- 7.1 Slug auto-populate trigger lives in section 4.4 (it must exist before
+-- 8.1 Slug auto-populate trigger lives in section 5.4 (it must exist before
 -- the ministry_id backfill runs).
 
--- 7.2 updated_at touch ------------------------------------------------------
+-- 8.2 updated_at touch ------------------------------------------------------
 drop trigger if exists touch_church_profile_updated_at on public.church_profile;
 create trigger touch_church_profile_updated_at
 before update on public.church_profile
@@ -552,7 +655,7 @@ create trigger touch_prayer_requests_updated_at
 before update on public.prayer_requests
 for each row execute function public.touch_updated_at();
 
--- 7.3 Audit log -------------------------------------------------------------
+-- 8.3 Audit log -------------------------------------------------------------
 drop trigger if exists audit_church_profile on public.church_profile;
 create trigger audit_church_profile
 after insert or update or delete on public.church_profile
@@ -585,7 +688,7 @@ for each row execute function public.log_content_audit();
 
 
 -- =============================================================================
--- 8. Row Level Security and policies
+-- 9. Row Level Security and policies
 -- =============================================================================
 
 alter table public.admin_users enable row level security;
@@ -691,7 +794,7 @@ using (public.is_admin());
 
 
 -- =============================================================================
--- 9. Bootstrap data
+-- 10. Bootstrap data
 -- =============================================================================
 
 insert into public.church_profile (
@@ -731,7 +834,7 @@ on conflict (id) do nothing;
 
 
 -- =============================================================================
--- 10. Schedule seed (auto-generated from supabase/sources/Escala-de-cultos.xlsx)
+-- 11. Schedule seed (auto-generated from supabase/sources/Escala-de-cultos.xlsx)
 -- =============================================================================
 -- Run `npm run seed:schedule` to regenerate everything between the SEED markers
 -- below. Do not edit by hand: changes will be overwritten.
