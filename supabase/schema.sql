@@ -474,6 +474,11 @@ declare
 begin
   if (select data_type from information_schema.columns
       where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'status') = 'text' then
+    -- Drop the partial index whose predicate compares status to a text
+    -- literal; the enum conversion would otherwise fail with
+    -- "operator does not exist: schedule_status = text". Section 6 rebuilds
+    -- it with an explicit enum cast.
+    drop index if exists public.schedule_scheduled_starts_at_idx;
     for cons_name in
       select c.conname from pg_constraint c
       join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
