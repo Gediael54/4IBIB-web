@@ -445,6 +445,159 @@ h2 {
   color: rgba(255, 255, 255, 0.8);
 }
 
+.month-agenda {
+  width: min(820px, 100%);
+  margin: 0 auto;
+  border-radius: 12px;
+  background: #fffaf1;
+  color: #1a1a1a;
+  border: 1px solid #e4ded2;
+  overflow: hidden;
+}
+
+.month-agenda-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #ece6d8;
+  background: #f6f1e7;
+}
+
+.month-agenda-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-align: center;
+  flex: 1;
+  text-transform: capitalize;
+  color: #1f2937;
+}
+
+.month-agenda-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #1f2937;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.month-agenda-nav:hover {
+  background: rgba(31, 41, 55, 0.08);
+}
+
+.month-agenda-days {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.agenda-day {
+  padding: 18px 22px;
+  border-bottom: 1px solid #ece6d8;
+}
+
+.agenda-day:last-child {
+  border-bottom: 0;
+}
+
+.agenda-day-title {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #c2410c;
+  letter-spacing: 0.02em;
+}
+
+.agenda-day-title .agenda-day-number {
+  color: #1f2937;
+}
+
+.agenda-day-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.agenda-event {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 14px;
+  align-items: baseline;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.agenda-event.featured {
+  border-left: 4px solid #c2410c;
+  background: rgba(194, 65, 12, 0.06);
+  padding-left: 12px;
+}
+
+.agenda-event.suspended {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+.agenda-event.free .agenda-event-title {
+  font-style: italic;
+  color: #6b7280;
+}
+
+.agenda-event-time {
+  font-family: "JetBrains Mono", "Fira Mono", "SF Mono", Menlo, Consolas, monospace;
+  font-weight: 800;
+  color: #1f2937;
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.agenda-event-body {
+  display: grid;
+  gap: 2px;
+}
+
+.agenda-event-title {
+  margin: 0;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.35;
+}
+
+.agenda-event-meta {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.agenda-event-occasion {
+  margin: 2px 0 0;
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.month-agenda .empty {
+  margin: 0;
+  padding: 32px 22px;
+  text-align: center;
+  color: #6b7280;
+}
+
 .calendar-panel {
   margin-top: 18px;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -686,5 +839,31 @@ h2 {
 
   .schedule-section {
     padding-inline: 20px;
+  }
+
+  .month-agenda-title {
+    font-size: 1rem;
+  }
+
+  .agenda-day {
+    padding: 14px 16px;
+  }
+
+  .agenda-event {
+    grid-template-columns: 60px 1fr;
+    gap: 10px;
+    padding: 6px 8px;
+  }
+
+  .agenda-event-time {
+    font-size: 0.95rem;
+  }
+
+  .agenda-event-title {
+    font-size: 0.95rem;
+  }
+
+  .agenda-event-meta {
+    font-size: 0.82rem;
   }
 }

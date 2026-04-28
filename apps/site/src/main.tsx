@@ -1,14 +1,5 @@
+import { buildWhatsAppUrl, getPinnedAnnouncements, type SiteSnapshot } from "@4ibib/core";
 import {
-  buildWhatsAppUrl,
-  formatDateLabel,
-  formatTimeRange,
-  getPinnedAnnouncements,
-  getUpcomingSchedule,
-  sortSchedule,
-  type SiteSnapshot
-} from "@4ibib/core";
-import {
-  BookOpen,
   CalendarDays,
   HeartHandshake,
   Instagram,
@@ -17,14 +8,13 @@ import {
   MapPin,
   Megaphone,
   Send,
-  Sparkles,
-  UserRound,
   UsersRound,
   Youtube
 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { createBackend } from "./backend";
+import MonthAgenda from "./components/MonthAgenda";
 import { initMonitoring } from "./monitoring";
 import "./styles.css";
 
@@ -54,33 +44,9 @@ const PRAYER_FIELD_LIMITS = {
   message: 1200
 };
 
-interface ScheduleMonth {
-  label: string;
-  items: ReturnType<typeof sortSchedule>;
-}
-
 function getDocumentTitle(hash: string) {
   const sectionId = hash.replace(/^#/, "");
   return SECTION_TITLES[sectionId] ?? SITE_TITLE;
-}
-
-function groupScheduleByMonth(items: SiteSnapshot["schedule"]): ScheduleMonth[] {
-  const formatter = new Intl.DateTimeFormat("pt-BR", {
-    month: "long",
-    year: "numeric"
-  });
-  const groups = new Map<string, ScheduleMonth>();
-
-  sortSchedule(items).forEach((item) => {
-    const date = new Date(item.startsAt);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    const label = formatter.format(date);
-    const group = groups.get(key) ?? { label, items: [] };
-    group.items.push(item);
-    groups.set(key, group);
-  });
-
-  return Array.from(groups.values());
 }
 
 export function App() {
@@ -112,11 +78,7 @@ export function App() {
     () => (snapshot ? getPinnedAnnouncements(snapshot.announcements) : []),
     [snapshot]
   );
-  const upcomingSchedule = useMemo(
-    () => (snapshot ? getUpcomingSchedule(snapshot.schedule) : []),
-    [snapshot]
-  );
-  const scheduleMonths = useMemo(() => (snapshot ? groupScheduleByMonth(snapshot.schedule) : []), [snapshot]);
+  const schedule = useMemo(() => snapshot?.schedule ?? [], [snapshot]);
 
   async function handlePrayerRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -253,68 +215,11 @@ export function App() {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Cultos e agenda</p>
-            <h2>Proxima programacao</h2>
+            <h2>Programacao</h2>
           </div>
           <CalendarDays />
         </div>
-        <div className="schedule-list">
-          {upcomingSchedule.map((item) => (
-            <article className={item.featured ? "schedule-item featured" : "schedule-item"} key={item.id}>
-              <div>
-                <span>{formatDateLabel(item.startsAt)}</span>
-                <strong>{formatTimeRange(item.startsAt, item.endsAt)}</strong>
-              </div>
-              <div>
-                {item.occasionLabel && <span className="schedule-tag">{item.occasionLabel}</span>}
-                <h3>{item.title}</h3>
-                {item.summary && <p>{item.summary}</p>}
-                {item.passage && (
-                  <p className="schedule-passage">
-                    <BookOpen size={14} /> {item.passage}
-                  </p>
-                )}
-              </div>
-              <div className="schedule-meta">
-                <span>
-                  <MapPin size={16} /> {item.location}
-                </span>
-                {item.preacher && (
-                  <span>
-                    <UserRound size={16} /> {item.preacher}
-                  </span>
-                )}
-                {item.director && (
-                  <span>
-                    <Sparkles size={16} /> {item.director}
-                  </span>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-        <details className="calendar-panel">
-          <summary>
-            <CalendarDays size={18} />
-            Abrir calendario anual
-          </summary>
-          <div className="calendar-months">
-            {scheduleMonths.map((month) => (
-              <section className="calendar-month" key={month.label}>
-                <h3>{month.label}</h3>
-                <div className="calendar-events">
-                  {month.items.map((item) => (
-                    <article key={item.id}>
-                      <time dateTime={item.startsAt}>{formatDateLabel(item.startsAt)}</time>
-                      <strong>{item.title}</strong>
-                      <span>{formatTimeRange(item.startsAt, item.endsAt)}</span>
-                      {item.status !== "scheduled" && <small>{item.status}</small>}
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </details>
+        <MonthAgenda schedule={schedule} />
       </section>
 
       <section className="section" id="ministerios">
