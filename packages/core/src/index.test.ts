@@ -66,7 +66,6 @@ const schedule: ScheduleItem[] = [
     director: "",
     passage: "",
     occasionLabel: "",
-    googleEventId: "",
     status: "scheduled",
     featured: false
   },
@@ -82,7 +81,6 @@ const schedule: ScheduleItem[] = [
     director: "",
     passage: "",
     occasionLabel: "",
-    googleEventId: "",
     status: "scheduled",
     featured: false
   },
@@ -98,7 +96,6 @@ const schedule: ScheduleItem[] = [
     director: "",
     passage: "",
     occasionLabel: "",
-    googleEventId: "",
     status: "scheduled",
     featured: true
   },
@@ -114,7 +111,6 @@ const schedule: ScheduleItem[] = [
     director: "",
     passage: "",
     occasionLabel: "",
-    googleEventId: "",
     status: "suspended",
     featured: false
   }
@@ -175,7 +171,6 @@ it("preserves all schedule fields through sort", () => {
     director: "Diac. Ana",
     passage: "Marcos 1",
     occasionLabel: "PASCOA",
-    googleEventId: "abc@google.com",
     status: "scheduled",
     featured: true
   };

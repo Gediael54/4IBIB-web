@@ -514,9 +514,18 @@ end $$;
 do $$
 declare
   cons_name text;
+  pol_name text;
 begin
   if (select data_type from information_schema.columns
       where table_schema = 'public' and table_name = 'prayer_requests' and column_name = 'status') = 'text' then
+    -- Drop any existing policy on prayer_requests; section 9 recreates the
+    -- canonical ones. A legacy "public can create prayer requests" policy
+    -- referenced the status column and blocked the enum conversion.
+    for pol_name in
+      select polname from pg_policy where polrelid = 'public.prayer_requests'::regclass
+    loop
+      execute format('drop policy %I on public.prayer_requests', pol_name);
+    end loop;
     for cons_name in
       select c.conname from pg_constraint c
       join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
