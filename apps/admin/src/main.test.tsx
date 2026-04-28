@@ -1,29 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("./backend", () => ({
-  createBackend: () => ({
-    mode: "mock",
-    auth: {
-      subscribe: () => () => undefined,
-      signIn: vi.fn(),
-      signOut: vi.fn()
-    },
-    content: {
-      getSnapshot: vi.fn(),
-      listPrayerRequests: vi.fn()
-    }
-  })
-}));
-
-vi.mock("./monitoring", () => ({
-  initMonitoring: vi.fn()
-}));
-
-vi.mock("react-dom/client", () => ({
-  createRoot: () => ({ render: vi.fn() })
-}));
-
-import { uniqueSorted } from "./main";
+import { describe, expect, it } from "vitest";
+import { uniqueSorted } from "./utils";
 
 describe("uniqueSorted", () => {
   it("removes duplicates regardless of surrounding whitespace", () => {
