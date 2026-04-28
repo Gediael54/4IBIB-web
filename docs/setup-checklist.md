@@ -46,7 +46,7 @@ Nao envie nem coloque no frontend:
 
 1. Criar um projeto Supabase.
 2. Abrir `SQL Editor`.
-3. Rodar o arquivo unico `supabase/apply-now.sql`.
+3. Rodar o arquivo unico `supabase/schema.sql`.
 4. Ir em `Authentication > Users`.
 5. Criar o usuario admin com email e senha.
 6. Copiar o `User UID` do usuario criado.
@@ -94,7 +94,7 @@ SUPABASE_SERVICE_ROLE_KEY=SUA_SERVICE_ROLE_KEY_DO_SUPABASE
 
 ## Seguranca
 
-O frontend usa a `anon key`, que e publica por natureza. A seguranca real fica nas policies RLS geradas em `supabase/apply-now.sql`.
+O frontend usa a `anon key`, que e publica por natureza. A seguranca real fica nas policies RLS definidas em `supabase/schema.sql`.
 Em projetos novos do Supabase, prefira a `Publishable key` em vez da legacy `anon key`.
 
 Para o formulario publico de oracao, o site usa Cloudflare Turnstile no navegador e a Pages Function `/api/prayer` no servidor. Essa function valida o token anti-spam, aplica rate-limit por IP hasheado e grava no Supabase com `SUPABASE_SERVICE_ROLE_KEY`.
@@ -122,29 +122,27 @@ Regras aplicadas:
 
 ## Como O SQL Do Supabase Esta Organizado
 
-Para operar no painel do Supabase, use somente `supabase/apply-now.sql`. Ele e gerado a partir de arquivos menores para manter o repo organizado:
+Para operar no painel do Supabase, use somente `supabase/schema.sql`. E o arquivo unico, idempotente, com tudo o que o banco precisa:
 
-- `supabase/schema.sql`: estrutura, funcoes, indices, triggers, RLS, policies e bootstrap.
-- `supabase/seed.sql`: programacao gerada da planilha.
-- `supabase/apply-now.sql`: arquivo consolidado para colar/rodar no SQL Editor.
+- estrutura, enums, funcoes, indices, triggers, RLS, policies e bootstrap.
+- bloco de seed da programacao inline, entre os marcadores `-- BEGIN SEED` e `-- END SEED`.
 - `supabase/sources/`: fontes externas, como a planilha da programacao.
 
-Quando alterar estrutura ou a planilha, rode:
+Quando a planilha mudar, regenere o bloco de seed inline:
 
 ```bash
-npm run supabase:build
+npm run seed:schedule
 ```
 
 ## Por Que Existem Duas Pastas Com Supabase?
 
 `supabase/` guarda infraestrutura:
 
-- schema SQL
-- tabelas
+- schema SQL unico (`schema.sql`)
+- tabelas e enums
 - triggers
-- RLS
-- seeds
-- script consolidado `apply-now.sql`
+- RLS e policies
+- seed da programacao inline no proprio `schema.sql`
 
 `packages/supabase/` guarda codigo da aplicacao:
 

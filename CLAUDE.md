@@ -20,14 +20,11 @@ packages/
   mock/        # backend mock para dev (100% cobertura)
   supabase/    # adapter para Supabase (100% cobertura)
 supabase/
-  schema.sql      # estrutura/RLS/funções/triggers em fonte editável
-  seed.sql        # seed gerado da planilha de programação
-  apply-now.sql   # script único para rodar no Supabase SQL Editor
+  schema.sql      # fonte única: estrutura/RLS/funções/triggers + seed inline (rodar direto no SQL Editor)
   sources/        # planilhas/fontes externas de seed
 scripts/
   compose-dist.mjs       # combina site + admin em um único dist/ pro Cloudflare
-  seed-from-xlsx.mjs     # gera supabase/seed.sql
-  build-supabase-sql.mjs # gera supabase/apply-now.sql
+  seed-from-xlsx.mjs     # regenera bloco de seed dentro de supabase/schema.sql
 ```
 
 `apps/*` consomem **somente** `@4ibib/core` (tipos) + `@4ibib/mock`/`@4ibib/supabase` (escolha por env). Nada de detalhes de Supabase vazando pra UI.
@@ -41,7 +38,7 @@ npm run dev:admin     # admin em http://localhost:5174
 npm test              # vitest run --coverage (gate 100% em core/mock/supabase)
 npm run typecheck     # todos os workspaces
 npm run build         # gera dist/ pra Cloudflare Pages
-npm run supabase:build # regenera seed.sql + apply-now.sql
+npm run seed:schedule # regenera bloco de seed inline em supabase/schema.sql a partir da planilha
 ```
 
 ## Convenções
@@ -150,10 +147,10 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 - [x] **#38** Adicionar índices em `prayer_requests(created_at desc)` e `schedule_items(starts_at)`, além dos parciais dos itens #58/#59.
 - [x] **#39** Adicionar constraint garantindo `church_profile.id = 'main'` (singleton).
 - [x] **#40** Adicionar audit log no banco para registrar quem alterou o quê; rollback visual fica para etapa posterior (#56).
-- [x] **#41** Sair do fluxo de scripts soltos para fonte modular + `supabase/apply-now.sql` idempotente; próximas mudanças de banco devem entrar em arquivos próprios e regenerar o consolidado.
+- [x] **#41** Consolidar SQL em `supabase/schema.sql` como fonte única idempotente (com seed inline regenerado por `npm run seed:schedule`); próximas mudanças de banco entram direto nesse arquivo.
 - [x] **#58** Index parcial composto `schedule_items (starts_at) where status='scheduled'` — query do site filtra por `status='scheduled' and starts_at >= now()`, hoje só tem index plano em `starts_at`. Com 1000+ rows vira seq-scan filtrado.
 - [x] **#59** Index parcial `announcements (published_at desc) where pinned=true` — site só renderiza fixados; index parcial fica enxuto e cobre exatamente a query.
-- [x] **#60** Migrar `schedule_items.google_event_id` de `text not null default ''` para `text null`, convertendo `''` para `NULL` e ajustando índices/queries para `is not null`.
+- [x] **#60** Coluna `schedule_items.google_event_id` removida do schema; seed agora usa UUIDs determinísticos (sha256 de starts_at + ministry + title, formato versão 4) como chave primária.
 - [x] **#61** Renomear `schedule_items.special_date` → `occasion_label`, com migração e compatibilidade no backend/UI.
 
 ## 🛠️ Manutenibilidade

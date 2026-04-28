@@ -18,7 +18,7 @@ apps/admin         painel administrativo
 packages/core      contratos, tipos e regras compartilhadas
 packages/mock      backend local para desenvolvimento
 packages/supabase  adapter Supabase
-supabase           SQL modular e apply-now consolidado para o Supabase
+supabase           schema.sql unico (estrutura, RLS, policies e seed inline) para rodar no Supabase
 docs               checklist de setup e deploy
 ```
 
@@ -67,10 +67,10 @@ Leia [docs/setup-checklist.md](docs/setup-checklist.md) antes de conectar Supaba
 No Supabase SQL Editor, rode o arquivo unico:
 
 ```text
-supabase/apply-now.sql
+supabase/schema.sql
 ```
 
-Ele junta schema, RLS, policies, funcoes, migracoes idempotentes e seed da programacao.
+Ele e idempotente e junta schema, enums, RLS, policies, funcoes, triggers e seed da programacao inline (regerado por `npm run seed:schedule`).
 
 ## Validacao
 
@@ -79,5 +79,5 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
-npm run supabase:build
+npm run seed:schedule
 ```
