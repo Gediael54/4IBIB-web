@@ -862,7 +862,7 @@ with schedule_seed (
   preacher, director, passage, occasion_label, status
 ) as (
   values
-    ('ba44b02a-cfbc-4aef-8062-170f638bb036'::uuid, 'Culto Solene', 'Culto', '2026-01-04T20:00:00.000Z'::timestamptz, '2026-01-04T22:00:00.000Z'::timestamptz, 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Aparecido Regino', 'Marcos 1', '', 'scheduled'),
+    ('ba44b02a-cfbc-4aef-8062-170f638bb036'::uuid, 'Culto Solene', 'Culto', '2026-01-04T20:00:00.000Z'::timestamptz, '2026-01-04T22:00:00.000Z'::timestamptz, 'Templo principal', '', 'Pr. Augusto Lopes', 'Diac. Aparecido Regino', 'Marcos 1', '', 'scheduled'::public.schedule_status),
     ('d7604ab2-8705-4b94-be5c-e9b03d696bbb'::uuid, 'Culto de Oração', 'Culto', '2026-01-06T22:30:00.000Z', '2026-01-07T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'scheduled'),
     ('d358acbe-cbb6-42a5-9613-020a64b2654b'::uuid, 'Culto de oração', 'Culto', '2026-01-08T22:30:00.000Z', '2026-01-09T00:00:00.000Z', 'Templo principal', '', '', '', '', '', 'scheduled'),
     ('7ad5ca3e-78b5-4238-8edc-a58592e7bd5a'::uuid, 'Culto Solene', 'Culto', '2026-01-11T20:00:00.000Z', '2026-01-11T22:00:00.000Z', 'Templo principal', '', 'Pb. George Alves', 'Ir. Gilmar Fonseca', 'Marcos 2', '', 'scheduled'),

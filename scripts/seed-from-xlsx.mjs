@@ -99,7 +99,7 @@ const valueRows = items
       quote(item.director),
       quote(item.passage),
       quote(item.occasionLabel),
-      quote(item.status)
+      index === 0 ? `${quote(item.status)}::public.schedule_status` : quote(item.status)
     ].join(", ");
     return `    (${cells})`;
   })
