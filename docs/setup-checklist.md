@@ -179,3 +179,21 @@ npm run build
 ```
 
 O projeto esta configurado para exigir 100% de cobertura nos pacotes compartilhados `core`, `mock`, `runtime` e `supabase`.
+
+## Testes E2E (Playwright)
+
+A suite e2e roda os dois apps em modo dev com `--mode test`, lendo `.env.test` (backend mock + credenciais de admin de teste). Apenas chromium por enquanto.
+
+Primeira instalacao (uma vez por maquina):
+
+```bash
+npm run e2e:install
+```
+
+Rodar a suite:
+
+```bash
+npm run e2e
+```
+
+Cobre tres fluxos: pedido de oracao publico, login do admin e criacao de item de programacao.

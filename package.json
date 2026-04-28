@@ -21,7 +21,9 @@
     "preview:site": "npm run preview --workspace @4ibib/site",
     "preview:admin": "npm run preview --workspace @4ibib/admin",
     "prepare": "husky",
-    "seed:schedule": "node scripts/seed-from-xlsx.mjs"
+    "seed:schedule": "node scripts/seed-from-xlsx.mjs",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install --with-deps chromium"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,tsx}": [

@@ -69,6 +69,7 @@ web_modules/
 .env
 .env.*
 !.env.example
+!.env.test
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -167,3 +168,8 @@ desktop.ini
 /coverage/
 /dist/
 **/dist/
+
+# Playwright artifacts
+/test-results/
+/playwright-report/
+/playwright/.cache/

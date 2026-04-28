@@ -56,9 +56,15 @@ export default tseslint.config(
     }
   },
   {
-    files: ["scripts/**/*.mjs", "vite*.ts", "vitest*.ts", "eslint.config.js"],
+    files: ["scripts/**/*.mjs", "vite*.ts", "vitest*.ts", "playwright.config.ts", "eslint.config.js"],
     languageOptions: {
       globals: nodeGlobals
+    }
+  },
+  {
+    files: ["e2e/**/*.ts"],
+    languageOptions: {
+      globals: { ...nodeGlobals, ...browserGlobals }
     }
   }
 );
