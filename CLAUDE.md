@@ -100,7 +100,7 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 
 ### Em voo
 
-- **Agente Playwright** (TODO #48): rodando em background quando o checkpoint foi escrito. Já adicionou scripts `e2e` / `e2e:install` no `package.json`, criou `playwright.config.ts`, `e2e/`, mexeu em `.env.example`, `.github/workflows/ci.yml`, `.gitignore`, `docs/setup-checklist.md`. Aguardar notificação de conclusão antes de commitar esses arquivos.
+Nada em voo no fim do checkpoint — Playwright entregou e foi para o `main`.
 
 ### Próximo passo (decidido com o usuário)
 
@@ -219,7 +219,7 @@ apps/site/src/
 - [x] **#45** Sem env validation no startup — `VITE_SUPABASE_URL` vazio só explode no runtime.
 - [x] **#46** `createBackend()` duplicado em cada app — extrair pra package compartilhado.
 - [x] **#47** Sem error tracking — integrar Sentry para React/Vite, com DSN via env e sem quebrar dev local.
-- [x] **#48** Sem teste de UI (React Testing Library) nem E2E (Playwright); começar por fluxos críticos do site/admin.
+- [x] **#48** RTL nos packages + Playwright minimo (`e2e/`) com 3 fluxos: pedido de oracao publico, login admin, criar evento no admin. CI roda como job separado com `continue-on-error: true` enquanto a suite estabiliza.
 
 ## 🚀 Funcionalidades novas
 
