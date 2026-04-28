@@ -3,6 +3,7 @@
 Site publico e painel admin para uma igreja, com arquitetura modular e backend trocavel.
 
 Stack escolhida:
+
 - `React + TypeScript + Vite`
 - `Supabase` para Auth, Postgres e RLS
 - `Cloudflare Pages` para deploy gratuito do frontend
@@ -17,7 +18,7 @@ apps/admin         painel administrativo
 packages/core      contratos, tipos e regras compartilhadas
 packages/mock      backend local para desenvolvimento
 packages/supabase  adapter Supabase
-supabase           schema SQL, RLS e seed
+supabase           SQL modular e apply-now consolidado para o Supabase
 docs               checklist de setup e deploy
 ```
 
@@ -47,14 +48,36 @@ Use `.env.example` como base:
 VITE_BACKEND=supabase
 VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=SUA_PUBLISHABLE_KEY_PUBLICA
+VITE_PRAYER_ENDPOINT=/api/prayer
+VITE_TURNSTILE_SITE_KEY=SUA_SITE_KEY_PUBLICA
+VITE_SENTRY_DSN=SEU_DSN_PUBLICO_OPCIONAL
 ```
 
+Configure como secrets no Cloudflare Pages, nunca no frontend:
+
+```bash
+TURNSTILE_SECRET_KEY=SUA_SECRET_KEY_DO_TURNSTILE
+SUPABASE_SERVICE_ROLE_KEY=SUA_SERVICE_ROLE_KEY_DO_SUPABASE
+```
+
+Como a secret do Turnstile ja foi compartilhada em conversa, rotacione-a no painel do Cloudflare Turnstile e atualize `TURNSTILE_SECRET_KEY`.
+
 Leia [docs/setup-checklist.md](docs/setup-checklist.md) antes de conectar Supabase e Cloudflare.
+
+No Supabase SQL Editor, rode o arquivo unico:
+
+```text
+supabase/apply-now.sql
+```
+
+Ele junta schema, RLS, policies, funcoes, migracoes idempotentes e seed da programacao.
 
 ## Validacao
 
 ```bash
+npm run lint
 npm run typecheck
 npm test
 npm run build
+npm run supabase:build
 ```

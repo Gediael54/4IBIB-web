@@ -20,9 +20,14 @@ packages/
   mock/        # backend mock para dev (100% cobertura)
   supabase/    # adapter para Supabase (100% cobertura)
 supabase/
-  schema.sql   # schema único, idempotente, com RLS + triggers
+  schema.sql      # estrutura/RLS/funções/triggers em fonte editável
+  seed.sql        # seed gerado da planilha de programação
+  apply-now.sql   # script único para rodar no Supabase SQL Editor
+  sources/        # planilhas/fontes externas de seed
 scripts/
-  compose-dist.mjs  # combina site + admin em um único dist/ pro Cloudflare
+  compose-dist.mjs       # combina site + admin em um único dist/ pro Cloudflare
+  seed-from-xlsx.mjs     # gera supabase/seed.sql
+  build-supabase-sql.mjs # gera supabase/apply-now.sql
 ```
 
 `apps/*` consomem **somente** `@4ibib/core` (tipos) + `@4ibib/mock`/`@4ibib/supabase` (escolha por env). Nada de detalhes de Supabase vazando pra UI.
@@ -36,6 +41,7 @@ npm run dev:admin     # admin em http://localhost:5174
 npm test              # vitest run --coverage (gate 100% em core/mock/supabase)
 npm run typecheck     # todos os workspaces
 npm run build         # gera dist/ pra Cloudflare Pages
+npm run supabase:build # regenera seed.sql + apply-now.sql
 ```
 
 ## Convenções
@@ -54,7 +60,7 @@ VITE_SUPABASE_URL=https://...
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-A `Publishable key` (sb_publishable_*) é segura no frontend. A `service_role` / `secret key` **nunca** deve ir pro `.env` do Vite.
+A `Publishable key` (sb*publishable*\*) é segura no frontend. A `service_role` / `secret key` **nunca** deve ir pro `.env` do Vite.
 
 ## Segurança Supabase
 
@@ -71,6 +77,19 @@ RLS habilitado em todas as tabelas. Políticas via funções `is_admin()` e `is_
 
 Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 
+## Decisões confirmadas pelo usuário (2026-04-28)
+
+- **SQL/migrations autorizados**: pode alterar schema e melhores práticas, preservando os dados atuais de `church_profile.regular_meetings`.
+- **Horários oficiais**: culto de louvor quinta 19:30-21:00; escola bíblica domingo 09:30-11:00; culto solene domingo 17:00-19:00.
+- **SEO canônico**: `https://4ibib-web.pages.dev/`.
+- **Contato oficial**: `478 Rua José Victor de Albuquerque`; WhatsApp `+55 81 98122-0651`.
+- **Robots**: manter `/admin` fora de indexação; isso não substitui autenticação/RLS.
+- **Segurança do formulário de oração**: usar Cloudflare Turnstile + validação server-side/rate-limit, com tutorial para gerar chaves.
+- **Infra**: adicionar ESLint + Prettier conservador, GitHub Actions para test/typecheck/build, e pre-commit leve com Husky/lint-staged.
+- **Error tracking**: preferência técnica por Sentry para frontend React/Vite.
+- **Funcionalidades futuras**: multi-admin fica preparado para o futuro; inscrições, newsletter e WhatsApp ficam como backlog posterior.
+- **Assets**: usar `assets/logo-main.png`, `assets/logo-source.jpg` e `assets/hero-source.png`; pode substituir referências atuais e remover `Logo da 4ibib.png`.
+
 ## 🔴 Bugs reais
 
 - [x] **#1** Form do admin não preenche ao clicar "Editar" — `defaultValue` em form uncontrolled. Fix: `key={draft.id || 'new'}` no `<form>`. Afeta: avisos, programação, ministérios, perfil.
@@ -78,7 +97,7 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 - [x] **#3** Delete sem confirmação — adicionar `confirm()` antes de chamar delete.
 - [x] **#4** `endsAt < startsAt` só falha no save (constraint do banco). Adicionar `min={startsAt}` no input + auto-shift quando startsAt muda.
 - [x] **#5** Ministério/local/líder são free-text — vão criar duplicatas (`Louvor`/`louvor`/`LOUVOR`). Trocar por `<input list="...">` com `<datalist>` populado dos itens existentes.
-- [ ] **#6** `profile.regular_meetings` (jsonb) não é editável pelo admin — schema permite, form ignora. Horários de culto recorrentes só dá pra mexer via SQL. Fix estrutural: extrair pra tabela `recurring_meetings (id, profile_id fk, title, weekday, starts_at time, description, sort_order)` — desbloqueia CRUD trivial no admin.
+- [ ] **#6** `profile.regular_meetings` (jsonb) não é editável pelo admin — DB/adapter migrados para `recurring_meetings (id, profile_id fk, title, weekday, starts_at time, ends_at time, description, sort_order)`, preservando dados atuais do JSON. Falta expor CRUD visual no admin.
 - [x] **#7** `MOCK_ADMIN` (admin@4ibib.local/123456) entra no bundle de produção. Tree-shake ou mover pra package separado de seeds.
 
 ## 🟡 UX/UI
@@ -104,8 +123,8 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 
 ## 🔒 Segurança
 
-- [ ] **#23** Rotacionar a *legacy service_role JWT* (vazada em sessão anterior). Project Settings → API Keys → Disable legacy.
-- [ ] **#24** Pedidos de oração sem rate-limit nem CAPTCHA — bot pode floodar. Adicionar Cloudflare Turnstile + RLS rate-limit ou edge function gate.
+- [ ] **#23** Rotacionar/desabilitar a _legacy service_role JWT_ no Supabase. Ação manual no painel; manter tutorial no README/setup checklist.
+- [x] **#24** Pedidos de oração sem rate-limit nem CAPTCHA — implementar Cloudflare Turnstile no site + validação server-side/rate-limit antes de gravar no Supabase.
 - [x] **#25** Sem `maxlength` nos campos — alguém pode enviar 10MB de texto.
 - [x] **#26** Sem CSP — adicionar via `_headers` do Cloudflare Pages (`Content-Security-Policy`).
 - [x] **#27** `maps_url` aceita qualquer string. React 18+ bloqueia `javascript:`, mas validar no save (URL parseável + protocolo http/https).
@@ -120,50 +139,51 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 ## 🌐 SEO / metadata
 
 - [x] **#32** Sem favicon, apple-touch-icon, manifest.webmanifest. (Esperando logo do nano banana.)
-- [ ] **#33** Sem sitemap.xml nem robots.txt explícito.
+- [x] **#33** Criar `sitemap.xml` para `https://4ibib-web.pages.dev/`; `robots.txt` já existe e deve manter `/admin` bloqueado para indexação.
 - [x] **#34** Sem OG image — link compartilhado em WhatsApp/FB sem preview visual.
-- [ ] **#35** Sem Schema.org JSON-LD (Place + Church + opening hours) — perde ranking local no Google.
+- [x] **#35** Sem Schema.org JSON-LD (Place + Church + opening hours) — usar endereço `478 Rua José Victor de Albuquerque`, WhatsApp `+55 81 98122-0651`, e horários oficiais confirmados.
 - [x] **#36** `<title>` não muda ao navegar entre seções.
 
 ## 🗄️ Schema / banco
 
-- [ ] **#37** `schedule_items.ministry` é text livre — não FK pra `ministries.id`. Renomear ministério não cascateia.
-- [ ] **#38** Sem índices em `prayer_requests(created_at desc)` e `schedule_items(starts_at)` — ficará lento com algumas centenas de linhas.
-- [ ] **#39** `church_profile` deveria ter constraint garantindo `id = 'main'` (singleton). Hoje RLS permite múltiplos.
-- [ ] **#40** Sem audit log — quem alterou o quê.
-- [ ] **#41** Schema é monolito — não usa migrations versionadas.
-- [ ] **#58** Index parcial composto `schedule_items (starts_at) where status='scheduled'` — query do site filtra por `status='scheduled' and starts_at >= now()`, hoje só tem index plano em `starts_at`. Com 1000+ rows vira seq-scan filtrado.
-- [ ] **#59** Index parcial `announcements (published_at desc) where pinned=true` — site só renderiza fixados; index parcial fica enxuto e cobre exatamente a query.
-- [ ] **#60** `schedule_items.google_event_id` é `text not null default ''` em vez de `text` nullable — anti-pattern. Index parcial já é `where google_event_id <> ''` (deveria ser `is not null`). Trocar pra NULL é mais idiomático Postgres.
-- [ ] **#61** Renomear `schedule_items.special_date` → `occasion_label`. O campo guarda texto tipo "Dia das Maes", "Aniversario da Igreja" — não é data. Nome atual confunde quem lê o schema.
+- [x] **#37** Migrar `schedule_items.ministry` de text livre para FK `ministries.id`, preservando dados atuais por normalização/mapeamento de nomes.
+- [x] **#38** Adicionar índices em `prayer_requests(created_at desc)` e `schedule_items(starts_at)`, além dos parciais dos itens #58/#59.
+- [x] **#39** Adicionar constraint garantindo `church_profile.id = 'main'` (singleton).
+- [x] **#40** Adicionar audit log no banco para registrar quem alterou o quê; rollback visual fica para etapa posterior (#56).
+- [x] **#41** Sair do fluxo de scripts soltos para fonte modular + `supabase/apply-now.sql` idempotente; próximas mudanças de banco devem entrar em arquivos próprios e regenerar o consolidado.
+- [x] **#58** Index parcial composto `schedule_items (starts_at) where status='scheduled'` — query do site filtra por `status='scheduled' and starts_at >= now()`, hoje só tem index plano em `starts_at`. Com 1000+ rows vira seq-scan filtrado.
+- [x] **#59** Index parcial `announcements (published_at desc) where pinned=true` — site só renderiza fixados; index parcial fica enxuto e cobre exatamente a query.
+- [x] **#60** Migrar `schedule_items.google_event_id` de `text not null default ''` para `text null`, convertendo `''` para `NULL` e ajustando índices/queries para `is not null`.
+- [x] **#61** Renomear `schedule_items.special_date` → `occasion_label`, com migração e compatibilidade no backend/UI.
 
 ## 🛠️ Manutenibilidade
 
-- [ ] **#42** Sem ESLint nem Prettier — só typecheck.
-- [ ] **#43** Sem CI/CD (GitHub Actions) — typecheck/test/build rodam só local.
-- [ ] **#44** Sem pre-commit hook (husky/lint-staged).
-- [ ] **#45** Sem env validation no startup — `VITE_SUPABASE_URL` vazio só explode no runtime.
+- [x] **#42** Adicionar ESLint + Prettier conservador, alinhado ao TypeScript/React/Vite atual.
+- [x] **#43** Adicionar GitHub Actions para `npm test`, `npm run typecheck` e `npm run build`.
+- [x] **#44** Adicionar Husky + lint-staged leve: rodar ESLint/Prettier nos arquivos alterados; deixar testes/build pesados para CI.
+- [x] **#45** Sem env validation no startup — `VITE_SUPABASE_URL` vazio só explode no runtime.
 - [x] **#46** `createBackend()` duplicado em cada app — extrair pra package compartilhado.
-- [ ] **#47** Sem error tracking (Sentry/Logtail) — erro em prod morre no console do usuário.
-- [ ] **#48** Sem teste de UI (React Testing Library) nem E2E (Playwright).
+- [x] **#47** Sem error tracking — integrar Sentry para React/Vite, com DSN via env e sem quebrar dev local.
+- [x] **#48** Sem teste de UI (React Testing Library) nem E2E (Playwright); começar por fluxos críticos do site/admin.
 
 ## 🚀 Funcionalidades novas
 
-- [ ] **#49** Calendário visual (mensal/semanal) em vez de só lista.
-- [ ] **#50** Multi-admin — schema tem `role: owner|editor`, UI não usa.
-- [ ] **#51** Inscrições em eventos com limite de vagas.
-- [ ] **#52** Pregações/estudos (YouTube embed, PDF).
-- [ ] **#53** PIX/doações online (QR code estático já ajuda).
-- [ ] **#54** Newsletter/mailing list.
-- [ ] **#55** Notificação push ao publicar aviso.
-- [ ] **#56** Versionamento de conteúdo (rollback).
-- [ ] **#57** Bio dos pastores/liderança com fotos.
+- [x] **#49** Calendário visual: manter próximos 5 eventos na home e adicionar visão de calendário anual com eventos passados e futuros.
+- [ ] **#50** Multi-admin — manter possibilidade futura de `owner|editor`, mas por enquanto operar só com admins/owners.
+- [ ] **#51** Inscrições em eventos com formulário público; implementar depois de definir destino/gestão dos formulários.
+- [ ] **#52** Pregações/estudos: vincular URL do YouTube a eventos/pregações no admin, com preview em eventos passados e campos de mensagem/anotações.
+- [ ] **#53** PIX/doações: começar com chave copia-e-cola + QR code estático; link externo do banco se existir.
+- [ ] **#54** Newsletter/mailing list — deixar como sugestão futura, sem implementar agora.
+- [ ] **#55** Notificação ao publicar aviso: WhatsApp seria ideal, mas depende de API/estratégia; deixar canal configurável no admin para implementação futura.
+- [x] **#56** Versionamento de conteúdo: começar por audit/history no banco; rollback visual fica para depois.
+- [ ] **#57** Bio dos pastores/liderança com fotos: criar CRUD próprio no admin e seção pública no site.
 
-## 🎨 Aguardando nano banana
+## 🎨 Assets / marca
 
-- [ ] **Logo principal** (PNG 1024×1024 transparente) — globo + cruz + "4ª" + base, flat moderno, sem efeito 3D/metálico. Cores: símbolo `#172026`, "4ª" `#e05722`, acentos `#b91c1c`.
-- [ ] **Favicon** (PNG 512×512 transparente) — versão simplificada chunky pra legibilidade em 16px.
-- [ ] Quando chegarem: mover pra `apps/{site,admin}/public/`, integrar no header/sidebar/login/favicon, apagar `Logo da 4ibib.png` da raiz.
+- [x] **Integrar logo principal** — usar `assets/logo-main.png` no site/admin, revisar tamanhos e contraste em header/sidebar/login.
+- [x] **Integrar hero/banner** — avaliar `assets/hero-source.png` como hero real do site e adicionar animações sutis sem prejudicar performance/acessibilidade.
+- [x] **Gerar/atualizar favicons e app icons** a partir do logo aprovado.
+- [x] **Limpar assets antigos** — remover `Logo da 4ibib.png` da raiz quando as novas referências estiverem integradas.
 
 ---
 
@@ -171,5 +191,5 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 
 - **Branch principal**: `main` (sem PR ainda — repo no início).
 - **Commits**: criar só quando o usuário pedir.
-- **Antes de mudar SQL**: confirmar com o usuário (afeta o Supabase de produção dele).
+- **SQL autorizado em 2026-04-28**: pode alterar schema/migrations seguindo melhores práticas, preservando dados atuais de `church_profile.regular_meetings`.
 - **Antes de instalar deps via apt/sudo**: pedir; sandbox geralmente bloqueia rede e/ou requer sudo.
