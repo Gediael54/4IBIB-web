@@ -6,8 +6,7 @@ const TIME_ZONE = "America/Recife";
 
 const monthLabelFormatter = new Intl.DateTimeFormat("pt-BR", {
   month: "long",
-  year: "numeric",
-  timeZone: TIME_ZONE
+  year: "numeric"
 });
 
 const weekdayFormatter = new Intl.DateTimeFormat("pt-BR", {
