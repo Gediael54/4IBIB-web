@@ -3,9 +3,34 @@
 -- Run this whole file in Supabase SQL Editor.
 
 -- === Schema, RLS, policies, functions and bootstrap data ===
+-- =============================================================================
+-- 4IBIB Supabase canonical schema
+-- =============================================================================
+-- Sections:
+--   1. Extensions
+--   2. Tables (final shape)
+--   3. Functions
+--   4. Legacy migrations (idempotent; no-op on fresh installs)
+--   5. Indexes
+--   6. Views
+--   7. Triggers
+--   8. Row Level Security and policies
+--   9. Bootstrap data
+-- =============================================================================
+
+
+-- =============================================================================
+-- 1. Extensions
+-- =============================================================================
+
 create extension if not exists pgcrypto;
 create schema if not exists extensions;
 create extension if not exists unaccent with schema extensions;
+
+
+-- =============================================================================
+-- 2. Tables (final shape)
+-- =============================================================================
 
 create table if not exists public.admin_users (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -103,6 +128,38 @@ create table if not exists public.schedule_items (
   constraint schedule_status_valid check (status in ('scheduled', 'suspended', 'free'))
 );
 
+create table if not exists public.prayer_requests (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  contact text not null default '',
+  message text not null,
+  status text not null default 'novo' check (status in ('novo', 'em_oracao', 'concluido')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.prayer_request_rate_limits (
+  id uuid primary key default gen_random_uuid(),
+  ip_hash text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.content_audit_log (
+  id uuid primary key default gen_random_uuid(),
+  table_name text not null,
+  row_id text not null,
+  action text not null check (action in ('INSERT', 'UPDATE', 'DELETE')),
+  changed_by uuid,
+  changed_at timestamptz not null default now(),
+  old_row jsonb,
+  new_row jsonb
+);
+
+
+-- =============================================================================
+-- 3. Functions
+-- =============================================================================
+
 create or replace function public.ministry_slug(value text)
 returns text
 language sql
@@ -126,35 +183,6 @@ begin
   return new;
 end;
 $$;
-
-alter table public.ministries add column if not exists slug text;
-
-update public.ministries
-set slug = public.ministry_slug(name)
-where slug is null or slug = '';
-
-with duplicate_slugs as (
-  select
-    id,
-    slug,
-    row_number() over (partition by slug order by created_at, id) as duplicate_rank
-  from public.ministries
-)
-update public.ministries as ministry
-set slug = ministry.slug || '-' || left(ministry.id::text, 8)
-from duplicate_slugs
-where ministry.id = duplicate_slugs.id
-  and duplicate_slugs.duplicate_rank > 1;
-
-alter table public.ministries alter column slug set default '';
-alter table public.ministries alter column slug set not null;
-
-drop trigger if exists set_ministries_slug on public.ministries;
-create trigger set_ministries_slug
-before insert or update of name on public.ministries
-for each row execute function public.set_ministry_slug();
-
-create unique index if not exists ministries_slug_unique on public.ministries (slug);
 
 create or replace function public.upsert_ministry_id(ministry_name text)
 returns uuid
@@ -218,215 +246,6 @@ begin
 end;
 $$;
 
--- Idempotent guards for databases provisioned before the extended schedule columns landed.
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'leader'
-  ) and not exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'preacher'
-  ) then
-    alter table public.schedule_items rename column leader to preacher;
-  end if;
-end $$;
-
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'special_date'
-  ) and not exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'occasion_label'
-  ) then
-    alter table public.schedule_items rename column special_date to occasion_label;
-  end if;
-end $$;
-
-alter table public.schedule_items add column if not exists preacher text not null default '';
-alter table public.schedule_items add column if not exists director text not null default '';
-alter table public.schedule_items add column if not exists passage text not null default '';
-alter table public.schedule_items add column if not exists occasion_label text not null default '';
-alter table public.schedule_items add column if not exists google_event_id text;
-alter table public.schedule_items add column if not exists status text not null default 'scheduled';
-alter table public.schedule_items add column if not exists ministry_id uuid;
-
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'ministry'
-  ) then
-    execute $sql$
-      update public.schedule_items
-      set ministry_id = public.upsert_ministry_id(ministry)
-      where ministry_id is null
-    $sql$;
-  end if;
-end $$;
-
-update public.schedule_items
-set ministry_id = public.upsert_ministry_id('Geral')
-where ministry_id is null;
-
-do $$
-begin
-  if not exists (
-    select 1 from information_schema.table_constraints
-    where table_schema = 'public'
-      and table_name = 'schedule_items'
-      and constraint_name = 'schedule_items_ministry_id_fkey'
-  ) then
-    alter table public.schedule_items
-      add constraint schedule_items_ministry_id_fkey
-      foreign key (ministry_id) references public.ministries(id) on delete restrict;
-  end if;
-end $$;
-
-alter table public.schedule_items alter column ministry_id set not null;
-alter table public.schedule_items drop column if exists ministry;
-
-update public.schedule_items
-set google_event_id = null
-where google_event_id = '';
-
-alter table public.schedule_items alter column google_event_id drop not null;
-alter table public.schedule_items alter column google_event_id drop default;
-
-do $$
-begin
-  if not exists (
-    select 1 from information_schema.constraint_column_usage
-    where table_schema = 'public' and table_name = 'schedule_items' and constraint_name = 'schedule_status_valid'
-  ) then
-    alter table public.schedule_items
-      add constraint schedule_status_valid check (status in ('scheduled', 'suspended', 'free'));
-  end if;
-end $$;
-
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'church_profile' and column_name = 'regular_meetings'
-  ) then
-    insert into public.recurring_meetings (
-      id,
-      profile_id,
-      title,
-      weekday,
-      starts_at,
-      ends_at,
-      description,
-      sort_order
-    )
-    select
-      case
-        when meeting.item ->> 'id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-          then (meeting.item ->> 'id')::uuid
-        else gen_random_uuid()
-      end,
-      profile.id,
-      coalesce(nullif(meeting.item ->> 'title', ''), 'Reuniao'),
-      coalesce(nullif(meeting.item ->> 'weekday', ''), ''),
-      public.parse_meeting_time(meeting.item ->> 'time', 1, '00:00'::time),
-      public.parse_meeting_time(
-        meeting.item ->> 'time',
-        2,
-        public.parse_meeting_time(meeting.item ->> 'time', 1, '00:00'::time) + interval '1 hour'
-      ),
-      coalesce(meeting.item ->> 'description', ''),
-      meeting.ordinality::integer - 1
-    from public.church_profile as profile
-    cross join lateral jsonb_array_elements(profile.regular_meetings) with ordinality as meeting(item, ordinality)
-    where profile.regular_meetings is not null
-      and jsonb_typeof(profile.regular_meetings) = 'array'
-    on conflict do nothing;
-  end if;
-end $$;
-
-alter table public.church_profile drop column if exists regular_meetings;
-
-drop index if exists public.schedule_google_event_id_unique;
-create unique index schedule_google_event_id_unique
-  on public.schedule_items (google_event_id)
-  where google_event_id is not null;
-
-create index if not exists schedule_starts_at_idx on public.schedule_items (starts_at);
-create index if not exists schedule_scheduled_starts_at_idx
-  on public.schedule_items (starts_at)
-  where status = 'scheduled';
-create index if not exists schedule_ministry_id_idx on public.schedule_items (ministry_id);
-create index if not exists recurring_meetings_profile_sort_idx
-  on public.recurring_meetings (profile_id, sort_order);
-create index if not exists announcements_pinned_published_at_idx
-  on public.announcements (published_at desc)
-  where pinned = true;
-
-create or replace view public.schedule_items_app
-with (security_invoker = true)
-as
-select
-  schedule_items.id,
-  schedule_items.title,
-  schedule_items.ministry_id,
-  ministries.name as ministry,
-  schedule_items.starts_at,
-  schedule_items.ends_at,
-  schedule_items.location,
-  schedule_items.summary,
-  schedule_items.preacher,
-  schedule_items.director,
-  schedule_items.passage,
-  schedule_items.occasion_label,
-  schedule_items.google_event_id,
-  schedule_items.status,
-  schedule_items.featured,
-  schedule_items.created_at,
-  schedule_items.updated_at
-from public.schedule_items
-join public.ministries on ministries.id = schedule_items.ministry_id;
-
-create table if not exists public.prayer_requests (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  contact text not null default '',
-  message text not null,
-  status text not null default 'novo' check (status in ('novo', 'em_oracao', 'concluido')),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create index if not exists prayer_requests_created_at_idx on public.prayer_requests (created_at desc);
-
-create table if not exists public.prayer_request_rate_limits (
-  id uuid primary key default gen_random_uuid(),
-  ip_hash text not null,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists prayer_rate_limits_ip_created_at_idx
-  on public.prayer_request_rate_limits (ip_hash, created_at desc);
-
-create table if not exists public.content_audit_log (
-  id uuid primary key default gen_random_uuid(),
-  table_name text not null,
-  row_id text not null,
-  action text not null check (action in ('INSERT', 'UPDATE', 'DELETE')),
-  changed_by uuid,
-  changed_at timestamptz not null default now(),
-  old_row jsonb,
-  new_row jsonb
-);
-
-create index if not exists content_audit_log_changed_at_idx
-  on public.content_audit_log (changed_at desc);
-
-create index if not exists content_audit_log_table_row_idx
-  on public.content_audit_log (table_name, row_id, changed_at desc);
-
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
@@ -479,6 +298,280 @@ begin
 end;
 $$;
 
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.admin_users
+    where user_id = auth.uid()
+  );
+$$;
+
+create or replace function public.is_owner()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.admin_users
+    where user_id = auth.uid()
+      and role = 'owner'
+  );
+$$;
+
+
+-- =============================================================================
+-- 4. Legacy migrations (idempotent; no-op on fresh installs)
+-- =============================================================================
+-- This whole block exists so that databases provisioned before the canonical
+-- shape above can be upgraded in place. On a brand new database, every
+-- statement here either matches reality or is gated behind an existence check.
+
+-- 4.1 Old column renames -------------------------------------------------------
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'leader'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'preacher'
+  ) then
+    alter table public.schedule_items rename column leader to preacher;
+  end if;
+end $$;
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'special_date'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'occasion_label'
+  ) then
+    alter table public.schedule_items rename column special_date to occasion_label;
+  end if;
+end $$;
+
+-- 4.2 Add columns that legacy databases were missing --------------------------
+alter table public.ministries add column if not exists slug text;
+alter table public.schedule_items add column if not exists preacher text not null default '';
+alter table public.schedule_items add column if not exists director text not null default '';
+alter table public.schedule_items add column if not exists passage text not null default '';
+alter table public.schedule_items add column if not exists occasion_label text not null default '';
+alter table public.schedule_items add column if not exists google_event_id text;
+alter table public.schedule_items add column if not exists status text not null default 'scheduled';
+alter table public.schedule_items add column if not exists ministry_id uuid;
+
+-- 4.3 Backfill, deduplicate and lock down ministries.slug ---------------------
+update public.ministries
+set slug = public.ministry_slug(name)
+where slug is null or slug = '';
+
+with duplicate_slugs as (
+  select
+    id,
+    slug,
+    row_number() over (partition by slug order by created_at, id) as duplicate_rank
+  from public.ministries
+)
+update public.ministries as ministry
+set slug = ministry.slug || '-' || left(ministry.id::text, 8)
+from duplicate_slugs
+where ministry.id = duplicate_slugs.id
+  and duplicate_slugs.duplicate_rank > 1;
+
+alter table public.ministries alter column slug set default '';
+alter table public.ministries alter column slug set not null;
+
+-- The slug trigger and unique index live in this section because the
+-- ministry_id backfill in 4.4 calls upsert_ministry_id, which relies on
+-- on conflict (slug) to be idempotent.
+drop trigger if exists set_ministries_slug on public.ministries;
+create trigger set_ministries_slug
+before insert or update of name on public.ministries
+for each row execute function public.set_ministry_slug();
+
+create unique index if not exists ministries_slug_unique on public.ministries (slug);
+
+-- 4.4 Backfill schedule_items.ministry_id from the legacy text column ---------
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'schedule_items' and column_name = 'ministry'
+  ) then
+    execute $sql$
+      update public.schedule_items
+      set ministry_id = public.upsert_ministry_id(ministry)
+      where ministry_id is null
+    $sql$;
+  end if;
+end $$;
+
+update public.schedule_items
+set ministry_id = public.upsert_ministry_id('Geral')
+where ministry_id is null;
+
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.table_constraints
+    where table_schema = 'public'
+      and table_name = 'schedule_items'
+      and constraint_name = 'schedule_items_ministry_id_fkey'
+  ) then
+    alter table public.schedule_items
+      add constraint schedule_items_ministry_id_fkey
+      foreign key (ministry_id) references public.ministries(id) on delete restrict;
+  end if;
+end $$;
+
+alter table public.schedule_items alter column ministry_id set not null;
+alter table public.schedule_items drop column if exists ministry;
+
+-- 4.5 google_event_id: drop empty-string default and allow NULL ---------------
+update public.schedule_items
+set google_event_id = null
+where google_event_id = '';
+
+alter table public.schedule_items alter column google_event_id drop not null;
+alter table public.schedule_items alter column google_event_id drop default;
+
+-- 4.6 schedule_items.status check constraint guard ----------------------------
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.constraint_column_usage
+    where table_schema = 'public' and table_name = 'schedule_items' and constraint_name = 'schedule_status_valid'
+  ) then
+    alter table public.schedule_items
+      add constraint schedule_status_valid check (status in ('scheduled', 'suspended', 'free'));
+  end if;
+end $$;
+
+-- 4.7 church_profile.regular_meetings (jsonb) -> recurring_meetings table -----
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'church_profile' and column_name = 'regular_meetings'
+  ) then
+    insert into public.recurring_meetings (
+      id,
+      profile_id,
+      title,
+      weekday,
+      starts_at,
+      ends_at,
+      description,
+      sort_order
+    )
+    select
+      case
+        when meeting.item ->> 'id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+          then (meeting.item ->> 'id')::uuid
+        else gen_random_uuid()
+      end,
+      profile.id,
+      coalesce(nullif(meeting.item ->> 'title', ''), 'Reuniao'),
+      coalesce(nullif(meeting.item ->> 'weekday', ''), ''),
+      public.parse_meeting_time(meeting.item ->> 'time', 1, '00:00'::time),
+      public.parse_meeting_time(
+        meeting.item ->> 'time',
+        2,
+        public.parse_meeting_time(meeting.item ->> 'time', 1, '00:00'::time) + interval '1 hour'
+      ),
+      coalesce(meeting.item ->> 'description', ''),
+      meeting.ordinality::integer - 1
+    from public.church_profile as profile
+    cross join lateral jsonb_array_elements(profile.regular_meetings) with ordinality as meeting(item, ordinality)
+    where profile.regular_meetings is not null
+      and jsonb_typeof(profile.regular_meetings) = 'array'
+    on conflict do nothing;
+  end if;
+end $$;
+
+alter table public.church_profile drop column if exists regular_meetings;
+
+
+-- =============================================================================
+-- 5. Indexes
+-- =============================================================================
+-- ministries_slug_unique lives in section 4.3 because the migrations need it.
+
+drop index if exists public.schedule_google_event_id_unique;
+create unique index schedule_google_event_id_unique
+  on public.schedule_items (google_event_id)
+  where google_event_id is not null;
+
+create index if not exists schedule_starts_at_idx on public.schedule_items (starts_at);
+create index if not exists schedule_scheduled_starts_at_idx
+  on public.schedule_items (starts_at)
+  where status = 'scheduled';
+create index if not exists schedule_ministry_id_idx on public.schedule_items (ministry_id);
+
+create index if not exists recurring_meetings_profile_sort_idx
+  on public.recurring_meetings (profile_id, sort_order);
+
+create index if not exists announcements_pinned_published_at_idx
+  on public.announcements (published_at desc)
+  where pinned = true;
+
+create index if not exists prayer_requests_created_at_idx on public.prayer_requests (created_at desc);
+create index if not exists prayer_rate_limits_ip_created_at_idx
+  on public.prayer_request_rate_limits (ip_hash, created_at desc);
+
+create index if not exists content_audit_log_changed_at_idx
+  on public.content_audit_log (changed_at desc);
+create index if not exists content_audit_log_table_row_idx
+  on public.content_audit_log (table_name, row_id, changed_at desc);
+
+
+-- =============================================================================
+-- 6. Views
+-- =============================================================================
+
+create or replace view public.schedule_items_app
+with (security_invoker = true)
+as
+select
+  schedule_items.id,
+  schedule_items.title,
+  schedule_items.ministry_id,
+  ministries.name as ministry,
+  schedule_items.starts_at,
+  schedule_items.ends_at,
+  schedule_items.location,
+  schedule_items.summary,
+  schedule_items.preacher,
+  schedule_items.director,
+  schedule_items.passage,
+  schedule_items.occasion_label,
+  schedule_items.google_event_id,
+  schedule_items.status,
+  schedule_items.featured,
+  schedule_items.created_at,
+  schedule_items.updated_at
+from public.schedule_items
+join public.ministries on ministries.id = schedule_items.ministry_id;
+
+
+-- =============================================================================
+-- 7. Triggers
+-- =============================================================================
+-- The set_ministries_slug trigger lives in section 4.3.
+
+-- 7.1 updated_at touch --------------------------------------------------------
 drop trigger if exists touch_church_profile_updated_at on public.church_profile;
 create trigger touch_church_profile_updated_at
 before update on public.church_profile
@@ -509,6 +602,7 @@ create trigger touch_prayer_requests_updated_at
 before update on public.prayer_requests
 for each row execute function public.touch_updated_at();
 
+-- 7.2 audit log ---------------------------------------------------------------
 drop trigger if exists audit_church_profile on public.church_profile;
 create trigger audit_church_profile
 after insert or update or delete on public.church_profile
@@ -539,34 +633,10 @@ create trigger audit_prayer_requests
 after insert or update or delete on public.prayer_requests
 for each row execute function public.log_content_audit();
 
-create or replace function public.is_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1
-    from public.admin_users
-    where user_id = auth.uid()
-  );
-$$;
 
-create or replace function public.is_owner()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1
-    from public.admin_users
-    where user_id = auth.uid()
-      and role = 'owner'
-  );
-$$;
+-- =============================================================================
+-- 8. Row Level Security and policies
+-- =============================================================================
 
 alter table public.admin_users enable row level security;
 alter table public.church_profile enable row level security;
@@ -671,7 +741,13 @@ on public.content_audit_log for select
 to authenticated
 using (public.is_admin());
 
--- Bootstrap singleton row so the public site has a profile to render before the admin fills it in.
+
+-- =============================================================================
+-- 9. Bootstrap data
+-- =============================================================================
+
+-- Singleton church_profile row so the public site has something to render
+-- before an admin fills it in. Only rewrites blank fields.
 insert into public.church_profile (
   id,
   name,
@@ -715,6 +791,7 @@ where trim(public.church_profile.address) = ''
   or trim(public.church_profile.whatsapp) = ''
   or trim(public.church_profile.city) = '';
 
+-- Default recurring meetings, only inserted if no rows exist for the singleton.
 insert into public.recurring_meetings (
   id,
   profile_id,
