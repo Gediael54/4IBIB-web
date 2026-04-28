@@ -1,4 +1,5 @@
-import { buildWhatsAppUrl, getPinnedAnnouncements, type SiteSnapshot } from "@4ibib/core";
+import { buildWhatsAppUrl, getPinnedAnnouncements } from "@4ibib/core";
+import { QueryClient, QueryClientProvider, useMutation, useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   HeartHandshake,
@@ -11,7 +12,7 @@ import {
   UsersRound,
   Youtube
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { createBackend } from "./backend";
 import MonthAgenda from "./components/MonthAgenda";
@@ -22,6 +23,17 @@ void initMonitoring();
 
 const backend = createBackend();
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60_000,
+      gcTime: 30 * 60_000,
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  }
+});
 
 const CATEGORY_LABELS: Record<string, string> = {
   geral: "Geral",
@@ -50,10 +62,19 @@ function getDocumentTitle(hash: string) {
 }
 
 export function App() {
-  const [snapshot, setSnapshot] = useState<SiteSnapshot | null>(null);
-  const [error, setError] = useState("");
-  const [requestState, setRequestState] = useState<"idle" | "saving" | "sent" | "error">("idle");
-  const [requestError, setRequestError] = useState("");
+  const {
+    data: snapshot,
+    isLoading,
+    error
+  } = useQuery({
+    queryKey: ["snapshot"],
+    queryFn: () => backend.content.getSnapshot()
+  });
+
+  const prayerMutation = useMutation({
+    mutationFn: (input: Parameters<typeof backend.content.createPrayerRequest>[0]) =>
+      backend.content.createPrayerRequest(input)
+  });
 
   useEffect(() => {
     const updateTitle = () => {
@@ -63,15 +84,6 @@ export function App() {
     updateTitle();
     window.addEventListener("hashchange", updateTitle);
     return () => window.removeEventListener("hashchange", updateTitle);
-  }, []);
-
-  useEffect(() => {
-    backend.content
-      .getSnapshot()
-      .then(setSnapshot)
-      .catch((reason: unknown) => {
-        setError(reason instanceof Error ? reason.message : "Falha ao carregar conteudo.");
-      });
   }, []);
 
   const pinnedAnnouncements = useMemo(
@@ -85,20 +97,16 @@ export function App() {
     const form = event.currentTarget;
     const formData = new FormData(form);
 
-    setRequestState("saving");
-    setRequestError("");
     try {
-      await backend.content.createPrayerRequest({
+      await prayerMutation.mutateAsync({
         name: String(formData.get("name") ?? ""),
         contact: String(formData.get("contact") ?? ""),
         message: String(formData.get("message") ?? ""),
         turnstileToken: String(formData.get("cf-turnstile-response") ?? "")
       });
       form.reset();
-      setRequestState("sent");
-    } catch (reason) {
-      setRequestError(reason instanceof Error ? reason.message : "Nao foi possivel enviar o pedido.");
-      setRequestState("error");
+    } catch {
+      // surfaced via prayerMutation.error
     }
   }
 
@@ -106,12 +114,12 @@ export function App() {
     return (
       <main className="state-screen">
         <h1>Conteudo indisponivel</h1>
-        <p>{error}</p>
+        <p>{error instanceof Error ? error.message : "Falha ao carregar conteudo."}</p>
       </main>
     );
   }
 
-  if (!snapshot) {
+  if (isLoading || !snapshot) {
     return (
       <main className="state-screen">
         <LoaderCircle className="spin" />
@@ -298,16 +306,22 @@ export function App() {
               data-language="pt-BR"
             />
           )}
-          <button className="button primary" type="submit" disabled={requestState === "saving"}>
+          <button className="button primary" type="submit" disabled={prayerMutation.isPending}>
             <HeartHandshake size={18} />
-            {requestState === "saving"
+            {prayerMutation.isPending
               ? "Enviando..."
-              : requestState === "sent"
+              : prayerMutation.isSuccess
                 ? "Pedido enviado"
                 : "Enviar pedido"}
           </button>
-          {requestState === "sent" && <p className="form-success">Recebemos seu pedido. Estamos orando.</p>}
-          {requestState === "error" && <p className="form-error">{requestError}</p>}
+          {prayerMutation.isSuccess && <p className="form-success">Recebemos seu pedido. Estamos orando.</p>}
+          {prayerMutation.isError && (
+            <p className="form-error">
+              {prayerMutation.error instanceof Error
+                ? prayerMutation.error.message
+                : "Nao foi possivel enviar o pedido."}
+            </p>
+          )}
         </form>
       </section>
 
@@ -334,5 +348,9 @@ export function App() {
 const rootElement = document.getElementById("root");
 
 if (rootElement) {
-  createRoot(rootElement).render(<App />);
+  createRoot(rootElement).render(
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
+  );
 }

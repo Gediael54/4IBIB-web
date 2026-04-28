@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -41,9 +42,20 @@ vi.mock("./backend", () => ({
 
 import { App } from "./main";
 
+function renderApp() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } }
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <App />
+    </QueryClientProvider>
+  );
+}
+
 describe("public site", () => {
   it("renders the prayer request form after loading content", async () => {
-    render(<App />);
+    renderApp();
 
     await waitFor(() => {
       expect(
