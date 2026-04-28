@@ -457,7 +457,10 @@ alter table public.schedule_items drop column if exists ministry;
 
 -- 5.6 Drop legacy schedule_items.google_event_id ------------------------
 -- The system does not need to track external Google Calendar IDs anymore;
--- the seed re-runs idempotently via deterministic ids.
+-- the seed re-runs idempotently via deterministic ids. The schedule_items_app
+-- view used to expose this column, so it has to go before the alter table.
+-- Section 7 recreates the view with the canonical column list.
+drop view if exists public.schedule_items_app cascade;
 alter table public.schedule_items drop column if exists google_event_id;
 
 -- 5.7 Convert text + check columns to enum types --------------------------
