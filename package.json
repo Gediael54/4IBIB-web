@@ -12,25 +12,49 @@
     "dev:site": "npm run dev --workspace @4ibib/site",
     "dev:admin": "npm run dev --workspace @4ibib/admin",
     "build": "npm run build --workspace @4ibib/site && npm run build --workspace @4ibib/admin && node scripts/compose-dist.mjs",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run --coverage",
     "test:contract": "vitest run --config vitest.contract.config.ts",
     "typecheck": "npm run typecheck --workspace @4ibib/core && npm run typecheck --workspace @4ibib/mock && npm run typecheck --workspace @4ibib/supabase && npm run typecheck --workspace @4ibib/runtime && npm run typecheck --workspace @4ibib/site && npm run typecheck --workspace @4ibib/admin",
     "preview:site": "npm run preview --workspace @4ibib/site",
     "preview:admin": "npm run preview --workspace @4ibib/admin",
-    "seed:schedule": "node scripts/seed-from-xlsx.mjs"
+    "prepare": "husky",
+    "seed:schedule": "node scripts/seed-from-xlsx.mjs",
+    "supabase:build": "npm run seed:schedule && node scripts/build-supabase-sql.mjs"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css,html,yml,yaml}": "prettier --write"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/coverage-v8": "^3.0.0",
+    "eslint": "^10.2.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "husky": "^9.1.7",
     "jsdom": "^25.0.0",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
+    "sharp": "^0.34.5",
     "typescript": "^5.8.0",
+    "typescript-eslint": "^8.59.1",
     "vite": "^7.0.0",
     "vitest": "^3.0.0",
     "xlsx": "^0.18.5"
   },
   "dependencies": {
+    "@sentry/react": "^10.50.0",
     "@supabase/supabase-js": "^2.49.0",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
