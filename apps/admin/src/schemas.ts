@@ -58,6 +58,34 @@ export const ministrySchema = z.object({
 
 export type MinistryFormValues = z.infer<typeof ministrySchema>;
 
+export const WEEKDAY_OPTIONS = [
+  "Domingo",
+  "Segunda",
+  "Terca",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+  "Sabado"
+] as const;
+
+const timePattern = /^[0-2][0-9]:[0-5][0-9]$/;
+
+export const regularMeetingSchema = z
+  .object({
+    id: z.string().optional(),
+    title: requiredText(TEXT_MAX, "Titulo"),
+    weekday: z.enum(WEEKDAY_OPTIONS, { message: "Dia da semana invalido." }),
+    startsAt: z.string().regex(timePattern, "Horario inicial invalido."),
+    endsAt: z.string().regex(timePattern, "Horario final invalido."),
+    description: z.string().max(500, "Maximo 500 caracteres.")
+  })
+  .refine((value) => value.endsAt > value.startsAt, {
+    message: "Termino deve ser apos o inicio.",
+    path: ["endsAt"]
+  });
+
+export type RegularMeetingFormValues = z.infer<typeof regularMeetingSchema>;
+
 export const profileSchema = z.object({
   name: requiredText(TEXT_MAX, "Nome"),
   shortName: requiredText(TEXT_MAX, "Nome curto"),
@@ -72,7 +100,8 @@ export const profileSchema = z.object({
   mapsUrl: optionalHttpUrl,
   heroVerse: requiredText(TEXTAREA_MAX, "Versiculo"),
   mission: requiredText(TEXTAREA_MAX, "Missao"),
-  foundedText: requiredText(TEXTAREA_MAX, "Texto historico")
+  foundedText: requiredText(TEXTAREA_MAX, "Texto historico"),
+  regularMeetings: z.array(regularMeetingSchema)
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
