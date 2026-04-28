@@ -1,5 +1,14 @@
-import { createMockBackend, MOCK_ADMIN } from "./index";
+import { createMockBackend, type MockAdminCredentials } from "./index";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+
+const TEST_ADMIN: MockAdminCredentials = {
+  email: "admin.teste@4ibib.local",
+  password: "senha-teste"
+};
+
+function createConfiguredMockBackend(admin: MockAdminCredentials = TEST_ADMIN) {
+  return createMockBackend({ admin });
+}
 
 beforeEach(() => {
   vi.unstubAllGlobals();
@@ -199,15 +208,16 @@ it("creates and updates prayer requests", async () => {
 });
 
 it("handles mock authentication lifecycle", async () => {
-  const backend = createMockBackend();
+  const backend = createConfiguredMockBackend();
   const sessions: Array<string | null> = [];
   const unsubscribe = backend.auth.subscribe((session) => sessions.push(session?.email ?? null));
 
   await expect(backend.auth.signIn("wrong@example.com", "bad")).rejects.toThrow("Credenciais invalidas.");
 
-  const session = await backend.auth.signIn(MOCK_ADMIN.email, MOCK_ADMIN.password);
+  const session = await backend.auth.signIn(TEST_ADMIN.email, TEST_ADMIN.password);
 
-  expect(session.email).toBe(MOCK_ADMIN.email);
+  expect(session.email).toBe(TEST_ADMIN.email);
+  expect(session.displayName).toBe("Administrador");
   expect(await backend.auth.getSession()).toEqual(session);
 
   await backend.auth.signOut();
@@ -215,7 +225,26 @@ it("handles mock authentication lifecycle", async () => {
 
   expect(await backend.auth.getSession()).toBeNull();
   expect(sessions).toContain(null);
-  expect(sessions).toContain(MOCK_ADMIN.email);
+  expect(sessions).toContain(TEST_ADMIN.email);
+});
+
+it("uses configured mock admin display name", async () => {
+  const backend = createConfiguredMockBackend({
+    ...TEST_ADMIN,
+    displayName: "Admin Teste"
+  });
+
+  await expect(backend.auth.signIn(TEST_ADMIN.email, TEST_ADMIN.password)).resolves.toMatchObject({
+    displayName: "Admin Teste"
+  });
+});
+
+it("rejects mock sign in when admin credentials are not configured", async () => {
+  const backend = createMockBackend();
+
+  await expect(backend.auth.signIn(TEST_ADMIN.email, TEST_ADMIN.password)).rejects.toThrow(
+    "Login mock nao configurado."
+  );
 });
 
 it("resets invalid local storage state", async () => {
@@ -230,18 +259,18 @@ it("resets invalid local storage state", async () => {
 
 it("works when browser storage is unavailable", async () => {
   vi.stubGlobal("window", undefined);
-  const backend = createMockBackend();
+  const backend = createConfiguredMockBackend();
   const sessions: Array<string | null> = [];
   const unsubscribe = backend.auth.subscribe((session) => sessions.push(session?.email ?? null));
 
   expect((await backend.content.getSnapshot()).profile.id).toBe("main");
 
-  await backend.auth.signIn(MOCK_ADMIN.email, MOCK_ADMIN.password);
+  await backend.auth.signIn(TEST_ADMIN.email, TEST_ADMIN.password);
   await backend.auth.signOut();
   unsubscribe();
 
   expect(await backend.auth.getSession()).toBeNull();
-  expect(sessions).toEqual([null, MOCK_ADMIN.email, null]);
+  expect(sessions).toEqual([null, TEST_ADMIN.email, null]);
 });
 
 it("falls back when localStorage access throws", async () => {
@@ -256,7 +285,9 @@ it("falls back when localStorage access throws", async () => {
   const backend = createMockBackend();
 
   expect((await backend.content.getSnapshot()).profile.id).toBe("main");
-  await backend.auth.signIn(MOCK_ADMIN.email, MOCK_ADMIN.password);
+  await expect(backend.auth.signIn(TEST_ADMIN.email, TEST_ADMIN.password)).rejects.toThrow(
+    "Login mock nao configurado."
+  );
   expect(await backend.auth.getSession()).toBeNull();
 
   if (descriptor) {

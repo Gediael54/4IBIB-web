@@ -114,11 +114,12 @@ npm run dev:site
 npm run dev:admin
 ```
 
-Por padrao, sem `.env`, o projeto usa `VITE_BACKEND=mock`, com dados locais e login demo:
+Por padrao, sem `.env`, o projeto usa `VITE_BACKEND=mock` para dados locais. Para habilitar login local no admin, crie `.env.local` com credenciais mock:
 
-```text
-admin@4ibib.local
-123456
+```bash
+VITE_MOCK_ADMIN_EMAIL=admin.local@4ibib.test
+VITE_MOCK_ADMIN_PASSWORD=troque-esta-senha
+VITE_MOCK_ADMIN_DISPLAY_NAME=Administrador
 ```
 
 ## Validacao

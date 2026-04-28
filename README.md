@@ -29,13 +29,14 @@ npm run dev:site
 npm run dev:admin
 ```
 
-Sem `.env`, o projeto usa backend local mock.
+Sem `.env`, o projeto usa backend local mock para conteudo.
 
-Login demo:
+Para habilitar login local no admin, defina credenciais mock em `.env.local`:
 
-```text
-admin@4ibib.local
-123456
+```bash
+VITE_MOCK_ADMIN_EMAIL=admin.local@4ibib.test
+VITE_MOCK_ADMIN_PASSWORD=troque-esta-senha
+VITE_MOCK_ADMIN_DISPLAY_NAME=Administrador
 ```
 
 ## Producao

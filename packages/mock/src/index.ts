@@ -26,13 +26,18 @@ interface MockStore {
   prayerRequests: PrayerRequest[];
 }
 
+export interface MockAdminCredentials {
+  email: string;
+  password: string;
+  displayName?: string;
+}
+
+export interface MockBackendOptions {
+  admin?: MockAdminCredentials;
+}
+
 const STORE_KEY = "4ibib.mock.store.v2";
 const SESSION_KEY = "4ibib.mock.session.v2";
-
-export const MOCK_ADMIN = {
-  email: "admin@4ibib.local",
-  password: "123456"
-};
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -252,6 +257,8 @@ class MockContentRepository implements ContentRepository {
 class MockAuthGateway implements AuthGateway {
   private listeners = new Set<(session: AdminSession | null) => void>();
 
+  constructor(private readonly admin?: MockAdminCredentials) {}
+
   async getSession() {
     return this.readSession();
   }
@@ -266,14 +273,18 @@ class MockAuthGateway implements AuthGateway {
   }
 
   async signIn(email: string, password: string) {
-    if (email !== MOCK_ADMIN.email || password !== MOCK_ADMIN.password) {
+    if (!this.admin) {
+      throw new Error("Login mock nao configurado.");
+    }
+
+    if (email !== this.admin.email || password !== this.admin.password) {
       throw new Error("Credenciais invalidas.");
     }
 
     const session: AdminSession = {
       uid: "mock-admin",
-      email,
-      displayName: "Administrador"
+      email: this.admin.email,
+      displayName: this.admin.displayName ?? "Administrador"
     };
 
     this.writeSession(session);
@@ -337,10 +348,10 @@ function upsertById<T extends { id: string }>(items: T[], item: T): T[] {
   return items.map((current) => (current.id === item.id ? item : current));
 }
 
-export function createMockBackend(): ChurchBackend {
+export function createMockBackend(options: MockBackendOptions = {}): ChurchBackend {
   return {
     mode: "mock",
     content: new MockContentRepository(),
-    auth: new MockAuthGateway()
+    auth: new MockAuthGateway(options.admin)
   };
 }

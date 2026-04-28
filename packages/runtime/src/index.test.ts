@@ -25,6 +25,56 @@ it("falls back to the mock backend when VITE_BACKEND is not supabase", () => {
   expect(createBackend({ VITE_BACKEND: "anything-else" }).mode).toBe("mock");
 });
 
+it("passes explicit mock admin credentials to the mock backend", async () => {
+  const backend = createBackend({
+    VITE_BACKEND: "mock",
+    VITE_MOCK_ADMIN_EMAIL: "admin.teste@4ibib.local",
+    VITE_MOCK_ADMIN_PASSWORD: "senha-teste"
+  });
+
+  await expect(backend.auth.signIn("admin.teste@4ibib.local", "senha-teste")).resolves.toMatchObject({
+    email: "admin.teste@4ibib.local",
+    displayName: "Administrador"
+  });
+});
+
+it("passes explicit mock admin display name to the mock backend", async () => {
+  const backend = createBackend({
+    VITE_BACKEND: "mock",
+    VITE_MOCK_ADMIN_EMAIL: "admin.teste@4ibib.local",
+    VITE_MOCK_ADMIN_PASSWORD: "senha-teste",
+    VITE_MOCK_ADMIN_DISPLAY_NAME: "Admin Teste"
+  });
+
+  await expect(backend.auth.signIn("admin.teste@4ibib.local", "senha-teste")).resolves.toMatchObject({
+    displayName: "Admin Teste"
+  });
+});
+
+it("leaves mock login disabled without explicit mock admin credentials", async () => {
+  const backend = createBackend({ VITE_BACKEND: "mock" });
+
+  await expect(backend.auth.signIn("admin.teste@4ibib.local", "senha-teste")).rejects.toThrow(
+    "Login mock nao configurado."
+  );
+});
+
+it("rejects partial mock admin configuration", () => {
+  expect(() =>
+    createBackend({
+      VITE_BACKEND: "mock",
+      VITE_MOCK_ADMIN_PASSWORD: "senha-teste"
+    })
+  ).toThrow("Email do login mock nao configurado.");
+
+  expect(() =>
+    createBackend({
+      VITE_BACKEND: "mock",
+      VITE_MOCK_ADMIN_EMAIL: "admin.teste@4ibib.local"
+    })
+  ).toThrow("Senha do login mock nao configurada.");
+});
+
 it("propagates supabase validation when supabase env is empty", () => {
   expect(() => createBackend({ VITE_BACKEND: "supabase" })).toThrow();
   expect(() =>
