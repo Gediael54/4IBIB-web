@@ -78,7 +78,7 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 - [x] **#3** Delete sem confirmação — adicionar `confirm()` antes de chamar delete.
 - [x] **#4** `endsAt < startsAt` só falha no save (constraint do banco). Adicionar `min={startsAt}` no input + auto-shift quando startsAt muda.
 - [x] **#5** Ministério/local/líder são free-text — vão criar duplicatas (`Louvor`/`louvor`/`LOUVOR`). Trocar por `<input list="...">` com `<datalist>` populado dos itens existentes.
-- [ ] **#6** `profile.regular_meetings` (jsonb) não é editável pelo admin — schema permite, form ignora. Horários de culto recorrentes só dá pra mexer via SQL.
+- [ ] **#6** `profile.regular_meetings` (jsonb) não é editável pelo admin — schema permite, form ignora. Horários de culto recorrentes só dá pra mexer via SQL. Fix estrutural: extrair pra tabela `recurring_meetings (id, profile_id fk, title, weekday, starts_at time, description, sort_order)` — desbloqueia CRUD trivial no admin.
 - [ ] **#7** `MOCK_ADMIN` (admin@4ibib.local/123456) entra no bundle de produção. Tree-shake ou mover pra package separado de seeds.
 
 ## 🟡 UX/UI
@@ -132,6 +132,10 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 - [ ] **#39** `church_profile` deveria ter constraint garantindo `id = 'main'` (singleton). Hoje RLS permite múltiplos.
 - [ ] **#40** Sem audit log — quem alterou o quê.
 - [ ] **#41** Schema é monolito — não usa migrations versionadas.
+- [ ] **#58** Index parcial composto `schedule_items (starts_at) where status='scheduled'` — query do site filtra por `status='scheduled' and starts_at >= now()`, hoje só tem index plano em `starts_at`. Com 1000+ rows vira seq-scan filtrado.
+- [ ] **#59** Index parcial `announcements (published_at desc) where pinned=true` — site só renderiza fixados; index parcial fica enxuto e cobre exatamente a query.
+- [ ] **#60** `schedule_items.google_event_id` é `text not null default ''` em vez de `text` nullable — anti-pattern. Index parcial já é `where google_event_id <> ''` (deveria ser `is not null`). Trocar pra NULL é mais idiomático Postgres.
+- [ ] **#61** Renomear `schedule_items.special_date` → `occasion_label`. O campo guarda texto tipo "Dia das Maes", "Aniversario da Igreja" — não é data. Nome atual confunde quem lê o schema.
 
 ## 🛠️ Manutenibilidade
 
