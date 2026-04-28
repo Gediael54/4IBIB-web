@@ -65,7 +65,7 @@ const schedule: ScheduleItem[] = [
     preacher: "A",
     director: "",
     passage: "",
-    specialDate: "",
+    occasionLabel: "",
     googleEventId: "",
     status: "scheduled",
     featured: false
@@ -81,7 +81,7 @@ const schedule: ScheduleItem[] = [
     preacher: "B",
     director: "",
     passage: "",
-    specialDate: "",
+    occasionLabel: "",
     googleEventId: "",
     status: "scheduled",
     featured: false
@@ -97,7 +97,7 @@ const schedule: ScheduleItem[] = [
     preacher: "C",
     director: "",
     passage: "",
-    specialDate: "",
+    occasionLabel: "",
     googleEventId: "",
     status: "scheduled",
     featured: true
@@ -113,7 +113,7 @@ const schedule: ScheduleItem[] = [
     preacher: "D",
     director: "",
     passage: "",
-    specialDate: "",
+    occasionLabel: "",
     googleEventId: "",
     status: "suspended",
     featured: false
@@ -174,7 +174,7 @@ it("preserves all schedule fields through sort", () => {
     preacher: "Pr. Augusto",
     director: "Diac. Ana",
     passage: "Marcos 1",
-    specialDate: "PASCOA",
+    occasionLabel: "PASCOA",
     googleEventId: "abc@google.com",
     status: "scheduled",
     featured: true
@@ -197,9 +197,7 @@ it("converts date-time input values", () => {
 });
 
 it("builds whatsapp links with encoded messages", () => {
-  expect(buildWhatsAppUrl("559599999999", "Ola igreja")).toBe(
-    "https://wa.me/559599999999?text=Ola%20igreja"
-  );
+  expect(buildWhatsAppUrl("559599999999", "Ola igreja")).toBe("https://wa.me/559599999999?text=Ola%20igreja");
 });
 
 it("creates ids with the requested prefix", () => {

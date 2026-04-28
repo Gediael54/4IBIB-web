@@ -32,6 +32,17 @@ describe.skipIf(skip)("supabase contract", () => {
       updatedAt: isoString
     });
     expect(Array.isArray(profile.regularMeetings)).toBe(true);
+    for (const meeting of profile.regularMeetings) {
+      expect(meeting).toMatchObject({
+        id: expect.any(String),
+        title: expect.any(String),
+        weekday: expect.any(String),
+        time: expect.any(String),
+        startsAt: expect.any(String),
+        endsAt: expect.any(String),
+        sortOrder: expect.any(Number)
+      });
+    }
   });
 
   it("listSchedule returns rows with the new schedule columns mapped", async () => {
@@ -43,6 +54,7 @@ describe.skipIf(skip)("supabase contract", () => {
     expect(first).toMatchObject({
       id: expect.any(String),
       title: expect.any(String),
+      ministryId: expect.any(String),
       ministry: expect.any(String),
       startsAt: isoString,
       endsAt: isoString,
@@ -51,7 +63,7 @@ describe.skipIf(skip)("supabase contract", () => {
       preacher: expect.any(String),
       director: expect.any(String),
       passage: expect.any(String),
-      specialDate: expect.any(String),
+      occasionLabel: expect.any(String),
       googleEventId: expect.any(String),
       featured: expect.any(Boolean)
     });
@@ -73,6 +85,18 @@ describe.skipIf(skip)("supabase contract", () => {
 
     expect(Array.isArray(announcements)).toBe(true);
     expect(Array.isArray(ministries)).toBe(true);
+  });
+
+  it("schedule ministry ids resolve to known ministries", async () => {
+    const [schedule, ministries] = await Promise.all([
+      backend.content.listSchedule(),
+      backend.content.listMinistries()
+    ]);
+    const ministryIds = new Set(ministries.map((item) => item.id));
+
+    for (const item of schedule) {
+      expect(ministryIds.has(item.ministryId ?? "")).toBe(true);
+    }
   });
 
   it("getSnapshot composes profile + content lists in a single call", async () => {

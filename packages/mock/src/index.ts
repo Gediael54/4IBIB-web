@@ -210,7 +210,7 @@ class MockContentRepository implements ContentRepository {
       preacher: input.preacher,
       director: input.director,
       passage: input.passage,
-      specialDate: input.specialDate,
+      occasionLabel: input.occasionLabel,
       googleEventId: input.googleEventId,
       status: input.status,
       featured: input.featured
@@ -247,9 +247,7 @@ class MockContentRepository implements ContentRepository {
 
   async updatePrayerRequestStatus(id: string, status: PrayerRequest["status"]) {
     const store = readStore();
-    store.prayerRequests = store.prayerRequests.map((item) =>
-      item.id === id ? { ...item, status } : item
-    );
+    store.prayerRequests = store.prayerRequests.map((item) => (item.id === id ? { ...item, status } : item));
     writeStore(store);
   }
 }

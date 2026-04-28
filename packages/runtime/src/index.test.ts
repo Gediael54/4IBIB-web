@@ -5,7 +5,8 @@ it("returns the supabase backend when VITE_BACKEND=supabase and supabase env is 
   const backend = createBackend({
     VITE_BACKEND: "supabase",
     VITE_SUPABASE_URL: "https://example.supabase.co",
-    VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test"
+    VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
+    VITE_PRAYER_ENDPOINT: "/api/prayer"
   });
   expect(backend.mode).toBe("supabase");
 });
@@ -76,8 +77,27 @@ it("rejects partial mock admin configuration", () => {
 });
 
 it("propagates supabase validation when supabase env is empty", () => {
-  expect(() => createBackend({ VITE_BACKEND: "supabase" })).toThrow();
+  expect(() => createBackend({ VITE_BACKEND: "supabase" })).toThrow("VITE_SUPABASE_URL nao configurada.");
   expect(() =>
     createBackend({ VITE_BACKEND: "supabase", VITE_SUPABASE_URL: "https://example.supabase.co" })
-  ).toThrow();
+  ).toThrow("VITE_SUPABASE_PUBLISHABLE_KEY nao configurada.");
+});
+
+it("validates supabase URL and prayer endpoint formats", () => {
+  expect(() =>
+    createBackend({
+      VITE_BACKEND: "supabase",
+      VITE_SUPABASE_URL: "not-a-url",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test"
+    })
+  ).toThrow("VITE_SUPABASE_URL deve ser uma URL valida do Supabase.");
+
+  expect(() =>
+    createBackend({
+      VITE_BACKEND: "supabase",
+      VITE_SUPABASE_URL: "https://example.supabase.co",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
+      VITE_PRAYER_ENDPOINT: "api/prayer"
+    })
+  ).toThrow("VITE_PRAYER_ENDPOINT deve ser um caminho relativo iniciado por /.");
 });

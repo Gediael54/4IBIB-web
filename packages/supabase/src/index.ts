@@ -21,9 +21,11 @@ import { createClient, type SupabaseClient, type User } from "@supabase/supabase
 interface SupabaseOptions {
   url: string;
   anonKey: string;
+  prayerEndpoint?: string;
 }
 
 type JsonObject = Record<string, unknown>;
+const DEFAULT_MINISTRY_COLOR = "#0f766e";
 
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) {
@@ -49,7 +51,86 @@ function mapUser(user: User | null): AdminSession | null {
   };
 }
 
-function mapProfile(row: JsonObject): ChurchProfile {
+function normalizeTime(value: unknown): string {
+  const match = String(value ?? "").match(/(\d{1,2})(?::|h)?(\d{2})?/i);
+  if (!match) {
+    return "";
+  }
+
+  const hour = Math.min(23, Number(match[1])).toString().padStart(2, "0");
+  const minute = Math.min(59, Number(match[2] ?? "0"))
+    .toString()
+    .padStart(2, "0");
+  return `${hour}:${minute}`;
+}
+
+function addMinutes(value: string, minutes: number): string {
+  const [hour = "0", minute = "0"] = value.split(":");
+  const total = (Number(hour) * 60 + Number(minute) + minutes) % (24 * 60);
+  return `${Math.floor(total / 60)
+    .toString()
+    .padStart(2, "0")}:${(total % 60).toString().padStart(2, "0")}`;
+}
+
+function formatMeetingTime(startsAt: string, endsAt: string): string {
+  if (!startsAt && !endsAt) {
+    return "";
+  }
+
+  if (!endsAt) {
+    return startsAt;
+  }
+
+  return `${startsAt} - ${endsAt}`;
+}
+
+function normalizeRegularMeeting(
+  input: Partial<ChurchProfile["regularMeetings"][number]>,
+  index: number
+): ChurchProfile["regularMeetings"][number] {
+  const timeParts = String(input.time ?? "").match(/(\d{1,2}(?::|h)?\d{0,2})/gi) ?? [];
+  const startsAt = (input.startsAt ?? normalizeTime(timeParts[0] ?? input.time)) || "00:00";
+  const endsAt = (input.endsAt ?? normalizeTime(timeParts[1])) || addMinutes(startsAt, 60);
+
+  return {
+    id: String(input.id ?? crypto.randomUUID()),
+    title: String(input.title ?? ""),
+    weekday: String(input.weekday ?? ""),
+    startsAt,
+    endsAt,
+    time: String(input.time ?? "") || formatMeetingTime(startsAt, endsAt),
+    description: String(input.description ?? ""),
+    sortOrder: Number(input.sortOrder ?? index)
+  };
+}
+
+function mapRecurringMeeting(row: JsonObject): ChurchProfile["regularMeetings"][number] {
+  const startsAt = normalizeTime(row.starts_at);
+  const endsAt = normalizeTime(row.ends_at);
+
+  return {
+    id: String(row.id),
+    title: String(row.title),
+    weekday: String(row.weekday),
+    startsAt,
+    endsAt,
+    time: formatMeetingTime(startsAt, endsAt),
+    description: String(row.description ?? ""),
+    sortOrder: Number(row.sort_order ?? 0)
+  };
+}
+
+function mapLegacyRegularMeetings(value: unknown): ChurchProfile["regularMeetings"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item, index) =>
+    normalizeRegularMeeting(item as Partial<ChurchProfile["regularMeetings"][number]>, index)
+  );
+}
+
+function mapProfile(row: JsonObject, regularMeetings?: ChurchProfile["regularMeetings"]): ChurchProfile {
   return {
     id: String(row.id),
     name: String(row.name),
@@ -66,7 +147,7 @@ function mapProfile(row: JsonObject): ChurchProfile {
     heroVerse: String(row.hero_verse),
     mission: String(row.mission),
     foundedText: String(row.founded_text),
-    regularMeetings: (row.regular_meetings ?? []) as ChurchProfile["regularMeetings"],
+    regularMeetings: regularMeetings ?? mapLegacyRegularMeetings(row.regular_meetings),
     updatedAt: String(row.updated_at)
   };
 }
@@ -88,9 +169,25 @@ function toProfileRow(profile: ChurchProfile): JsonObject {
     hero_verse: profile.heroVerse,
     mission: profile.mission,
     founded_text: profile.foundedText,
-    regular_meetings: profile.regularMeetings,
     updated_at: new Date().toISOString()
   };
+}
+
+function toRecurringMeetingRows(profileId: string, meetings: ChurchProfile["regularMeetings"]): JsonObject[] {
+  return meetings.map((meeting, index) => {
+    const normalized = normalizeRegularMeeting(meeting, index);
+
+    return {
+      id: normalized.id,
+      profile_id: profileId,
+      title: normalized.title,
+      weekday: normalized.weekday,
+      starts_at: normalized.startsAt,
+      ends_at: normalized.endsAt,
+      description: normalized.description,
+      sort_order: normalized.sortOrder
+    };
+  });
 }
 
 function mapAnnouncement(row: JsonObject): Announcement {
@@ -145,7 +242,8 @@ function mapSchedule(row: JsonObject): ScheduleItem {
   return {
     id: String(row.id),
     title: String(row.title),
-    ministry: String(row.ministry),
+    ministryId: String(row.ministry_id ?? ""),
+    ministry: getRelatedMinistryName(row),
     startsAt: String(row.starts_at),
     endsAt: String(row.ends_at),
     location: String(row.location),
@@ -153,18 +251,43 @@ function mapSchedule(row: JsonObject): ScheduleItem {
     preacher: String(row.preacher),
     director: String(row.director),
     passage: String(row.passage),
-    specialDate: String(row.special_date),
-    googleEventId: String(row.google_event_id),
+    occasionLabel: String(row.occasion_label ?? ""),
+    googleEventId: String(row.google_event_id ?? ""),
     status: row.status as ScheduleItem["status"],
     featured: Boolean(row.featured)
   };
 }
 
-function toScheduleRow(input: ScheduleItem): JsonObject {
+function getRelatedMinistryName(row: JsonObject): string {
+  const relation = row.ministries;
+
+  if (Array.isArray(relation) && relation[0] && typeof relation[0] === "object") {
+    return String((relation[0] as JsonObject).name ?? row.ministry ?? "");
+  }
+
+  if (relation && typeof relation === "object") {
+    return String((relation as JsonObject).name ?? row.ministry ?? "");
+  }
+
+  return String(row.ministry ?? "");
+}
+
+function normalizeMinistrySlug(value: string): string {
+  const slug = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return slug || "geral";
+}
+
+function toScheduleRow(input: ScheduleItem, ministryId: string): JsonObject {
   return {
     id: input.id,
     title: input.title,
-    ministry: input.ministry,
+    ministry_id: ministryId,
     starts_at: input.startsAt,
     ends_at: input.endsAt,
     location: input.location,
@@ -172,8 +295,8 @@ function toScheduleRow(input: ScheduleItem): JsonObject {
     preacher: input.preacher,
     director: input.director,
     passage: input.passage,
-    special_date: input.specialDate,
-    google_event_id: input.googleEventId,
+    occasion_label: input.occasionLabel,
+    google_event_id: input.googleEventId || null,
     status: input.status,
     featured: input.featured
   };
@@ -191,7 +314,10 @@ function mapPrayer(row: JsonObject): PrayerRequest {
 }
 
 class SupabaseContentRepository implements ContentRepository {
-  constructor(private readonly client: SupabaseClient) {}
+  constructor(
+    private readonly client: SupabaseClient,
+    private readonly prayerEndpoint = ""
+  ) {}
 
   async getSnapshot() {
     const [profile, announcements, ministries, schedule] = await Promise.all([
@@ -206,17 +332,42 @@ class SupabaseContentRepository implements ContentRepository {
 
   async getProfile() {
     const { data, error } = await this.client.from("church_profile").select("*").eq("id", "main").single();
-    return mapProfile(requireData(data as JsonObject | null, error));
+    const profile = requireData(data as JsonObject | null, error);
+    const { data: meetingData, error: meetingError } = await this.client
+      .from("recurring_meetings")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order");
+    if (meetingError) {
+      throw new Error(meetingError.message);
+    }
+
+    if (!Array.isArray(meetingData)) {
+      return mapProfile(profile);
+    }
+
+    const meetings = (meetingData as JsonObject[]).map(mapRecurringMeeting);
+    return mapProfile(profile, meetings);
   }
 
   async updateProfile(profile: ChurchProfile) {
     const row = toProfileRow(profile);
-    const { data, error } = await this.client
-      .from("church_profile")
-      .upsert(row)
-      .select("*")
-      .single();
-    return mapProfile(requireData(data as JsonObject | null, error));
+    const { data, error } = await this.client.from("church_profile").upsert(row).select("*").single();
+    const savedProfile = requireData(data as JsonObject | null, error);
+    const meetingRows = toRecurringMeetingRows(profile.id, profile.regularMeetings);
+
+    const { error: deleteError } = await this.client
+      .from("recurring_meetings")
+      .delete()
+      .eq("profile_id", profile.id);
+    requireData(true, deleteError);
+
+    if (meetingRows.length > 0) {
+      const { error: insertError } = await this.client.from("recurring_meetings").insert(meetingRows);
+      requireData(true, insertError);
+    }
+
+    return mapProfile(savedProfile, meetingRows.map(mapRecurringMeeting));
   }
 
   async listAnnouncements() {
@@ -278,7 +429,10 @@ class SupabaseContentRepository implements ContentRepository {
   }
 
   async listSchedule() {
-    const { data, error } = await this.client.from("schedule_items").select("*").order("starts_at");
+    const { data, error } = await this.client
+      .from("schedule_items")
+      .select("*, ministries(name)")
+      .order("starts_at");
     return sortSchedule(requireData(data as JsonObject[] | null, error).map(mapSchedule));
   }
 
@@ -286,6 +440,7 @@ class SupabaseContentRepository implements ContentRepository {
     const item: ScheduleItem = {
       id: input.id ?? crypto.randomUUID(),
       title: input.title,
+      ministryId: input.ministryId,
       ministry: input.ministry,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
@@ -294,17 +449,50 @@ class SupabaseContentRepository implements ContentRepository {
       preacher: input.preacher,
       director: input.director,
       passage: input.passage,
-      specialDate: input.specialDate,
+      occasionLabel: input.occasionLabel,
       googleEventId: input.googleEventId,
       status: input.status,
       featured: input.featured
     };
+    const ministryId = item.ministryId || (await this.resolveMinistryId(item.ministry));
     const { data, error } = await this.client
       .from("schedule_items")
-      .upsert(toScheduleRow(item))
-      .select("*")
+      .upsert(toScheduleRow(item, ministryId))
+      .select("*, ministries(name)")
       .single();
     return mapSchedule(requireData(data as JsonObject | null, error));
+  }
+
+  private async resolveMinistryId(name: string) {
+    const ministryName = name.trim() || "Geral";
+    const slug = normalizeMinistrySlug(ministryName);
+    const { data: existing, error: lookupError } = await this.client
+      .from("ministries")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (lookupError) {
+      throw new Error(lookupError.message);
+    }
+
+    if (existing && typeof existing === "object" && "id" in existing) {
+      return String((existing as JsonObject).id);
+    }
+
+    const { data, error } = await this.client
+      .from("ministries")
+      .insert({
+        name: ministryName,
+        summary: "",
+        meeting_time: "",
+        contact: "",
+        color: DEFAULT_MINISTRY_COLOR
+      })
+      .select("id")
+      .single();
+
+    return String(requireData(data as JsonObject | null, error).id);
   }
 
   async deleteScheduleItem(id: string) {
@@ -313,6 +501,10 @@ class SupabaseContentRepository implements ContentRepository {
   }
 
   async createPrayerRequest(input: PrayerRequestInput) {
+    if (this.prayerEndpoint) {
+      return this.createPrayerRequestThroughEndpoint(input);
+    }
+
     const { data, error } = await this.client
       .from("prayer_requests")
       .insert({
@@ -324,6 +516,22 @@ class SupabaseContentRepository implements ContentRepository {
       .select("*")
       .single();
     return mapPrayer(requireData(data as JsonObject | null, error));
+  }
+
+  private async createPrayerRequestThroughEndpoint(input: PrayerRequestInput) {
+    const response = await fetch(this.prayerEndpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input)
+    });
+
+    const payload = (await response.json().catch(() => null)) as { data?: JsonObject; error?: string } | null;
+
+    if (!response.ok) {
+      throw new Error(payload?.error ?? "Nao foi possivel enviar o pedido.");
+    }
+
+    return mapPrayer(requireData(payload?.data ?? null, null));
   }
 
   async listPrayerRequests() {
@@ -397,7 +605,7 @@ export function createSupabaseBackend(options: SupabaseOptions): ChurchBackend {
 
   return {
     mode: "supabase",
-    content: new SupabaseContentRepository(client),
+    content: new SupabaseContentRepository(client, options.prayerEndpoint),
     auth: new SupabaseAuthGateway(client)
   };
 }

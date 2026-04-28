@@ -104,7 +104,7 @@ it("creates, updates and deletes schedule items", async () => {
     preacher: "Pastor",
     director: "",
     passage: "",
-    specialDate: "",
+    occasionLabel: "",
     googleEventId: "",
     status: "scheduled",
     featured: false
@@ -131,7 +131,7 @@ it("persists all extended schedule fields through save and reload", async () => 
     preacher: "Pr. Augusto Lopes",
     director: "Diac. Ana",
     passage: "Marcos 1",
-    specialDate: "PASCOA",
+    occasionLabel: "PASCOA",
     googleEventId: "abc@google.com",
     status: "scheduled",
     featured: true
@@ -142,7 +142,7 @@ it("persists all extended schedule fields through save and reload", async () => 
   expect(reloaded?.preacher).toBe("Pr. Augusto Lopes");
   expect(reloaded?.director).toBe("Diac. Ana");
   expect(reloaded?.passage).toBe("Marcos 1");
-  expect(reloaded?.specialDate).toBe("PASCOA");
+  expect(reloaded?.occasionLabel).toBe("PASCOA");
   expect(reloaded?.googleEventId).toBe("abc@google.com");
   expect(reloaded?.status).toBe("scheduled");
 });
@@ -159,7 +159,7 @@ it("keeps suspended and free schedule items in listSchedule but not in upcoming"
     preacher: "",
     director: "",
     passage: "",
-    specialDate: "",
+    occasionLabel: "",
     googleEventId: "",
     status: "suspended",
     featured: false
@@ -174,7 +174,7 @@ it("keeps suspended and free schedule items in listSchedule but not in upcoming"
     preacher: "",
     director: "",
     passage: "",
-    specialDate: "",
+    occasionLabel: "",
     googleEventId: "",
     status: "free",
     featured: false

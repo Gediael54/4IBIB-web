@@ -5,7 +5,10 @@ export interface RegularMeeting {
   title: string;
   weekday: string;
   time: string;
+  startsAt: string;
+  endsAt: string;
   description: string;
+  sortOrder: number;
 }
 
 export interface ChurchProfile {
@@ -53,6 +56,7 @@ export type ScheduleStatus = "scheduled" | "suspended" | "free";
 export interface ScheduleItem {
   id: string;
   title: string;
+  ministryId?: string;
   ministry: string;
   startsAt: string;
   endsAt: string;
@@ -61,7 +65,7 @@ export interface ScheduleItem {
   preacher: string;
   director: string;
   passage: string;
-  specialDate: string;
+  occasionLabel: string;
   googleEventId: string;
   status: ScheduleStatus;
   featured: boolean;
@@ -79,7 +83,9 @@ export interface PrayerRequest {
 export type AnnouncementInput = Omit<Announcement, "id"> & { id?: string };
 export type MinistryInput = Omit<Ministry, "id"> & { id?: string };
 export type ScheduleItemInput = Omit<ScheduleItem, "id"> & { id?: string };
-export type PrayerRequestInput = Omit<PrayerRequest, "id" | "createdAt" | "status">;
+export type PrayerRequestInput = Omit<PrayerRequest, "id" | "createdAt" | "status"> & {
+  turnstileToken?: string;
+};
 
 export interface SiteSnapshot {
   profile: ChurchProfile;
