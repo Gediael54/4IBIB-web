@@ -79,51 +79,51 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 - [x] **#4** `endsAt < startsAt` só falha no save (constraint do banco). Adicionar `min={startsAt}` no input + auto-shift quando startsAt muda.
 - [x] **#5** Ministério/local/líder são free-text — vão criar duplicatas (`Louvor`/`louvor`/`LOUVOR`). Trocar por `<input list="...">` com `<datalist>` populado dos itens existentes.
 - [ ] **#6** `profile.regular_meetings` (jsonb) não é editável pelo admin — schema permite, form ignora. Horários de culto recorrentes só dá pra mexer via SQL. Fix estrutural: extrair pra tabela `recurring_meetings (id, profile_id fk, title, weekday, starts_at time, description, sort_order)` — desbloqueia CRUD trivial no admin.
-- [ ] **#7** `MOCK_ADMIN` (admin@4ibib.local/123456) entra no bundle de produção. Tree-shake ou mover pra package separado de seeds.
+- [x] **#7** `MOCK_ADMIN` (admin@4ibib.local/123456) entra no bundle de produção. Tree-shake ou mover pra package separado de seeds.
 
 ## 🟡 UX/UI
 
-- [ ] **#8** Inputs do admin só com placeholder, sem `<label>` visível. Pior em `datetime-local` (sem placeholder).
-- [ ] **#9** Pedidos de oração sem filtro por status, sem timestamp visível, sem ordenação.
-- [ ] **#10** Sem busca/ordenação/paginação em qualquer lista do admin.
-- [ ] **#11** Botões só com ícone (lápis/lixeira) sem tooltip nem `aria-label`.
-- [ ] **#12** Sidebar do admin em mobile vira lista vertical sem destacar item ativo.
-- [ ] **#13** Site sem header sticky — perde navegação ao rolar.
-- [ ] **#14** Site sem `scroll-behavior: smooth` — links âncora pulam bruscamente.
-- [ ] **#15** Hero do site ocupa 92vh — empurra todo conteúdo pra baixo da dobra.
-- [ ] **#16** Bullet colorido do `.ministry-card` é minúsculo (36×6px). Trocar por borda lateral colorida.
-- [ ] **#17** Footer do site sem links de navegação rápida.
+- [x] **#8** Inputs do admin só com placeholder, sem `<label>` visível. Pior em `datetime-local` (sem placeholder).
+- [x] **#9** Pedidos de oração sem filtro por status, sem timestamp visível, sem ordenação.
+- [x] **#10** Sem busca/ordenação/paginação em qualquer lista do admin.
+- [x] **#11** Botões só com ícone (lápis/lixeira) sem tooltip nem `aria-label`.
+- [x] **#12** Sidebar do admin em mobile vira lista vertical sem destacar item ativo.
+- [x] **#13** Site sem header sticky — perde navegação ao rolar.
+- [x] **#14** Site sem `scroll-behavior: smooth` — links âncora pulam bruscamente.
+- [x] **#15** Hero do site ocupa 92vh — empurra todo conteúdo pra baixo da dobra.
+- [x] **#16** Bullet colorido do `.ministry-card` é minúsculo (36×6px). Trocar por borda lateral colorida.
+- [x] **#17** Footer do site sem links de navegação rápida.
 
 ## ♿ Acessibilidade
 
-- [ ] **#18** Botões icon-only sem `aria-label` — leitor de tela lê nada.
-- [ ] **#19** Forms do admin sem `<label>` associado (placeholder não conta).
-- [ ] **#20** Sem skip link "pular para conteúdo".
-- [ ] **#21** Verificar contraste AA de `#c2410c` no `#fffaf1` (laranja sobre creme).
-- [ ] **#22** Uniformizar `:focus-visible` no site (já bom no admin).
+- [x] **#18** Botões icon-only sem `aria-label` — leitor de tela lê nada.
+- [x] **#19** Forms do admin sem `<label>` associado (placeholder não conta).
+- [x] **#20** Sem skip link "pular para conteúdo".
+- [x] **#21** Verificar contraste AA de `#c2410c` no `#fffaf1` (laranja sobre creme).
+- [x] **#22** Uniformizar `:focus-visible` no site (já bom no admin).
 
 ## 🔒 Segurança
 
 - [ ] **#23** Rotacionar a *legacy service_role JWT* (vazada em sessão anterior). Project Settings → API Keys → Disable legacy.
 - [ ] **#24** Pedidos de oração sem rate-limit nem CAPTCHA — bot pode floodar. Adicionar Cloudflare Turnstile + RLS rate-limit ou edge function gate.
-- [ ] **#25** Sem `maxlength` nos campos — alguém pode enviar 10MB de texto.
-- [ ] **#26** Sem CSP — adicionar via `_headers` do Cloudflare Pages (`Content-Security-Policy`).
-- [ ] **#27** `maps_url` aceita qualquer string. React 18+ bloqueia `javascript:`, mas validar no save (URL parseável + protocolo http/https).
+- [x] **#25** Sem `maxlength` nos campos — alguém pode enviar 10MB de texto.
+- [x] **#26** Sem CSP — adicionar via `_headers` do Cloudflare Pages (`Content-Security-Policy`).
+- [x] **#27** `maps_url` aceita qualquer string. React 18+ bloqueia `javascript:`, mas validar no save (URL parseável + protocolo http/https).
 
 ## ⚡ Performance
 
 - [ ] **#28** Bundle do admin: 412KB / 118KB gzip. Code-splitting por view com `React.lazy`.
 - [ ] **#29** `getSnapshot()` recarrega tudo a cada save — adicionar SWR ou React Query.
-- [ ] **#30** Sem prefetch entre site↔admin (cold-load).
-- [ ] **#31** Verificar se React DevTools entra no bundle de produção (`mode === production`).
+- [x] **#30** Sem prefetch entre site↔admin (cold-load).
+- [x] **#31** Verificar se React DevTools entra no bundle de produção (`mode === production`).
 
 ## 🌐 SEO / metadata
 
-- [ ] **#32** Sem favicon, apple-touch-icon, manifest.webmanifest. (Esperando logo do nano banana.)
+- [x] **#32** Sem favicon, apple-touch-icon, manifest.webmanifest. (Esperando logo do nano banana.)
 - [ ] **#33** Sem sitemap.xml nem robots.txt explícito.
-- [ ] **#34** Sem OG image — link compartilhado em WhatsApp/FB sem preview visual.
+- [x] **#34** Sem OG image — link compartilhado em WhatsApp/FB sem preview visual.
 - [ ] **#35** Sem Schema.org JSON-LD (Place + Church + opening hours) — perde ranking local no Google.
-- [ ] **#36** `<title>` não muda ao navegar entre seções.
+- [x] **#36** `<title>` não muda ao navegar entre seções.
 
 ## 🗄️ Schema / banco
 
@@ -143,7 +143,7 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 - [ ] **#43** Sem CI/CD (GitHub Actions) — typecheck/test/build rodam só local.
 - [ ] **#44** Sem pre-commit hook (husky/lint-staged).
 - [ ] **#45** Sem env validation no startup — `VITE_SUPABASE_URL` vazio só explode no runtime.
-- [ ] **#46** `createBackend()` duplicado em cada app — extrair pra package compartilhado.
+- [x] **#46** `createBackend()` duplicado em cada app — extrair pra package compartilhado.
 - [ ] **#47** Sem error tracking (Sentry/Logtail) — erro em prod morre no console do usuário.
 - [ ] **#48** Sem teste de UI (React Testing Library) nem E2E (Playwright).
 
