@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import * as XLSX from "xlsx";
@@ -30,8 +31,17 @@ function ministryFor(title) {
   return "Geral";
 }
 
+function deterministicUuid(...parts) {
+  const hash = createHash("sha256").update(parts.join("|")).digest();
+  const bytes = Array.from(hash.subarray(0, 16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
 function parseRow(row) {
-  const [date, , timeStart, timeEnd, rawTitle, eventId, director, preacher, leitura, special] = row;
+  const [date, , timeStart, timeEnd, rawTitle, , director, preacher, leitura, special] = row;
   if (!date || !rawTitle) return null;
 
   let title = String(rawTitle).trim();
@@ -45,18 +55,22 @@ function parseRow(row) {
     title = title.replace(/\s*\(\s*suspens[ao]\s*\)\s*/i, "").trim();
   }
 
+  const startsAt = excelDateTimeToIso(date, timeStart || 0);
+  const endsAt = excelDateTimeToIso(date, timeEnd || (timeStart || 0) + 90 / 1440);
+  const ministryName = ministryFor(title);
+
   return {
+    id: deterministicUuid(startsAt, ministryName, title),
     title,
-    ministryName: ministryFor(title),
-    startsAt: excelDateTimeToIso(date, timeStart || 0),
-    endsAt: excelDateTimeToIso(date, timeEnd || (timeStart || 0) + 90 / 1440),
+    ministryName,
+    startsAt,
+    endsAt,
     location: "Templo principal",
     summary: "",
     preacher: preacher ? String(preacher).trim() : "",
     director: director ? String(director).trim() : "",
     passage: leitura ? String(leitura).trim() : "",
     occasionLabel: special ? String(special).trim() : "",
-    googleEventId: eventId ? String(eventId).trim() : "",
     status
   };
 }
@@ -64,7 +78,7 @@ function parseRow(row) {
 const items = [];
 for (let i = 1; i <= 212; i++) {
   const parsed = parseRow(rows[i]);
-  if (parsed && parsed.googleEventId) items.push(parsed);
+  if (parsed) items.push(parsed);
 }
 
 function quote(value) {
@@ -74,6 +88,7 @@ function quote(value) {
 const valueRows = items
   .map((item, index) => {
     const cells = [
+      `${quote(item.id)}::uuid`,
       quote(item.title),
       quote(item.ministryName),
       index === 0 ? `${quote(item.startsAt)}::timestamptz` : quote(item.startsAt),
@@ -84,7 +99,6 @@ const valueRows = items
       quote(item.director),
       quote(item.passage),
       quote(item.occasionLabel),
-      quote(item.googleEventId),
       quote(item.status)
     ].join(", ");
     return `    (${cells})`;
@@ -92,17 +106,17 @@ const valueRows = items
   .join(",\n");
 
 const seed = `with schedule_seed (
-  title, ministry_name, starts_at, ends_at, location, summary,
-  preacher, director, passage, occasion_label, google_event_id, status
+  id, title, ministry_name, starts_at, ends_at, location, summary,
+  preacher, director, passage, occasion_label, status
 ) as (
   values
 ${valueRows}
 )
 insert into public.schedule_items as si
   (id, title, ministry_id, starts_at, ends_at, location, summary,
-   preacher, director, passage, occasion_label, google_event_id, status, featured)
+   preacher, director, passage, occasion_label, status, featured)
 select
-  gen_random_uuid(),
+  ss.id,
   ss.title,
   public.upsert_ministry_id(ss.ministry_name),
   ss.starts_at,
@@ -113,11 +127,10 @@ select
   ss.director,
   ss.passage,
   ss.occasion_label,
-  ss.google_event_id,
   ss.status,
   false
 from schedule_seed ss
-on conflict (google_event_id) where google_event_id is not null do update set
+on conflict (id) do update set
   title = excluded.title,
   ministry_id = excluded.ministry_id,
   starts_at = excluded.starts_at,

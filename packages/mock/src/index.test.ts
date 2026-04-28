@@ -105,7 +105,6 @@ it("creates, updates and deletes schedule items", async () => {
     director: "",
     passage: "",
     occasionLabel: "",
-    googleEventId: "",
     status: "scheduled",
     featured: false
   });
@@ -132,7 +131,6 @@ it("persists all extended schedule fields through save and reload", async () => 
     director: "Diac. Ana",
     passage: "Marcos 1",
     occasionLabel: "PASCOA",
-    googleEventId: "abc@google.com",
     status: "scheduled",
     featured: true
   });
@@ -143,7 +141,6 @@ it("persists all extended schedule fields through save and reload", async () => 
   expect(reloaded?.director).toBe("Diac. Ana");
   expect(reloaded?.passage).toBe("Marcos 1");
   expect(reloaded?.occasionLabel).toBe("PASCOA");
-  expect(reloaded?.googleEventId).toBe("abc@google.com");
   expect(reloaded?.status).toBe("scheduled");
 });
 
@@ -160,7 +157,6 @@ it("keeps suspended and free schedule items in listSchedule but not in upcoming"
     director: "",
     passage: "",
     occasionLabel: "",
-    googleEventId: "",
     status: "suspended",
     featured: false
   });
@@ -175,7 +171,6 @@ it("keeps suspended and free schedule items in listSchedule but not in upcoming"
     director: "",
     passage: "",
     occasionLabel: "",
-    googleEventId: "",
     status: "free",
     featured: false
   });

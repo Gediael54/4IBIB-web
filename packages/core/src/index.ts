@@ -66,7 +66,6 @@ export interface ScheduleItem {
   director: string;
   passage: string;
   occasionLabel: string;
-  googleEventId: string;
   status: ScheduleStatus;
   featured: boolean;
 }

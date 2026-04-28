@@ -177,7 +177,6 @@ const scheduleRow = {
   director: "",
   passage: "",
   occasion_label: "",
-  google_event_id: "",
   status: "scheduled",
   featured: true
 };
@@ -576,7 +575,6 @@ describe("SupabaseContentRepository", () => {
       director: "Diac. Ana",
       passage: "Marcos 1",
       occasion_label: "PASCOA",
-      google_event_id: "abc@google.com",
       status: "suspended"
     };
     client.setNext({ data: [row], error: null });
@@ -594,17 +592,15 @@ describe("SupabaseContentRepository", () => {
       director: "Diac. Ana",
       passage: "Marcos 1",
       occasionLabel: "PASCOA",
-      googleEventId: "abc@google.com",
       status: "suspended",
       featured: true
     });
   });
 
-  it("maps nullable schedule labels and google event ids to empty strings", async () => {
-    client.setNext({ data: [{ ...scheduleRow, occasion_label: null, google_event_id: null }], error: null });
+  it("maps nullable schedule labels to empty strings", async () => {
+    client.setNext({ data: [{ ...scheduleRow, occasion_label: null }], error: null });
     const [item] = await backend().content.listSchedule();
     expect(item?.occasionLabel).toBe("");
-    expect(item?.googleEventId).toBe("");
   });
 
   it("maps schedule ministry names from array relations and legacy fallbacks", async () => {
@@ -671,14 +667,11 @@ describe("SupabaseContentRepository", () => {
       director: "",
       passage: "",
       occasionLabel: "",
-      googleEventId: "",
       status: "scheduled",
       featured: true
     });
     expect(result.id).toBe("s1");
-    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ google_event_id: null, ministry_id: "m1" })
-    );
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(expect.objectContaining({ ministry_id: "m1" }));
   });
 
   it("saves schedule item generating id and ministry when missing", async () => {
@@ -697,7 +690,6 @@ describe("SupabaseContentRepository", () => {
       director: "",
       passage: "",
       occasionLabel: "",
-      googleEventId: "",
       status: "scheduled",
       featured: false
     });
@@ -727,7 +719,6 @@ describe("SupabaseContentRepository", () => {
       director: "",
       passage: "",
       occasionLabel: "",
-      googleEventId: "",
       status: "scheduled",
       featured: false
     });
@@ -753,7 +744,6 @@ describe("SupabaseContentRepository", () => {
       director: "",
       passage: "",
       occasionLabel: "",
-      googleEventId: "",
       status: "scheduled",
       featured: false
     });
@@ -776,7 +766,6 @@ describe("SupabaseContentRepository", () => {
       director: "",
       passage: "",
       occasionLabel: "",
-      googleEventId: "",
       status: "scheduled",
       featured: false
     });
@@ -799,7 +788,6 @@ describe("SupabaseContentRepository", () => {
         director: "",
         passage: "",
         occasionLabel: "",
-        googleEventId: "",
         status: "scheduled",
         featured: false
       })
@@ -822,7 +810,6 @@ describe("SupabaseContentRepository", () => {
         director: "",
         passage: "",
         occasionLabel: "",
-        googleEventId: "",
         status: "scheduled",
         featured: false
       })
@@ -844,7 +831,6 @@ describe("SupabaseContentRepository", () => {
         director: "",
         passage: "",
         occasionLabel: "",
-        googleEventId: "",
         status: "scheduled",
         featured: false
       })

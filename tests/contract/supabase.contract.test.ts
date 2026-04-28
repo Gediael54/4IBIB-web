@@ -64,7 +64,6 @@ describe.skipIf(skip)("supabase contract", () => {
       director: expect.any(String),
       passage: expect.any(String),
       occasionLabel: expect.any(String),
-      googleEventId: expect.any(String),
       featured: expect.any(Boolean)
     });
     expect(["scheduled", "suspended", "free"]).toContain(first.status);

@@ -217,7 +217,6 @@ function emptyScheduleItem(): ScheduleItem {
     director: "",
     passage: "",
     occasionLabel: "",
-    googleEventId: "",
     status: "scheduled",
     featured: false
   };
@@ -468,7 +467,6 @@ function App() {
       director: String(formData.get("director") ?? ""),
       passage: String(formData.get("passage") ?? ""),
       occasionLabel: String(formData.get("occasionLabel") ?? ""),
-      googleEventId: scheduleDraft.googleEventId,
       status: String(formData.get("status") ?? "scheduled") as ScheduleItem["status"],
       featured: formData.get("featured") === "on"
     });

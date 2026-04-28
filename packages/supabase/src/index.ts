@@ -252,7 +252,6 @@ function mapSchedule(row: JsonObject): ScheduleItem {
     director: String(row.director),
     passage: String(row.passage),
     occasionLabel: String(row.occasion_label ?? ""),
-    googleEventId: String(row.google_event_id ?? ""),
     status: row.status as ScheduleItem["status"],
     featured: Boolean(row.featured)
   };
@@ -296,7 +295,6 @@ function toScheduleRow(input: ScheduleItem, ministryId: string): JsonObject {
     director: input.director,
     passage: input.passage,
     occasion_label: input.occasionLabel,
-    google_event_id: input.googleEventId || null,
     status: input.status,
     featured: input.featured
   };
@@ -450,7 +448,6 @@ class SupabaseContentRepository implements ContentRepository {
       director: input.director,
       passage: input.passage,
       occasionLabel: input.occasionLabel,
-      googleEventId: input.googleEventId,
       status: input.status,
       featured: input.featured
     };

@@ -211,7 +211,6 @@ class MockContentRepository implements ContentRepository {
       director: input.director,
       passage: input.passage,
       occasionLabel: input.occasionLabel,
-      googleEventId: input.googleEventId,
       status: input.status,
       featured: input.featured
     };
