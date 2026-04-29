@@ -313,6 +313,10 @@ Nada em voo — Calendário K entrou no `main` (commit pendente). 135 testes ver
 - [ ] **#55** Notificação ao publicar aviso: WhatsApp seria ideal, mas depende de API/estratégia; deixar canal configurável no admin para implementação futura.
 - [x] **#56** Versionamento de conteúdo: começar por audit/history no banco; rollback visual fica para depois.
 - [ ] **#57** Bio dos pastores/liderança com fotos: criar CRUD próprio no admin e seção pública no site.
+- [ ] **#62** Seção "Primeira vez aqui?" no site — onboarding com 4-5 cards (o que esperar, duração do culto, escola dominical, como chegar, dress code). Padrão presente em 100% das referências internacionais (Capitol Hill, HTB, Bridgetown, Redeemer).
+- [ ] **#63** Eyebrow tags por categoria nos avisos/eventos (ESTUDO BÍBLICO / MISSÕES / CONFERÊNCIA) — leitura rápida sem virar parede de cor; usar token único da paleta, diferenciar só pelo texto.
+- [ ] **#64** "Latest Teaching" persistente na home — quando sermões entrarem (#52), ter UM destaque sempre visível como herói secundário, não só lista. Padrão Bridgetown/Redeemer.
+- [ ] **#65** Confissão de fé / doutrina no footer — link pra confissão batista de 1689 ou similar; diferencia identidade reformada sem ocupar espaço no header.
 
 ## 🎨 Assets / marca
 
