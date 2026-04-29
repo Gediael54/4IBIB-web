@@ -15,7 +15,8 @@ import {
 import { useEffect, useMemo, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { createBackend } from "./backend";
-import MonthAgenda from "./components/MonthAgenda";
+import MonthScrollCalendar from "./components/MonthScrollCalendar";
+import UpcomingEvents from "./components/UpcomingEvents";
 import { initMonitoring } from "./monitoring";
 import "./styles.css";
 
@@ -227,7 +228,10 @@ export function App() {
           </div>
           <CalendarDays />
         </div>
-        <MonthAgenda schedule={schedule} />
+        <p className="schedule-subhead">Proximos eventos</p>
+        <UpcomingEvents schedule={schedule} profile={profile} />
+        <p className="schedule-subhead">Calendario do mes</p>
+        <MonthScrollCalendar schedule={schedule} profile={profile} />
       </section>
 
       <section className="section" id="ministerios">
