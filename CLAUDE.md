@@ -87,6 +87,113 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 - **Funcionalidades futuras**: multi-admin fica preparado para o futuro; inscrições, newsletter e WhatsApp ficam como backlog posterior.
 - **Assets**: usar `assets/logo-main.png`, `assets/logo-source.jpg` e `assets/hero-source.png`; pode substituir referências atuais e remover `Logo da 4ibib.png`.
 
+## Checkpoint 2026-04-29 — fim do dia (continua amanhã)
+
+### SQL pra rodar no Supabase amanhã
+
+**1. Atualizar perfil da igreja** (estava como Boa Vista, RR; deve ser Caruaru, PE):
+
+```sql
+update public.church_profile
+set
+  city = 'Caruaru, PE',
+  address = '478 Rua Jose Victor de Albuquerque',
+  whatsapp = '+55 81 98122-0651',
+  name = '4a Igreja Batista Independente Betel',
+  short_name = '4a Betel'
+where id = 'main';
+```
+
+**2. Deduplicar eventos** (seed rodou duas vezes com UUIDs diferentes — a UI renderizou "Culto de Louvor 30/abr" duas vezes):
+
+```sql
+-- Diagnostica primeiro
+select starts_at, title, ministry_id, count(*)
+from public.schedule_items
+group by starts_at, title, ministry_id
+having count(*) > 1
+order by starts_at;
+
+-- Deleta duplicatas mantendo o de menor id
+delete from public.schedule_items s
+using (
+  select id,
+         row_number() over (partition by starts_at, title order by id) as rn
+  from public.schedule_items
+) ranked
+where s.id = ranked.id
+  and ranked.rn > 1;
+
+-- Confirma
+select count(*) from public.schedule_items;
+```
+
+### Status do Calendar K (já em `main`, 4 commits pushed)
+
+- `bb915e5` docs(claude): record calendar K delivery
+- `119d2b4` feat(site): replace MonthAgenda with calendar K layout on the homepage
+- `07160b0` feat(site): add EventCard, UpcomingEvents and MonthScrollCalendar
+- `621634c` feat(site): add lib/date and lib/event helpers for the calendar
+
+Estrutura entregue:
+
+- `apps/site/src/lib/date.ts` (helpers Recife) e `lib/event.ts` (displayLocation + occasionStyle).
+- `apps/site/src/components/{EventCard,UpcomingEvents,MonthScrollCalendar}.tsx` + testes.
+- `MonthAgenda.tsx` removido. `apps/site/src/main.tsx` consome zona 1 (próximos 5) + zona 2 (mini-grid sticky + timeline).
+- 135 testes verdes (TZ=UTC), build limpo, cobertura 100% nos packages.
+
+### Feedback do usuário sobre Calendar K (a tratar amanhã)
+
+1. **Paleta sem personalidade** — laranja/gold atual lê como Tailwind padrão. Pediu pesquisa real, vocabulário sóbrio reformado. **Proposta principal: "Bronze on Navy"** (refs: Banner of Truth, Capitol Hill Baptist, Truth For Life, Reformation21):
+   - `--bg-cream #F4ECD8`, `--bg-card #FBF6E9`
+   - `--ink-navy #1A2740` (substitui slate `#1f2937`)
+   - `--ink-text #1A1A1A`, `--muted #6B5D4F`
+   - `--accent-bronze #A07337` (substitui orange `#c2410c`)
+   - `--accent-gold #C8A24E` (substitui mostarda `#fbbf24`)
+   - `--border #D9CCB1`
+   - Critério: 60-30-10 (60% neutro, 30% navy, 10% bronze), AA WCAG, vibe institucional/atemporal, harmoniza com a logo metálica.
+   - Alternativas no waiting room: "Forest & Burgundy" (`#1F3A2A` + `#EDE3CC` + `#7A1F2C`) ou "Charcoal & Terracotta" (`#2A2520` + `#F2EAD8` + `#A8492C`). Aguardando confirmação.
+
+2. **Calendar K desencaixado do site** — paineis e cores do Calendar K não conversam com o resto. Plano de harmonização (depende da paleta acima):
+   - Mini-grid + header em modo escuro (vivem direto no slate/navy da seção, sem painel cream wrapper, sem box-shadow).
+   - Headers de dia: trocar `──── Quinta · 5 fev ────` por eyebrow `QUINTA · 5 FEV` (uppercase + letterspacing + gold).
+   - Cards: border-radius 8px (não 10), alinhar com resto do site.
+   - **Badge de ocasião: uma paleta só** (gold-on-cream-amber, igual `.schedule-tag` existente). Drop das 4 paletas multicor (lavanda/teal/rose/amber) — não combinavam com nada do site. Diferenciar tipo de ocasião pode voltar como iteração futura se virar prioridade.
+
+3. **Animação/posicionamento do scroll** — quando clica num dia da mini-grid, scrolla pra um ponto que ainda fica coberto pela própria sticky (calendário sticky tem ~300px de altura mas `scroll-margin-top` está em 220px). Fix: subir pra ~340px ou recalcular dinamicamente via `getBoundingClientRect` da sticky. Falta confirmar com o usuário se há outras animações que ele estranhou (entrada de cards, transição de mês, hover).
+
+### Plano para a próxima sessão (sequência)
+
+1. **Usuário roda os 2 SQLs acima** no Supabase (cidade + dedup) e confirma.
+2. **Usuário escolhe a paleta** (Bronze on Navy / Forest & Burgundy / Charcoal & Terracotta).
+3. Implementar:
+   - `apps/site/src/lib/theme.ts` ou bloco `:root { --token: value }` no `styles.css` com tokens da paleta escolhida.
+   - Refatorar `styles.css` (site) e `apps/admin/src/styles.css` substituindo cores hardcoded por tokens.
+   - Aplicar harmonização do Calendar K (mini-grid dark, header eyebrow-style, badge unificado, radius 8px, sem shadow).
+   - Corrigir `scroll-margin-top` do `.timeline-day` (340px ou dinâmico).
+4. Verificar visualmente em desktop e mobile (golden path: hero → próximos → calendário do mês → click num dia → tudo encaixa).
+5. Rodar `npm test` e `npm run build`.
+6. Commit em duas frentes: `style(site): apply bronze-on-navy palette tokens` e `refactor(site): harmonize calendar K with site design system`.
+
+### Ideias do usuário registradas (longer-term)
+
+- Eventualmente trazer de volta "cor por tipo de ocasião" se houver demanda real. Hoje é prematuro com 4 ocasiões/ano.
+- Se a paleta Bronze on Navy não convencer ao ver no ar, escapes prontos: Forest & Burgundy (mais clássico inglês) ou Charcoal & Terracotta (mais contemporâneo).
+- IntersectionObserver pra atualizar header conforme usuário rola pela timeline ainda está adiado — pode entrar quando timeline crescer pra mostrar múltiplos meses.
+
+### TODOs ainda abertos do backlog
+
+- `#23` rotacionar service_role JWT (manual no painel Supabase + atualizar README).
+- `#50` multi-admin owner/editor (futuro).
+- `#51` inscrições em eventos (depende de definir destino).
+- `#52` YouTube em pregações/estudos (concreto, fechável em uma sessão).
+- `#53` PIX/doações (chave + QR estático, pequeno).
+- `#54` newsletter (futuro).
+- `#55` notificação ao publicar aviso (depende de canal).
+- `#57` bio dos pastores/liderança (CRUD novo + seção pública).
+
+---
+
 ## Checkpoint da sessão 2026-04-28 — onde paramos
 
 ### Já entrou no `main`
