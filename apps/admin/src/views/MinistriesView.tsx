@@ -38,7 +38,7 @@ function emptyMinistryValues(): MinistryFormValues {
     summary: "",
     meetingTime: "",
     contact: "",
-    color: "#0f766e"
+    color: "#a07337"
   };
 }
 
