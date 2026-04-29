@@ -100,50 +100,24 @@ Marcar com `[x]` ao concluir. Itens novos entram na seção que fizer sentido.
 
 ### Em voo
 
-Nada em voo no fim do checkpoint — Playwright entregou e foi para o `main`.
+Nada em voo — Calendário K entrou no `main` (commit pendente). 135 testes verdes, build limpo.
 
-### Próximo passo (decidido com o usuário)
+### Calendário K — entregue (2026-04-29)
 
-**Implementar Calendário K** no `apps/site/`:
+- `apps/site/src/lib/date.ts`: helpers Recife (`startOfMonth`, `endOfMonth`, `addMonths`, `daysInMonth`, `weekdayOfFirstDay`, `getZonedParts`, `formatMonthLabel` sem TZ override, `formatTime`, `formatWeekdayLong/Short`, `formatMonthShort`, `isoForDay`).
+- `apps/site/src/lib/event.ts`: `displayLocation(item, profile)` faz fallback para `profile.shortName` + `name` quando location está vazio ou é "Templo principal" (case-insensitive); `occasionStyle(label)` mapeia PASCOA→lavanda, MISSOES→teal, NATAL→rose, CARNAVAL→amber + paleta neutra para labels desconhecidos.
+- `apps/site/src/components/EventCard.tsx`: prop `compact?` + `showDay?/dayLabel?`. Renderiza badge de ocasião, time, título com variantes `suspended` (tachado + (SUSPENSO)) e `free` (italic "Livre"), star + borda lateral quando `featured`. Meta dl com Pregador/Dirigente/Leitura só quando preenchidos, e Local sempre com fallback ao perfil.
+- `apps/site/src/components/UpcomingEvents.tsx`: usa `getUpcomingSchedule(schedule, limit=5)`; renderiza nada quando vazio; cards compactos com `Dom · 1 fev` no header de tempo.
+- `apps/site/src/components/MonthScrollCalendar.tsx`: mini-grid sticky 7 colunas com células `has-event` (círculo `--color-accent`/laranja) e `today` (outline). Click em dia com evento → `scrollIntoView` da seção do dia. Timeline lista só dias com evento, com header sticky `──── Quinta · 5 fev ────`. Sub-banner de ocasião do mês quando algum evento tem `occasionLabel`.
+- `apps/site/src/main.tsx`: zona 1 (`UpcomingEvents`) + zona 2 (`MonthScrollCalendar`) dentro de `.schedule-section`. Subheads "Proximos eventos" / "Calendario do mes" com estilo dourado.
+- CSS reescrito: removidas classes `.month-agenda-*` e `.calendar-panel`; adicionadas `.upcoming-events`, `.event-card[.compact|.featured|.suspended|.free]`, `.month-scroll[-sticky|-header|-occasion|-empty]`, `.month-grid[-weekdays|-days|-cell.has-event/.today]`, `.timeline-day[-header|-events]`, `.schedule-subhead`.
+- Testes: 135 verdes (TZ=UTC) com cobertura 100% nos packages. `MonthAgenda.tsx`/`.test.tsx` removidos. Cobre fallback de location, ocasiões, status variants, navegação prev/next, today highlight, scrollIntoView, agrupamento cronológico.
 
-- **Layout**: mini-grid sticky no topo (visão de mês compacta) + timeline vertical contínua abaixo. Sem switching de paradigma entre desktop e mobile.
-- **Mini-grid**: 7 colunas, dias do mês. Dia com evento = círculo preenchido com `--color-accent`. Hoje = anel contornado. Click no dia = `scrollIntoView` na seção da timeline.
-- **Header sticky**: "Fevereiro 2026" + setas ◀ ▶ + dropdown opcional de meses. Atualiza automaticamente via IntersectionObserver enquanto rola.
-- **Timeline**: uma `<section>` por dia, ordem cronológica, headers `──── Quinta · 5 fev ────` sticky. Dias sem evento são omitidos (não há linha vazia). Mês de ocasião (ex: "Marco · Mes das missoes") ganha sub-banner se algum evento naquele mês tem `occasion_label`.
-- **Próximos 5 eventos**: zona separada acima do calendário, em formato de cards compactos. Reusa o mesmo `EventCard.tsx` em variante compact.
+### Decisões adiadas
 
-**Componente `EventCard.tsx`** (reuso entre as duas zonas):
-
-| Campo                                                               | Quando aparece       | Tratamento                                                                                                                                                                   |
-| ------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `occasion_label` ("PASCOA", "MES DAS MISSOES", "CARNAVAL", "NATAL") | só se preenchido     | badge colorido no topo do card; cor por tipo (Páscoa lavanda, Missões teal, Natal salmão, Carnaval âmbar)                                                                    |
-| `featured`                                                          | se true              | borda lateral colorida + ★                                                                                                                                                   |
-| `status='suspended'`                                                | sempre               | card opaco, título com tachado, sufixo `(SUSPENSO)`                                                                                                                          |
-| `status='free'`                                                     | sempre               | título "Livre" em itálico, card discreto                                                                                                                                     |
-| `preacher`                                                          | só se preenchido     | linha rotulada "Pregador"                                                                                                                                                    |
-| `director`                                                          | só se preenchido     | linha rotulada "Dirigente"                                                                                                                                                   |
-| `passage`                                                           | só se preenchido     | linha rotulada "Leitura"                                                                                                                                                     |
-| `location`                                                          | sempre, com fallback | vazio ou `Templo principal` → mostra `profile.shortName` ("4a Betel") + linha menor `profile.name` ("4a Igreja Batista Independente Betel"); outro lugar → renderiza literal |
-
-**Estrutura de arquivos prevista**:
-
-```
-apps/site/src/
-  lib/
-    date.ts              # startOfMonth, endOfMonth, addMonths, formatMonth, formatDay, formatTime (Intl + America/Recife)
-    event.ts             # displayLocation(item, profile), occasionBadgeStyle(label), eventBadges(item)
-  components/
-    EventCard.tsx        # card único, prop `compact?: boolean` pra densidade
-    UpcomingEvents.tsx   # próximos 5 via listUpcomingSchedule(5)
-    MonthScrollCalendar.tsx  # mini-grid sticky + timeline
-```
-
-`MonthAgenda.tsx` antigo é substituído pelo `MonthScrollCalendar`. `apps/site/src/main.tsx` consome `UpcomingEvents` (zona 1) e `MonthScrollCalendar` (zona 2).
-
-**Ainda pendente discutir/decidir**:
-
-- Cor por ministério no mini-grid: implementar agora ou depois? (decisão default: começar sem, só `--color-accent`; adicionar ministério-color depois.)
-- Auto-scroll inicial pra "hoje" ou primeiro evento próximo: começar com `scroll-margin-top` + sem auto-scroll; reavaliar.
+- Cor por ministério no mini-grid: deixado fora (só `--color-accent`).
+- Auto-scroll inicial pra "hoje": deixado fora; `scroll-margin-top: 220px` cuida do offset quando usuário clica no dia.
+- IntersectionObserver pra atualizar header conforme rola: não implementado — viewedMonth muda só pelos botões.
 
 ## 🔴 Bugs reais
 
