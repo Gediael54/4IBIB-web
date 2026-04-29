@@ -223,11 +223,9 @@ export default function MonthScrollCalendar({ schedule, profile, initialMonth }:
               aria-label={`${group.weekday} ${group.day}`}
             >
               <h4 className="timeline-day-header">
-                <span aria-hidden="true">────</span>
                 <span>
                   {group.weekday} · {group.day} {monthShortFromIso}
                 </span>
-                <span aria-hidden="true">────</span>
               </h4>
               <ul className="timeline-day-events">
                 {group.items.map((item) => (
