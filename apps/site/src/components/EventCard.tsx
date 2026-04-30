@@ -1,14 +1,15 @@
 import { Star } from "lucide-react";
-import type { ChurchProfile, ScheduleItem } from "@4ibib/core";
+import type { ReactNode } from "react";
+import type { ScheduleItem } from "@4ibib/core";
 import { formatTime } from "../lib/date";
-import { displayLocation, occasionStyle } from "../lib/event";
+import { displayLocation, getSoundTeam, occasionStyle, splitNames } from "../lib/event";
 
 export interface EventCardProps {
   item: ScheduleItem;
-  profile: ChurchProfile;
   compact?: boolean;
   showDay?: boolean;
   dayLabel?: string;
+  highlight?: string;
 }
 
 function classNames(item: ScheduleItem, compact: boolean): string {
@@ -35,16 +36,50 @@ function renderTitle(item: ScheduleItem) {
   return <span className="event-card-title-text">{item.title}</span>;
 }
 
+function renderHighlighted(value: string, query: string): ReactNode {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return value;
+  }
+  const lowerValue = value.toLowerCase();
+  const lowerQuery = trimmed.toLowerCase();
+  const index = lowerValue.indexOf(lowerQuery);
+  if (index === -1) {
+    return value;
+  }
+  return (
+    <>
+      {value.slice(0, index)}
+      <mark className="match">{value.slice(index, index + trimmed.length)}</mark>
+      {value.slice(index + trimmed.length)}
+    </>
+  );
+}
+
+function renderNameList(value: string, query: string): ReactNode {
+  const names = splitNames(value);
+  if (names.length === 0) {
+    return renderHighlighted(value, query);
+  }
+  return names.map((name, i) => (
+    <span key={`${name}-${i}`}>
+      {renderHighlighted(name, query)}
+      {i < names.length - 1 ? " · " : ""}
+    </span>
+  ));
+}
+
 export default function EventCard({
   item,
-  profile,
   compact = false,
   showDay = false,
-  dayLabel
+  dayLabel,
+  highlight = ""
 }: EventCardProps) {
   const occasion = occasionStyle(item.occasionLabel);
-  const location = displayLocation(item, profile);
+  const location = displayLocation(item);
   const time = formatTime(item.startsAt);
+  const soundTeam = getSoundTeam(item);
 
   return (
     <article
@@ -84,13 +119,19 @@ export default function EventCard({
           {item.preacher && (
             <div>
               <dt>Pregador</dt>
-              <dd>{item.preacher}</dd>
+              <dd>{renderHighlighted(item.preacher, highlight)}</dd>
             </div>
           )}
           {item.director && (
             <div>
               <dt>Dirigente</dt>
-              <dd>{item.director}</dd>
+              <dd>{renderHighlighted(item.director, highlight)}</dd>
+            </div>
+          )}
+          {soundTeam && (
+            <div>
+              <dt>Som</dt>
+              <dd>{renderNameList(soundTeam, highlight)}</dd>
             </div>
           )}
           {item.passage && (
