@@ -1,18 +1,15 @@
-import { createBackend as createRuntimeBackend } from "@4ibib/runtime";
+import { createSupabaseBackend } from "@4ibib/supabase";
 
-export function createBackend() {
-  return createRuntimeBackend({
-    VITE_BACKEND: import.meta.env.VITE_BACKEND,
-    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-    VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-    VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
-    VITE_PRAYER_ENDPOINT: import.meta.env.VITE_PRAYER_ENDPOINT,
-    ...(import.meta.env.DEV
-      ? {
-          VITE_MOCK_ADMIN_EMAIL: import.meta.env.VITE_MOCK_ADMIN_EMAIL,
-          VITE_MOCK_ADMIN_PASSWORD: import.meta.env.VITE_MOCK_ADMIN_PASSWORD,
-          VITE_MOCK_ADMIN_DISPLAY_NAME: import.meta.env.VITE_MOCK_ADMIN_DISPLAY_NAME
-        }
-      : {})
-  });
+const url = import.meta.env.VITE_SUPABASE_URL ?? "";
+const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+const prayerEndpoint = import.meta.env.VITE_PRAYER_ENDPOINT ?? "";
+
+if (!url) {
+  throw new Error("VITE_SUPABASE_URL nao configurada.");
 }
+
+if (!anonKey) {
+  throw new Error("VITE_SUPABASE_PUBLISHABLE_KEY nao configurada.");
+}
+
+export const backend = createSupabaseBackend({ url, anonKey, prayerEndpoint });
