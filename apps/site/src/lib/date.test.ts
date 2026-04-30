@@ -8,6 +8,8 @@ import {
   formatTime,
   formatWeekdayLong,
   formatWeekdayShort,
+  getDayKey,
+  getMonthKey,
   getZonedParts,
   isoForDay,
   startOfMonth,
@@ -91,5 +93,17 @@ describe("date helpers", () => {
 
   it("isoForDay builds a stable midday ISO", () => {
     expect(isoForDay(2026, 2, 1)).toBe("2026-02-01T12:00:00.000Z");
+  });
+
+  it("getMonthKey returns zero-padded YYYY-MM key and labelled month", () => {
+    const result = getMonthKey("2026-05-08T22:30:00.000Z");
+    expect(result.year).toBe(2026);
+    expect(result.month).toBe(5);
+    expect(result.key).toBe("2026-05");
+    expect(result.label).toMatch(/Maio/i);
+  });
+
+  it("getDayKey returns YYYY-MM-DD key in Recife timezone", () => {
+    expect(getDayKey("2026-05-08T22:30:00.000Z")).toBe("2026-05-08");
   });
 });
