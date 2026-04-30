@@ -1,17 +1,12 @@
-import type {
-  AnnouncementInput,
-  ChurchProfile,
-  MinistryInput,
-  PrayerRequest,
-  ScheduleItemInput
-} from "@4ibib/core";
+import type { AnnouncementInput, PrayerRequest, ScheduleItemInput, VolunteerInput } from "@4ibib/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createBackend } from "./backend";
+import { backend } from "./backend";
 
-export const backend = createBackend();
+export { backend };
 
 const SNAPSHOT_KEY = ["snapshot"] as const;
 const PRAYERS_KEY = ["prayers"] as const;
+const VOLUNTEERS_KEY = ["volunteers"] as const;
 
 export function useSnapshot() {
   return useQuery({
@@ -59,35 +54,40 @@ export function useDeleteScheduleItem() {
   });
 }
 
-export function useSaveMinistry() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: MinistryInput) => backend.content.saveMinistry(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
-  });
-}
-
-export function useDeleteMinistry() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => backend.content.deleteMinistry(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
-  });
-}
-
-export function useUpdateProfile() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (profile: ChurchProfile) => backend.content.updateProfile(profile),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
-  });
-}
-
 export function useUpdatePrayerStatus() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: PrayerRequest["status"] }) =>
       backend.content.updatePrayerRequestStatus(id, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: PRAYERS_KEY })
+  });
+}
+
+export function useVolunteers() {
+  return useQuery({
+    queryKey: VOLUNTEERS_KEY,
+    queryFn: () => backend.content.listVolunteers()
+  });
+}
+
+export function useSaveVolunteer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: VolunteerInput) => backend.content.saveVolunteer(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: VOLUNTEERS_KEY });
+      queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY });
+    }
+  });
+}
+
+export function useDeleteVolunteer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.deleteVolunteer(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: VOLUNTEERS_KEY });
+      queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY });
+    }
   });
 }
