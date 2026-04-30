@@ -1,28 +1,8 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChurchProfile, ScheduleItem } from "@4ibib/core";
+import type { ScheduleItem } from "@4ibib/core";
 import UpcomingEvents from "./UpcomingEvents";
-
-const PROFILE: ChurchProfile = {
-  id: "main",
-  name: "4a Igreja Batista Independente Betel",
-  shortName: "4a Betel",
-  tagline: "",
-  city: "",
-  pastorName: "",
-  address: "",
-  email: "",
-  whatsapp: "",
-  instagramUrl: "",
-  youtubeUrl: "",
-  mapsUrl: "",
-  heroVerse: "",
-  mission: "",
-  foundedText: "",
-  regularMeetings: [],
-  updatedAt: ""
-};
 
 function makeItem(id: string, daysFromNow: number, overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   const base = new Date("2026-02-15T12:00:00.000Z").getTime();
@@ -38,6 +18,7 @@ function makeItem(id: string, daysFromNow: number, overrides: Partial<ScheduleIt
     summary: "",
     preacher: "",
     director: "",
+    soundTeam: "",
     passage: "",
     occasionLabel: "",
     status: "scheduled",
@@ -58,13 +39,13 @@ describe("UpcomingEvents", () => {
   });
 
   it("renders nothing when there are no upcoming events", () => {
-    const { container } = render(<UpcomingEvents schedule={[]} profile={PROFILE} />);
+    const { container } = render(<UpcomingEvents schedule={[]} />);
     expect(container.firstChild).toBeNull();
   });
 
   it("limits the list to the upcoming default of 5", () => {
     const schedule = Array.from({ length: 10 }, (_, index) => makeItem(`evt-${index}`, index + 1));
-    render(<UpcomingEvents schedule={schedule} profile={PROFILE} />);
+    render(<UpcomingEvents schedule={schedule} />);
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(5);
   });
@@ -76,14 +57,14 @@ describe("UpcomingEvents", () => {
       makeItem("free", 3, { status: "free" }),
       makeItem("future", 4)
     ];
-    render(<UpcomingEvents schedule={schedule} profile={PROFILE} />);
+    render(<UpcomingEvents schedule={schedule} />);
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(screen.getByText("Evento future")).toBeInTheDocument();
   });
 
   it("respects custom limit prop", () => {
     const schedule = Array.from({ length: 5 }, (_, index) => makeItem(`evt-${index}`, index + 1));
-    render(<UpcomingEvents schedule={schedule} profile={PROFILE} limit={2} />);
+    render(<UpcomingEvents schedule={schedule} limit={2} />);
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
 });
