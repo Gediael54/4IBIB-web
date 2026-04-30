@@ -573,6 +573,30 @@ end $$;
 -- recurring_meetings now) -------------------------------------------------
 alter table public.church_profile drop column if exists regular_meetings;
 
+-- 5.10 Deduplicate schedule_items and prevent future duplicates ----------
+-- Earlier seed iterations used random UUIDs which produced duplicate rows
+-- with the same (starts_at, title) when the seed ran more than once.
+-- Clean those up before adding the unique constraint that makes the
+-- duplication impossible going forward.
+delete from public.schedule_items s
+using (
+  select id, row_number() over (partition by starts_at, title order by id) as rn
+  from public.schedule_items
+) ranked
+where s.id = ranked.id and ranked.rn > 1;
+
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.table_constraints
+    where table_schema = 'public' and table_name = 'schedule_items'
+      and constraint_name = 'schedule_items_starts_at_title_unique'
+  ) then
+    alter table public.schedule_items
+      add constraint schedule_items_starts_at_title_unique unique (starts_at, title);
+  end if;
+end $$;
+
 
 -- =============================================================================
 -- 6. Indexes
@@ -842,6 +866,17 @@ insert into public.church_profile (
   ''
 ) on conflict (id) do nothing;
 
+-- Force the canonical contact/identity fields on the singleton row even when
+-- it already exists, so stale values from earlier seeds get corrected.
+update public.church_profile
+set
+  name = '4a Igreja Batista Independente Betel',
+  short_name = '4a Betel',
+  city = 'Caruaru, PE',
+  address = '478 Rua Jose Victor de Albuquerque',
+  whatsapp = '+55 81 98122-0651'
+where id = 'main';
+
 insert into public.recurring_meetings (id, profile_id, title, weekday, starts_at, ends_at, description, sort_order)
 values
   ('00000000-0000-4000-8000-000000000101'::uuid, 'main', 'Culto de louvor', 'Quinta', '19:30'::time, '21:00'::time, '', 10),
@@ -855,6 +890,13 @@ on conflict (id) do nothing;
 -- =============================================================================
 -- Run `npm run seed:schedule` to regenerate everything between the SEED markers
 -- below. Do not edit by hand: changes will be overwritten.
+--
+-- Conflict resolution uses `(starts_at, title)` instead of `id` because earlier
+-- seed iterations stored random UUIDs in the database. When the seed switched
+-- to deterministic UUIDs, those new ids no longer matched the stored random
+-- ones, causing inserts that fell into the unique constraint added in
+-- section 5.10. Matching by `(starts_at, title)` lets the seed update existing
+-- rows regardless of the historical id strategy.
 
 -- BEGIN SEED ------------------------------------------------------------------
 with schedule_seed (
@@ -1093,10 +1135,8 @@ select
   ss.status,
   false
 from schedule_seed ss
-on conflict (id) do update set
-  title = excluded.title,
+on conflict (starts_at, title) do update set
   ministry_id = excluded.ministry_id,
-  starts_at = excluded.starts_at,
   ends_at = excluded.ends_at,
   location = excluded.location,
   summary = excluded.summary,
@@ -1105,9 +1145,7 @@ on conflict (id) do update set
   passage = excluded.passage,
   occasion_label = excluded.occasion_label,
   status = excluded.status
-where si.title is distinct from excluded.title
-   or si.ministry_id is distinct from excluded.ministry_id
-   or si.starts_at is distinct from excluded.starts_at
+where si.ministry_id is distinct from excluded.ministry_id
    or si.ends_at is distinct from excluded.ends_at
    or si.location is distinct from excluded.location
    or si.summary is distinct from excluded.summary

@@ -130,10 +130,8 @@ select
   ss.status,
   false
 from schedule_seed ss
-on conflict (id) do update set
-  title = excluded.title,
+on conflict (starts_at, title) do update set
   ministry_id = excluded.ministry_id,
-  starts_at = excluded.starts_at,
   ends_at = excluded.ends_at,
   location = excluded.location,
   summary = excluded.summary,
@@ -142,9 +140,7 @@ on conflict (id) do update set
   passage = excluded.passage,
   occasion_label = excluded.occasion_label,
   status = excluded.status
-where si.title is distinct from excluded.title
-   or si.ministry_id is distinct from excluded.ministry_id
-   or si.starts_at is distinct from excluded.starts_at
+where si.ministry_id is distinct from excluded.ministry_id
    or si.ends_at is distinct from excluded.ends_at
    or si.location is distinct from excluded.location
    or si.summary is distinct from excluded.summary
