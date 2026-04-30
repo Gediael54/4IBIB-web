@@ -4,43 +4,25 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  getSnapshot: vi.fn().mockResolvedValue({
+    announcements: [],
+    schedule: []
+  }),
   createPrayerRequest: vi.fn()
 }));
 
 vi.mock("./backend", () => ({
-  createBackend: () => ({
-    mode: "mock",
+  backend: {
+    mode: "supabase",
     content: {
-      getSnapshot: vi.fn().mockResolvedValue({
-        profile: {
-          id: "main",
-          name: "4a Igreja Batista Independente Betel",
-          shortName: "4a Betel",
-          tagline: "Uma igreja local",
-          city: "Cidade",
-          pastorName: "Pastor",
-          address: "Rua",
-          email: "contato@example.test",
-          whatsapp: "5581999999999",
-          instagramUrl: "",
-          youtubeUrl: "",
-          mapsUrl: "",
-          heroVerse: "Versiculo",
-          mission: "Missao",
-          foundedText: "Historia",
-          regularMeetings: [],
-          updatedAt: "2030-01-01T00:00:00.000Z"
-        },
-        announcements: [],
-        ministries: [],
-        schedule: []
-      }),
+      getSnapshot: mocks.getSnapshot,
       createPrayerRequest: mocks.createPrayerRequest
     }
-  })
+  }
 }));
 
 import { App } from "./main";
+import { CHURCH } from "./config/church";
 
 function renderApp() {
   const client = new QueryClient({
@@ -58,9 +40,7 @@ describe("public site", () => {
     renderApp();
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "4a Igreja Batista Independente Betel" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: CHURCH.name })).toBeInTheDocument();
     });
 
     expect(screen.getByRole("heading", { name: "Pedido de oracao" })).toBeInTheDocument();
