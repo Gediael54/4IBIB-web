@@ -5,13 +5,15 @@ export const TEXTAREA_MAX = 2000;
 export const URL_MAX = 500;
 export const PAGE_SIZE = 8;
 
-export type ListView = "announcements" | "schedule" | "ministries" | "prayers";
+export type ListView = "announcements" | "schedule" | "prayers" | "volunteers";
 
 export interface ListState {
   search: string;
   sort: string;
   page: number;
 }
+
+export type VolunteerRoleFilter = "all" | "geral" | "som";
 
 export interface VisibleList<T> {
   items: T[];
@@ -23,8 +25,8 @@ export interface VisibleList<T> {
 export const INITIAL_LIST_STATE: Record<ListView, ListState> = {
   announcements: { search: "", sort: "publishedDesc", page: 1 },
   schedule: { search: "", sort: "startsAsc", page: 1 },
-  ministries: { search: "", sort: "nameAsc", page: 1 },
-  prayers: { search: "", sort: "createdDesc", page: 1 }
+  prayers: { search: "", sort: "createdDesc", page: 1 },
+  volunteers: { search: "", sort: "nameAsc", page: 1 }
 };
 
 export const ANNOUNCEMENT_SORT_OPTIONS = [
@@ -40,12 +42,6 @@ export const SCHEDULE_SORT_OPTIONS = [
   { value: "titleAsc", label: "Titulo A-Z" },
   { value: "ministryAsc", label: "Ministerio A-Z" },
   { value: "statusAsc", label: "Status A-Z" }
-];
-
-export const MINISTRY_SORT_OPTIONS = [
-  { value: "nameAsc", label: "Nome A-Z" },
-  { value: "meetingTimeAsc", label: "Horario A-Z" },
-  { value: "contactAsc", label: "Contato A-Z" }
 ];
 
 export const PRAYER_SORT_OPTIONS = [
@@ -64,6 +60,24 @@ export const PRAYER_STATUS_OPTIONS: Array<{
   { value: "em_oracao", label: "Em oracao" },
   { value: "concluido", label: "Concluido" }
 ];
+
+export const VOLUNTEER_SORT_OPTIONS = [
+  { value: "nameAsc", label: "Nome A-Z" },
+  { value: "nameDesc", label: "Nome Z-A" },
+  { value: "roleAsc", label: "Funcao A-Z" },
+  { value: "sortOrderAsc", label: "Ordem manual" }
+];
+
+export const VOLUNTEER_ROLE_OPTIONS: Array<{ value: VolunteerRoleFilter; label: string }> = [
+  { value: "all", label: "Todos" },
+  { value: "geral", label: "Geral" },
+  { value: "som", label: "Som" }
+];
+
+export const VOLUNTEER_ROLE_LABELS: Record<"geral" | "som", string> = {
+  geral: "Geral",
+  som: "Som"
+};
 
 export function uniqueSorted(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((left, right) =>
