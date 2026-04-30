@@ -26,7 +26,7 @@ export default function DashboardView({ snapshot, prayers }: DashboardViewProps)
       <div className="stats-grid">
         <Stat label="Avisos" value={snapshot.announcements.length} />
         <Stat label="Eventos" value={snapshot.schedule.length} />
-        <Stat label="Ministerios" value={snapshot.ministries.length} />
+        <Stat label="Voluntarios" value={snapshot.volunteers?.length ?? 0} />
         <Stat label="Pedidos de oracao" value={prayers.length} />
       </div>
     </>
