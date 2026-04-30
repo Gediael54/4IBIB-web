@@ -36,6 +36,7 @@ export const scheduleSchema = z
     summary: z.string().max(TEXTAREA_MAX, `Maximo ${TEXTAREA_MAX} caracteres.`),
     preacher: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
     director: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
+    soundTeam: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
     passage: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
     occasionLabel: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
     status: z.enum(["scheduled", "suspended", "free"]),
@@ -48,60 +49,11 @@ export const scheduleSchema = z
 
 export type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
-export const ministrySchema = z.object({
-  name: requiredText(TEXT_MAX, "Nome"),
-  summary: requiredText(TEXTAREA_MAX, "Resumo"),
-  meetingTime: requiredText(TEXT_MAX, "Horario"),
-  contact: requiredText(TEXT_MAX, "Contato"),
-  color: z.string().min(1, "Cor e obrigatoria.")
+export const volunteerSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().trim().min(2, "Nome obrigatorio").max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
+  role: z.enum(["geral", "som"]),
+  sortOrder: z.number().int().min(0)
 });
 
-export type MinistryFormValues = z.infer<typeof ministrySchema>;
-
-export const WEEKDAY_OPTIONS = [
-  "Domingo",
-  "Segunda",
-  "Terca",
-  "Quarta",
-  "Quinta",
-  "Sexta",
-  "Sabado"
-] as const;
-
-const timePattern = /^[0-2][0-9]:[0-5][0-9]$/;
-
-export const regularMeetingSchema = z
-  .object({
-    id: z.string().optional(),
-    title: requiredText(TEXT_MAX, "Titulo"),
-    weekday: z.enum(WEEKDAY_OPTIONS, { message: "Dia da semana invalido." }),
-    startsAt: z.string().regex(timePattern, "Horario inicial invalido."),
-    endsAt: z.string().regex(timePattern, "Horario final invalido."),
-    description: z.string().max(500, "Maximo 500 caracteres.")
-  })
-  .refine((value) => value.endsAt > value.startsAt, {
-    message: "Termino deve ser apos o inicio.",
-    path: ["endsAt"]
-  });
-
-export type RegularMeetingFormValues = z.infer<typeof regularMeetingSchema>;
-
-export const profileSchema = z.object({
-  name: requiredText(TEXT_MAX, "Nome"),
-  shortName: requiredText(TEXT_MAX, "Nome curto"),
-  tagline: requiredText(TEXT_MAX, "Chamada"),
-  city: requiredText(TEXT_MAX, "Cidade"),
-  pastorName: requiredText(TEXT_MAX, "Pastor"),
-  address: requiredText(TEXT_MAX, "Endereco"),
-  email: z.string().email("Email invalido.").max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
-  whatsapp: requiredText(TEXT_MAX, "WhatsApp"),
-  instagramUrl: optionalHttpUrl,
-  youtubeUrl: optionalHttpUrl,
-  mapsUrl: optionalHttpUrl,
-  heroVerse: requiredText(TEXTAREA_MAX, "Versiculo"),
-  mission: requiredText(TEXTAREA_MAX, "Missao"),
-  foundedText: requiredText(TEXTAREA_MAX, "Texto historico"),
-  regularMeetings: z.array(regularMeetingSchema)
-});
-
-export type ProfileFormValues = z.infer<typeof profileSchema>;
+export type VolunteerFormValues = z.infer<typeof volunteerSchema>;
