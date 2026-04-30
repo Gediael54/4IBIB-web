@@ -122,7 +122,7 @@ export default function MonthScrollCalendar({ schedule, profile, initialMonth }:
   const monthOccasion = useMemo(() => {
     for (const group of dayGroups) {
       for (const item of group.items) {
-        if (item.occasionLabel) {
+        if (item.occasionLabel && /\bM[ÊE]S\b/i.test(item.occasionLabel)) {
           return item.occasionLabel;
         }
       }
