@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChurchProfile, PrayerRequest } from "@4ibib/core";
+import type { PrayerRequest } from "@4ibib/core";
 
 const createClientMock = vi.fn();
 
@@ -80,70 +80,6 @@ function createFakeClient(): FakeClient {
 
 let client: FakeClient;
 
-const profileRow = {
-  id: "main",
-  name: "Igreja",
-  short_name: "Igreja",
-  tagline: "tag",
-  city: "Cidade",
-  pastor_name: "Pastor",
-  address: "Rua",
-  email: "ig@ex.com",
-  whatsapp: "5599",
-  instagram_url: "https://i",
-  youtube_url: "https://y",
-  maps_url: "https://m",
-  hero_verse: "verso",
-  mission: "missao",
-  founded_text: "fundada",
-  regular_meetings: [
-    { id: "legacy-rm1", title: "Culto", weekday: "Domingo", time: "10h", description: "culto" }
-  ],
-  updated_at: "2030-01-01T00:00:00.000Z"
-};
-
-const recurringMeetingRow = {
-  id: "rm1",
-  profile_id: "main",
-  title: "Culto",
-  weekday: "Domingo",
-  starts_at: "10:00:00",
-  ends_at: "11:00:00",
-  description: "culto",
-  sort_order: 0
-};
-
-const profile: ChurchProfile = {
-  id: "main",
-  name: "Igreja",
-  shortName: "Igreja",
-  tagline: "tag",
-  city: "Cidade",
-  pastorName: "Pastor",
-  address: "Rua",
-  email: "ig@ex.com",
-  whatsapp: "5599",
-  instagramUrl: "https://i",
-  youtubeUrl: "https://y",
-  mapsUrl: "https://m",
-  heroVerse: "verso",
-  mission: "missao",
-  foundedText: "fundada",
-  regularMeetings: [
-    {
-      id: "rm1",
-      title: "Culto",
-      weekday: "Domingo",
-      time: "10:00 - 11:00",
-      startsAt: "10:00",
-      endsAt: "11:00",
-      description: "culto",
-      sortOrder: 0
-    }
-  ],
-  updatedAt: "2030-01-01T00:00:00.000Z"
-};
-
 const announcementRow = {
   id: "a1",
   title: "Aviso",
@@ -155,30 +91,28 @@ const announcementRow = {
   cta_url: null
 };
 
-const ministryRow = {
-  id: "m1",
-  name: "Louvor",
-  summary: "Equipe",
-  meeting_time: "Sabado",
-  contact: "Lider",
-  color: "#fff"
-};
-
 const scheduleRow = {
   id: "s1",
   title: "Reuniao",
-  ministry_id: "m1",
-  ministries: { name: "Louvor" },
+  ministry: "louvor",
   starts_at: "2030-01-01T10:00:00.000Z",
   ends_at: "2030-01-01T12:00:00.000Z",
   location: "Salao",
   summary: "Resumo",
   preacher: "Lider",
   director: "",
+  sound_team: "",
   passage: "",
   occasion_label: "",
   status: "scheduled",
   featured: true
+};
+
+const volunteerRow = {
+  id: "v1",
+  name: "Miguel",
+  role: "som",
+  sort_order: 0
 };
 
 const prayerRow = {
@@ -226,205 +160,20 @@ describe("SupabaseContentRepository", () => {
     return createSupabaseBackend({ url: "https://x", anonKey: "k" });
   }
 
-  it("gets full snapshot", async () => {
-    client.setNext({ data: profileRow, error: null });
+  it("gets snapshot with announcements, schedule and volunteers", async () => {
     client.setNext({ data: [announcementRow], error: null });
-    client.setNext({ data: [ministryRow], error: null });
     client.setNext({ data: [scheduleRow], error: null });
-    client.setNext({ data: [recurringMeetingRow], error: null });
+    client.setNext({ data: [volunteerRow], error: null });
 
     const snapshot = await backend().content.getSnapshot();
 
-    expect(snapshot.profile.id).toBe("main");
     expect(snapshot.announcements[0]?.id).toBe("a1");
-    expect(snapshot.ministries[0]?.id).toBe("m1");
     expect(snapshot.schedule[0]?.id).toBe("s1");
-  });
-
-  it("maps profile with empty recurring meetings when none are stored", async () => {
-    client.setNext({ data: { ...profileRow, regular_meetings: null }, error: null });
-    client.setNext({ data: [], error: null });
-    const result = await backend().content.getProfile();
-    expect(result.regularMeetings).toEqual([]);
-  });
-
-  it("falls back to legacy regular meetings when recurring rows are unavailable", async () => {
-    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000201");
-    client.setNext({
-      data: {
-        ...profileRow,
-        regular_meetings: [
-          { title: "Sem horario", weekday: "Segunda", time: "", description: null },
-          { id: "legacy-rm2", title: "Culto", weekday: "Domingo", time: "9h30 as 11h", description: "culto" },
-          { id: "legacy-rm3" }
-        ]
-      },
-      error: null
-    });
-    client.setNext({ data: null, error: null });
-
-    const result = await backend().content.getProfile();
-
-    expect(result.regularMeetings).toEqual([
-      {
-        id: "00000000-0000-4000-8000-000000000201",
-        title: "Sem horario",
-        weekday: "Segunda",
-        startsAt: "00:00",
-        endsAt: "01:00",
-        time: "00:00 - 01:00",
-        description: "",
-        sortOrder: 0
-      },
-      {
-        id: "legacy-rm2",
-        title: "Culto",
-        weekday: "Domingo",
-        startsAt: "09:30",
-        endsAt: "11:00",
-        time: "9h30 as 11h",
-        description: "culto",
-        sortOrder: 1
-      },
-      {
-        id: "legacy-rm3",
-        title: "",
-        weekday: "",
-        startsAt: "00:00",
-        endsAt: "01:00",
-        time: "00:00 - 01:00",
-        description: "",
-        sortOrder: 2
-      }
-    ]);
-    uuid.mockRestore();
-  });
-
-  it("ignores malformed legacy regular meeting payloads", async () => {
-    client.setNext({ data: { ...profileRow, regular_meetings: { title: "quebrado" } }, error: null });
-    client.setNext({ data: null, error: null });
-
-    const result = await backend().content.getProfile();
-
-    expect(result.regularMeetings).toEqual([]);
-  });
-
-  it("maps incomplete recurring meeting times defensively", async () => {
-    client.setNext({ data: profileRow, error: null });
-    client.setNext({
-      data: [
-        {
-          ...recurringMeetingRow,
-          id: "rm-empty",
-          starts_at: null,
-          ends_at: null,
-          description: null,
-          sort_order: null
-        },
-        { ...recurringMeetingRow, id: "rm-open-ended", ends_at: null }
-      ],
-      error: null
-    });
-
-    const result = await backend().content.getProfile();
-
-    expect(result.regularMeetings[0]).toMatchObject({
-      id: "rm-empty",
-      time: "",
-      description: "",
-      sortOrder: 0
-    });
-    expect(result.regularMeetings[1]).toMatchObject({ id: "rm-open-ended", time: "10:00" });
-  });
-
-  it("propagates supabase error on list recurring meetings", async () => {
-    client.setNext({ data: profileRow, error: null });
-    client.setNext({ data: null, error: { message: "meetings-fail" } });
-    await expect(backend().content.getProfile()).rejects.toThrow("meetings-fail");
-  });
-
-  it("propagates supabase error on getProfile", async () => {
-    client.setNext({ data: null, error: { message: "boom" } });
-    await expect(backend().content.getProfile()).rejects.toThrow("boom");
-  });
-
-  it("throws when profile row is missing", async () => {
-    client.setNext({ data: null, error: null });
-    await expect(backend().content.getProfile()).rejects.toThrow("Registro nao encontrado no Supabase.");
-  });
-
-  it("updates profile", async () => {
-    client.setNext({ data: profileRow, error: null });
-    client.setNext({ data: null, error: null });
-    client.setNext({ data: null, error: null });
-    const result = await backend().content.updateProfile(profile);
-    expect(result.id).toBe("main");
-    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ short_name: "Igreja", updated_at: expect.any(String) })
-    );
-    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
-      expect.not.objectContaining({ regular_meetings: expect.anything() })
-    );
-    expect(client.queries[1]?.delete).toHaveBeenCalled();
-    expect(client.queries[1]?.eq).toHaveBeenCalledWith("profile_id", "main");
-    expect(client.queries[2]?.insert).toHaveBeenCalledWith([
-      expect.objectContaining({ profile_id: "main", starts_at: "10:00", ends_at: "11:00", sort_order: 0 })
-    ]);
-  });
-
-  it("updates profile without recurring meetings", async () => {
-    client.setNext({ data: profileRow, error: null });
-    client.setNext({ data: null, error: null });
-
-    const result = await backend().content.updateProfile({ ...profile, regularMeetings: [] });
-
-    expect(result.regularMeetings).toEqual([]);
-    expect(client.from).toHaveBeenCalledTimes(2);
-  });
-
-  it("updates profile normalizing recurring meetings without sort order", async () => {
-    client.setNext({ data: profileRow, error: null });
-    client.setNext({ data: null, error: null });
-    client.setNext({ data: null, error: null });
-
-    await backend().content.updateProfile({
-      ...profile,
-      regularMeetings: [
-        {
-          id: "rm-no-sort",
-          title: "Culto",
-          weekday: "Domingo",
-          time: "",
-          startsAt: "09:30",
-          endsAt: "11:00",
-          description: "culto"
-        } as ChurchProfile["regularMeetings"][number]
-      ]
-    });
-
-    expect(client.queries[2]?.insert).toHaveBeenCalledWith([
-      expect.objectContaining({ id: "rm-no-sort", sort_order: 0 })
-    ]);
-  });
-
-  it("propagates supabase error on updateProfile", async () => {
-    client.setNext({ data: null, error: { message: "fail" } });
-    await expect(backend().content.updateProfile(profile)).rejects.toThrow("fail");
-  });
-
-  it("propagates supabase error while replacing recurring meetings", async () => {
-    client.setNext({ data: profileRow, error: null });
-    client.setNext({ data: null, error: { message: "delete-meetings-fail" } });
-
-    await expect(backend().content.updateProfile(profile)).rejects.toThrow("delete-meetings-fail");
-  });
-
-  it("propagates supabase error while inserting recurring meetings", async () => {
-    client.setNext({ data: profileRow, error: null });
-    client.setNext({ data: null, error: null });
-    client.setNext({ data: null, error: { message: "insert-meetings-fail" } });
-
-    await expect(backend().content.updateProfile(profile)).rejects.toThrow("insert-meetings-fail");
+    expect(snapshot.volunteers[0]?.id).toBe("v1");
+    expect(client.from).toHaveBeenCalledTimes(3);
+    expect(client.from).toHaveBeenNthCalledWith(1, "announcements");
+    expect(client.from).toHaveBeenNthCalledWith(2, "schedule_items");
+    expect(client.from).toHaveBeenNthCalledWith(3, "volunteers");
   });
 
   it("lists announcements with empty cta fallbacks", async () => {
@@ -500,79 +249,20 @@ describe("SupabaseContentRepository", () => {
     await expect(backend().content.deleteAnnouncement("a1")).rejects.toThrow("del-fail");
   });
 
-  it("lists ministries", async () => {
-    client.setNext({ data: [ministryRow], error: null });
-    const items = await backend().content.listMinistries();
-    expect(items[0]?.name).toBe("Louvor");
-  });
-
-  it("propagates supabase error on listMinistries", async () => {
-    client.setNext({ data: null, error: { message: "min-list" } });
-    await expect(backend().content.listMinistries()).rejects.toThrow("min-list");
-  });
-
-  it("saves ministry with provided id", async () => {
-    client.setNext({ data: ministryRow, error: null });
-    const result = await backend().content.saveMinistry({
-      id: "m1",
-      name: "Louvor",
-      summary: "Equipe",
-      meetingTime: "Sabado",
-      contact: "Lider",
-      color: "#fff"
-    });
-    expect(result.id).toBe("m1");
-  });
-
-  it("saves ministry generating id when missing", async () => {
-    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue("min-uuid-2-3-4");
-    client.setNext({ data: { ...ministryRow, id: "min-uuid-2-3-4" }, error: null });
-    await backend().content.saveMinistry({
-      name: "Louvor",
-      summary: "Equipe",
-      meetingTime: "Sabado",
-      contact: "Lider",
-      color: "#fff"
-    });
-    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(expect.objectContaining({ id: "min-uuid-2-3-4" }));
-    uuid.mockRestore();
-  });
-
-  it("propagates supabase error on saveMinistry", async () => {
-    client.setNext({ data: null, error: { message: "min-save" } });
-    await expect(
-      backend().content.saveMinistry({
-        name: "x",
-        summary: "y",
-        meetingTime: "",
-        contact: "",
-        color: "#000"
-      })
-    ).rejects.toThrow("min-save");
-  });
-
-  it("deletes ministry", async () => {
-    client.setNext({ data: null, error: null });
-    await backend().content.deleteMinistry("m1");
-    expect(client.queries[0]?.delete).toHaveBeenCalled();
-  });
-
-  it("propagates supabase error on deleteMinistry", async () => {
-    client.setNext({ data: null, error: { message: "min-del" } });
-    await expect(backend().content.deleteMinistry("m1")).rejects.toThrow("min-del");
-  });
-
-  it("lists schedule", async () => {
+  it("lists schedule reading ministry as plain text", async () => {
     client.setNext({ data: [scheduleRow], error: null });
     const items = await backend().content.listSchedule();
     expect(items[0]?.title).toBe("Reuniao");
+    expect(items[0]?.ministry).toBe("louvor");
+    expect(client.queries[0]?.select).toHaveBeenCalledWith("*");
   });
 
-  it("maps every extended schedule column from supabase row", async () => {
+  it("maps every schedule column from supabase row", async () => {
     const row = {
       ...scheduleRow,
       preacher: "Pr. Augusto",
       director: "Diac. Ana",
+      sound_team: "Miguel, Brainer",
       passage: "Marcos 1",
       occasion_label: "PASCOA",
       status: "suspended"
@@ -582,14 +272,14 @@ describe("SupabaseContentRepository", () => {
     expect(item).toEqual({
       id: "s1",
       title: "Reuniao",
-      ministryId: "m1",
-      ministry: "Louvor",
+      ministry: "louvor",
       startsAt: "2030-01-01T10:00:00.000Z",
       endsAt: "2030-01-01T12:00:00.000Z",
       location: "Salao",
       summary: "Resumo",
       preacher: "Pr. Augusto",
       director: "Diac. Ana",
+      soundTeam: "Miguel, Brainer",
       passage: "Marcos 1",
       occasionLabel: "PASCOA",
       status: "suspended",
@@ -598,53 +288,14 @@ describe("SupabaseContentRepository", () => {
   });
 
   it("maps nullable schedule labels to empty strings", async () => {
-    client.setNext({ data: [{ ...scheduleRow, occasion_label: null }], error: null });
-    const [item] = await backend().content.listSchedule();
-    expect(item?.occasionLabel).toBe("");
-  });
-
-  it("maps schedule ministry names from array relations and legacy fallbacks", async () => {
     client.setNext({
-      data: [
-        { ...scheduleRow, id: "array-relation", ministries: [{ name: "Array Ministry" }] },
-        { ...scheduleRow, id: "array-object-fallback", ministries: [{}], ministry: "Array Object Fallback" },
-        { ...scheduleRow, id: "array-object-empty", ministries: [{}], ministry: null },
-        { ...scheduleRow, id: "empty-array-relation", ministries: [], ministry: "Empty Array Ministry" },
-        {
-          ...scheduleRow,
-          id: "primitive-array-relation",
-          ministries: ["bad"],
-          ministry: "Primitive Array Ministry"
-        },
-        { ...scheduleRow, id: "object-fallback", ministries: {}, ministry: "Object Fallback Ministry" },
-        { ...scheduleRow, id: "object-empty", ministries: {}, ministry: null },
-        { ...scheduleRow, id: "legacy-fallback", ministries: null, ministry: "Legacy Ministry" },
-        {
-          ...scheduleRow,
-          id: "primitive-relation",
-          ministries: "bad",
-          ministry: "Primitive Relation Ministry"
-        },
-        { ...scheduleRow, id: "empty-fallback", ministry_id: null, ministries: null, ministry: null }
-      ],
+      data: [{ ...scheduleRow, occasion_label: null, ministry: null, sound_team: null }],
       error: null
     });
-
-    const items = await backend().content.listSchedule();
-
-    expect(items.map((item) => item.ministry)).toEqual([
-      "Array Ministry",
-      "Array Object Fallback",
-      "",
-      "Empty Array Ministry",
-      "Primitive Array Ministry",
-      "Object Fallback Ministry",
-      "",
-      "Legacy Ministry",
-      "Primitive Relation Ministry",
-      ""
-    ]);
-    expect(items.at(-1)?.ministryId).toBe("");
+    const [item] = await backend().content.listSchedule();
+    expect(item?.occasionLabel).toBe("");
+    expect(item?.ministry).toBe("");
+    expect(item?.soundTeam).toBe("");
   });
 
   it("propagates supabase error on listSchedule", async () => {
@@ -652,168 +303,58 @@ describe("SupabaseContentRepository", () => {
     await expect(backend().content.listSchedule()).rejects.toThrow("sch-list");
   });
 
-  it("saves schedule item with provided id", async () => {
-    client.setNext({ data: scheduleRow, error: null });
+  it("saves schedule item with provided id, ministry slug and sound team", async () => {
+    client.setNext({ data: { ...scheduleRow, sound_team: "Miguel" }, error: null });
     const result = await backend().content.saveScheduleItem({
       id: "s1",
       title: "Reuniao",
-      ministryId: "m1",
-      ministry: "Louvor",
+      ministry: "louvor",
       startsAt: "2030-01-01T10:00:00.000Z",
       endsAt: "2030-01-01T12:00:00.000Z",
       location: "Salao",
       summary: "Resumo",
       preacher: "Lider",
       director: "",
+      soundTeam: "Miguel",
       passage: "",
       occasionLabel: "",
       status: "scheduled",
       featured: true
     });
     expect(result.id).toBe("s1");
-    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(expect.objectContaining({ ministry_id: "m1" }));
+    expect(result.soundTeam).toBe("Miguel");
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "s1", ministry: "louvor", sound_team: "Miguel" })
+    );
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
+      expect.not.objectContaining({ ministry_id: expect.anything() })
+    );
   });
 
-  it("saves schedule item generating id and ministry when missing", async () => {
+  it("saves schedule item generating id when missing", async () => {
     const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue("sch-uuid-1-2-3");
-    client.setNext({ data: null, error: null });
-    client.setNext({ data: { id: "m1" }, error: null });
     client.setNext({ data: { ...scheduleRow, id: "sch-uuid-1-2-3" }, error: null });
+
     await backend().content.saveScheduleItem({
       title: "Reuniao",
-      ministry: "Louvor",
+      ministry: "louvor",
       startsAt: "2030-01-01T10:00:00.000Z",
       endsAt: "2030-01-01T12:00:00.000Z",
       location: "Salao",
       summary: "Resumo",
       preacher: "Lider",
       director: "",
+      soundTeam: "",
       passage: "",
       occasionLabel: "",
       status: "scheduled",
       featured: false
     });
-    expect(client.from).toHaveBeenNthCalledWith(1, "ministries");
-    expect(client.queries[0]?.maybeSingle).toHaveBeenCalled();
-    expect(client.queries[1]?.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Louvor", color: "#0f766e" })
-    );
-    expect(client.queries[2]?.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "sch-uuid-1-2-3", ministry_id: "m1" })
+
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "sch-uuid-1-2-3", ministry: "louvor", sound_team: "" })
     );
     uuid.mockRestore();
-  });
-
-  it("saves schedule item reusing an existing normalized ministry", async () => {
-    client.setNext({ data: { id: "m-existing" }, error: null });
-    client.setNext({ data: { ...scheduleRow, ministry_id: "m-existing" }, error: null });
-
-    await backend().content.saveScheduleItem({
-      title: "Reuniao",
-      ministry: "  Louvor  ",
-      startsAt: "2030-01-01T10:00:00.000Z",
-      endsAt: "2030-01-01T12:00:00.000Z",
-      location: "Salao",
-      summary: "Resumo",
-      preacher: "Lider",
-      director: "",
-      passage: "",
-      occasionLabel: "",
-      status: "scheduled",
-      featured: false
-    });
-
-    expect(client.queries[0]?.eq).toHaveBeenCalledWith("slug", "louvor");
-    expect(client.queries[1]?.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ ministry_id: "m-existing" })
-    );
-  });
-
-  it("defaults blank schedule ministry names to Geral", async () => {
-    client.setNext({ data: { id: "m-geral" }, error: null });
-    client.setNext({ data: { ...scheduleRow, ministry_id: "m-geral" }, error: null });
-
-    await backend().content.saveScheduleItem({
-      title: "Reuniao",
-      ministry: "   ",
-      startsAt: "2030-01-01T10:00:00.000Z",
-      endsAt: "2030-01-01T12:00:00.000Z",
-      location: "Salao",
-      summary: "Resumo",
-      preacher: "Lider",
-      director: "",
-      passage: "",
-      occasionLabel: "",
-      status: "scheduled",
-      featured: false
-    });
-
-    expect(client.queries[0]?.eq).toHaveBeenCalledWith("slug", "geral");
-  });
-
-  it("normalizes symbol-only schedule ministry names to Geral", async () => {
-    client.setNext({ data: { id: "m-geral" }, error: null });
-    client.setNext({ data: { ...scheduleRow, ministry_id: "m-geral" }, error: null });
-
-    await backend().content.saveScheduleItem({
-      title: "Reuniao",
-      ministry: "!!!",
-      startsAt: "2030-01-01T10:00:00.000Z",
-      endsAt: "2030-01-01T12:00:00.000Z",
-      location: "Salao",
-      summary: "Resumo",
-      preacher: "Lider",
-      director: "",
-      passage: "",
-      occasionLabel: "",
-      status: "scheduled",
-      featured: false
-    });
-
-    expect(client.queries[0]?.eq).toHaveBeenCalledWith("slug", "geral");
-  });
-
-  it("propagates supabase error while resolving schedule ministry", async () => {
-    client.setNext({ data: null, error: { message: "lookup-fail" } });
-
-    await expect(
-      backend().content.saveScheduleItem({
-        title: "x",
-        ministry: "y",
-        startsAt: "2030-01-01T10:00:00.000Z",
-        endsAt: "2030-01-01T11:00:00.000Z",
-        location: "",
-        summary: "",
-        preacher: "",
-        director: "",
-        passage: "",
-        occasionLabel: "",
-        status: "scheduled",
-        featured: false
-      })
-    ).rejects.toThrow("lookup-fail");
-  });
-
-  it("propagates supabase error while creating a schedule ministry", async () => {
-    client.setNext({ data: null, error: null });
-    client.setNext({ data: null, error: { message: "create-ministry-fail" } });
-
-    await expect(
-      backend().content.saveScheduleItem({
-        title: "x",
-        ministry: "y",
-        startsAt: "2030-01-01T10:00:00.000Z",
-        endsAt: "2030-01-01T11:00:00.000Z",
-        location: "",
-        summary: "",
-        preacher: "",
-        director: "",
-        passage: "",
-        occasionLabel: "",
-        status: "scheduled",
-        featured: false
-      })
-    ).rejects.toThrow("create-ministry-fail");
   });
 
   it("propagates supabase error on saveScheduleItem", async () => {
@@ -821,14 +362,14 @@ describe("SupabaseContentRepository", () => {
     await expect(
       backend().content.saveScheduleItem({
         title: "x",
-        ministryId: "m1",
-        ministry: "y",
+        ministry: "louvor",
         startsAt: "2030-01-01T10:00:00.000Z",
         endsAt: "2030-01-01T11:00:00.000Z",
         location: "",
         summary: "",
         preacher: "",
         director: "",
+        soundTeam: "",
         passage: "",
         occasionLabel: "",
         status: "scheduled",
@@ -846,6 +387,83 @@ describe("SupabaseContentRepository", () => {
   it("propagates supabase error on deleteScheduleItem", async () => {
     client.setNext({ data: null, error: { message: "sch-del" } });
     await expect(backend().content.deleteScheduleItem("s1")).rejects.toThrow("sch-del");
+  });
+
+  it("lists volunteers ordered by sort order", async () => {
+    client.setNext({
+      data: [{ ...volunteerRow, id: "v2", name: "Brainer", sort_order: 1 }, volunteerRow],
+      error: null
+    });
+    const items = await backend().content.listVolunteers();
+    expect(items.map((item) => item.id)).toEqual(["v1", "v2"]);
+    expect(client.queries[0]?.order).toHaveBeenCalledWith("sort_order", { ascending: true });
+  });
+
+  it("maps nullable volunteer columns to defaults", async () => {
+    client.setNext({
+      data: [{ id: "v3", name: "Sem Role", role: null, sort_order: null }],
+      error: null
+    });
+    const [item] = await backend().content.listVolunteers();
+    expect(item?.role).toBe("geral");
+    expect(item?.sortOrder).toBe(0);
+  });
+
+  it("propagates supabase error on listVolunteers", async () => {
+    client.setNext({ data: null, error: { message: "vol-list" } });
+    await expect(backend().content.listVolunteers()).rejects.toThrow("vol-list");
+  });
+
+  it("saves volunteer with provided id", async () => {
+    client.setNext({ data: volunteerRow, error: null });
+    const result = await backend().content.saveVolunteer({
+      id: "v1",
+      name: "Miguel",
+      role: "som",
+      sortOrder: 0
+    });
+    expect(result.id).toBe("v1");
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith({
+      id: "v1",
+      name: "Miguel",
+      role: "som",
+      sort_order: 0
+    });
+  });
+
+  it("saves volunteer generating id when missing", async () => {
+    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue("vol-uuid-1-2-3");
+    client.setNext({ data: { ...volunteerRow, id: "vol-uuid-1-2-3" }, error: null });
+
+    await backend().content.saveVolunteer({
+      name: "Miguel",
+      role: "som",
+      sortOrder: 5
+    });
+
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "vol-uuid-1-2-3", sort_order: 5 })
+    );
+    uuid.mockRestore();
+  });
+
+  it("propagates supabase error on saveVolunteer", async () => {
+    client.setNext({ data: null, error: { message: "vol-save" } });
+    await expect(backend().content.saveVolunteer({ name: "x", role: "geral", sortOrder: 0 })).rejects.toThrow(
+      "vol-save"
+    );
+  });
+
+  it("deletes volunteer", async () => {
+    client.setNext({ data: null, error: null });
+    await backend().content.deleteVolunteer("v1");
+    expect(client.queries[0]?.delete).toHaveBeenCalled();
+    expect(client.queries[0]?.eq).toHaveBeenCalledWith("id", "v1");
+  });
+
+  it("propagates supabase error on deleteVolunteer", async () => {
+    client.setNext({ data: null, error: { message: "vol-del" } });
+    await expect(backend().content.deleteVolunteer("v1")).rejects.toThrow("vol-del");
   });
 
   it("creates prayer request", async () => {
