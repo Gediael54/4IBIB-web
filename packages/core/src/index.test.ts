@@ -8,11 +8,11 @@ import {
   getUpcomingSchedule,
   inputDateTimeToIso,
   sortAnnouncements,
-  sortMinistries,
   sortSchedule,
+  sortVolunteers,
   type Announcement,
-  type Ministry,
-  type ScheduleItem
+  type ScheduleItem,
+  type Volunteer
 } from "./index";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -64,6 +64,7 @@ const schedule: ScheduleItem[] = [
     summary: "A",
     preacher: "A",
     director: "",
+    soundTeam: "",
     passage: "",
     occasionLabel: "",
     status: "scheduled",
@@ -79,6 +80,7 @@ const schedule: ScheduleItem[] = [
     summary: "B",
     preacher: "B",
     director: "",
+    soundTeam: "",
     passage: "",
     occasionLabel: "",
     status: "scheduled",
@@ -94,6 +96,7 @@ const schedule: ScheduleItem[] = [
     summary: "C",
     preacher: "C",
     director: "",
+    soundTeam: "",
     passage: "",
     occasionLabel: "",
     status: "scheduled",
@@ -109,6 +112,7 @@ const schedule: ScheduleItem[] = [
     summary: "D",
     preacher: "D",
     director: "",
+    soundTeam: "",
     passage: "",
     occasionLabel: "",
     status: "suspended",
@@ -122,15 +126,6 @@ it("sorts announcements with pinned items first and newest after that", () => {
 
 it("limits pinned announcement selection after sorting", () => {
   expect(getPinnedAnnouncements(announcements, 2).map((item) => item.id)).toEqual(["pinned", "new"]);
-});
-
-it("sorts ministries alphabetically in pt-BR order", () => {
-  const ministries: Ministry[] = [
-    { id: "2", name: "Zeladoria", summary: "", meetingTime: "", contact: "", color: "#000" },
-    { id: "1", name: "Acao Social", summary: "", meetingTime: "", contact: "", color: "#000" }
-  ];
-
-  expect(sortMinistries(ministries).map((item) => item.id)).toEqual(["1", "2"]);
 });
 
 it("sorts schedule by start date and returns upcoming scheduled events", () => {
@@ -155,7 +150,6 @@ it("returns empty results when given empty arrays", () => {
   expect(getUpcomingSchedule([])).toEqual([]);
   expect(sortAnnouncements([])).toEqual([]);
   expect(getPinnedAnnouncements([])).toEqual([]);
-  expect(sortMinistries([])).toEqual([]);
 });
 
 it("preserves all schedule fields through sort", () => {
@@ -169,6 +163,7 @@ it("preserves all schedule fields through sort", () => {
     summary: "Resumo",
     preacher: "Pr. Augusto",
     director: "Diac. Ana",
+    soundTeam: "Miguel, Brainer",
     passage: "Marcos 1",
     occasionLabel: "PASCOA",
     status: "scheduled",
@@ -177,6 +172,21 @@ it("preserves all schedule fields through sort", () => {
 
   const [result] = sortSchedule([item]);
   expect(result).toEqual(item);
+  expect(result?.soundTeam).toBe("Miguel, Brainer");
+});
+
+it("sorts volunteers by sortOrder then alphabetical name", () => {
+  const items: Volunteer[] = [
+    { id: "c", name: "Carla", role: "geral", sortOrder: 1 },
+    { id: "a", name: "Ana", role: "geral", sortOrder: 1 },
+    { id: "b", name: "Bruno", role: "som", sortOrder: 0 }
+  ];
+
+  expect(sortVolunteers(items).map((item) => item.id)).toEqual(["b", "a", "c"]);
+});
+
+it("returns empty array when sorting no volunteers", () => {
+  expect(sortVolunteers([])).toEqual([]);
 });
 
 it("formats date and time labels for Brazilian Portuguese", () => {
