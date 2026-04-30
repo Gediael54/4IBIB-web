@@ -2,39 +2,27 @@ import { type AdminSession, type PrayerRequest } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   CalendarDays,
-  Church,
   ClipboardList,
   HeartHandshake,
   LoaderCircle,
   LogOut,
   Megaphone,
-  UsersRound
+  Users
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { backend, usePrayers, useSnapshot } from "./hooks";
 import { initMonitoring } from "./monitoring";
 import "./styles.css";
-import { INITIAL_LIST_STATE, type ListState, type ListView } from "./utils";
+import { INITIAL_LIST_STATE, type ListState, type ListView, type VolunteerRoleFilter } from "./utils";
 
 void initMonitoring();
 
 const DashboardView = lazy(() => import("./views/DashboardView"));
 const AnnouncementsView = lazy(() => import("./views/AnnouncementsView"));
 const ScheduleView = lazy(() => import("./views/ScheduleView"));
-const MinistriesView = lazy(() => import("./views/MinistriesView"));
-const ProfileView = lazy(() => import("./views/ProfileView"));
+const VolunteersView = lazy(() => import("./views/VolunteersView"));
 const PrayersView = lazy(() => import("./views/PrayersView"));
-
-const DEV_PREFILL =
-  import.meta.env.DEV && import.meta.env.VITE_MOCK_ADMIN_EMAIL && import.meta.env.VITE_MOCK_ADMIN_PASSWORD
-    ? {
-        email: import.meta.env.VITE_MOCK_ADMIN_EMAIL,
-        password: import.meta.env.VITE_MOCK_ADMIN_PASSWORD
-      }
-    : null;
-
-const showDevPrefill = DEV_PREFILL !== null && backend.mode === "mock";
 
 const TEXT_MAX = 200;
 
@@ -49,7 +37,7 @@ const queryClient = new QueryClient({
   }
 });
 
-type AdminView = "dashboard" | "announcements" | "schedule" | "ministries" | "profile" | "prayers";
+type AdminView = "dashboard" | "announcements" | "schedule" | "volunteers" | "prayers";
 
 export function App() {
   const [session, setSession] = useState<AdminSession | null>(null);
@@ -58,6 +46,7 @@ export function App() {
   const [view, setView] = useState<AdminView>("dashboard");
   const [listState, setListState] = useState<Record<ListView, ListState>>(INITIAL_LIST_STATE);
   const [prayerStatusFilter, setPrayerStatusFilter] = useState<PrayerRequest["status"] | "all">("all");
+  const [volunteerRoleFilter, setVolunteerRoleFilter] = useState<VolunteerRoleFilter>("all");
 
   useEffect(() => {
     return backend.auth.subscribe((nextSession) => {
@@ -122,21 +111,13 @@ export function App() {
           <form onSubmit={handleLogin}>
             <label>
               Email
-              <input
-                name="email"
-                type="email"
-                defaultValue={showDevPrefill ? DEV_PREFILL.email : ""}
-                autoComplete="email"
-                maxLength={TEXT_MAX}
-                required
-              />
+              <input name="email" type="email" autoComplete="email" maxLength={TEXT_MAX} required />
             </label>
             <label>
               Senha
               <input
                 name="password"
                 type="password"
-                defaultValue={showDevPrefill ? DEV_PREFILL.password : ""}
                 autoComplete="current-password"
                 maxLength={TEXT_MAX}
                 required
@@ -147,9 +128,6 @@ export function App() {
               Entrar
             </button>
           </form>
-          {showDevPrefill && (
-            <p className="login-hint">Modo demonstracao: use as credenciais ja preenchidas.</p>
-          )}
         </section>
       </main>
     );
@@ -184,7 +162,7 @@ export function App() {
         <div className="sidebar-brand">
           <img src="/logo.png" alt="" className="sidebar-logo" />
           <div>
-            <strong>{snapshot.profile.shortName}</strong>
+            <strong>4a Betel</strong>
             <span>{session.email}</span>
           </div>
         </div>
@@ -205,19 +183,18 @@ export function App() {
           />
           <NavButton
             current={view}
+            target="volunteers"
+            icon={<Users />}
+            label="Voluntarios"
+            onClick={setView}
+          />
+          <NavButton
+            current={view}
             target="schedule"
             icon={<CalendarDays />}
             label="Programacao"
             onClick={setView}
           />
-          <NavButton
-            current={view}
-            target="ministries"
-            icon={<UsersRound />}
-            label="Ministerios"
-            onClick={setView}
-          />
-          <NavButton current={view} target="profile" icon={<Church />} label="Igreja" onClick={setView} />
           <NavButton
             current={view}
             target="prayers"
@@ -254,14 +231,15 @@ export function App() {
               onStateChange={(patch) => updateListState("schedule", patch)}
             />
           )}
-          {view === "ministries" && (
-            <MinistriesView
+          {view === "volunteers" && (
+            <VolunteersView
               snapshot={snapshot}
-              state={listState.ministries}
-              onStateChange={(patch) => updateListState("ministries", patch)}
+              state={listState.volunteers}
+              onStateChange={(patch) => updateListState("volunteers", patch)}
+              roleFilter={volunteerRoleFilter}
+              onRoleFilterChange={setVolunteerRoleFilter}
             />
           )}
-          {view === "profile" && <ProfileView snapshot={snapshot} />}
           {view === "prayers" && (
             <PrayersView
               prayers={prayers}
