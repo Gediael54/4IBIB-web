@@ -1,36 +1,5 @@
 export type AnnouncementCategory = "geral" | "evento" | "juventude" | "oracao";
 
-export interface RegularMeeting {
-  id: string;
-  title: string;
-  weekday: string;
-  time: string;
-  startsAt: string;
-  endsAt: string;
-  description: string;
-  sortOrder: number;
-}
-
-export interface ChurchProfile {
-  id: string;
-  name: string;
-  shortName: string;
-  tagline: string;
-  city: string;
-  pastorName: string;
-  address: string;
-  email: string;
-  whatsapp: string;
-  instagramUrl: string;
-  youtubeUrl: string;
-  mapsUrl: string;
-  heroVerse: string;
-  mission: string;
-  foundedText: string;
-  regularMeetings: RegularMeeting[];
-  updatedAt: string;
-}
-
 export interface Announcement {
   id: string;
   title: string;
@@ -42,21 +11,11 @@ export interface Announcement {
   ctaUrl: string;
 }
 
-export interface Ministry {
-  id: string;
-  name: string;
-  summary: string;
-  meetingTime: string;
-  contact: string;
-  color: string;
-}
-
 export type ScheduleStatus = "scheduled" | "suspended" | "free";
 
 export interface ScheduleItem {
   id: string;
   title: string;
-  ministryId?: string;
   ministry: string;
   startsAt: string;
   endsAt: string;
@@ -64,10 +23,20 @@ export interface ScheduleItem {
   summary: string;
   preacher: string;
   director: string;
+  soundTeam: string;
   passage: string;
   occasionLabel: string;
   status: ScheduleStatus;
   featured: boolean;
+}
+
+export type VolunteerRole = "geral" | "som";
+
+export interface Volunteer {
+  id: string;
+  name: string;
+  role: VolunteerRole;
+  sortOrder: number;
 }
 
 export interface PrayerRequest {
@@ -80,17 +49,16 @@ export interface PrayerRequest {
 }
 
 export type AnnouncementInput = Omit<Announcement, "id"> & { id?: string };
-export type MinistryInput = Omit<Ministry, "id"> & { id?: string };
 export type ScheduleItemInput = Omit<ScheduleItem, "id"> & { id?: string };
+export type VolunteerInput = Omit<Volunteer, "id"> & { id?: string };
 export type PrayerRequestInput = Omit<PrayerRequest, "id" | "createdAt" | "status"> & {
   turnstileToken?: string;
 };
 
 export interface SiteSnapshot {
-  profile: ChurchProfile;
   announcements: Announcement[];
-  ministries: Ministry[];
   schedule: ScheduleItem[];
+  volunteers: Volunteer[];
 }
 
 export interface AdminSession {
@@ -101,17 +69,15 @@ export interface AdminSession {
 
 export interface ContentRepository {
   getSnapshot(): Promise<SiteSnapshot>;
-  getProfile(): Promise<ChurchProfile>;
-  updateProfile(profile: ChurchProfile): Promise<ChurchProfile>;
   listAnnouncements(): Promise<Announcement[]>;
   saveAnnouncement(input: AnnouncementInput): Promise<Announcement>;
   deleteAnnouncement(id: string): Promise<void>;
-  listMinistries(): Promise<Ministry[]>;
-  saveMinistry(input: MinistryInput): Promise<Ministry>;
-  deleteMinistry(id: string): Promise<void>;
   listSchedule(): Promise<ScheduleItem[]>;
   saveScheduleItem(input: ScheduleItemInput): Promise<ScheduleItem>;
   deleteScheduleItem(id: string): Promise<void>;
+  listVolunteers(): Promise<Volunteer[]>;
+  saveVolunteer(input: VolunteerInput): Promise<Volunteer>;
+  deleteVolunteer(id: string): Promise<void>;
   createPrayerRequest(input: PrayerRequestInput): Promise<PrayerRequest>;
   listPrayerRequests(): Promise<PrayerRequest[]>;
   updatePrayerRequestStatus(id: string, status: PrayerRequest["status"]): Promise<void>;
@@ -144,10 +110,6 @@ export function sortSchedule(items: ScheduleItem[]): ScheduleItem[] {
   return [...items].sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt));
 }
 
-export function sortMinistries(items: Ministry[]): Ministry[] {
-  return [...items].sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
-}
-
 export function getUpcomingSchedule(items: ScheduleItem[], limit = 5): ScheduleItem[] {
   const now = Date.now();
   return sortSchedule(items)
@@ -157,6 +119,16 @@ export function getUpcomingSchedule(items: ScheduleItem[], limit = 5): ScheduleI
 
 export function getPinnedAnnouncements(items: Announcement[], limit = 4): Announcement[] {
   return sortAnnouncements(items).slice(0, limit);
+}
+
+export function sortVolunteers(items: Volunteer[]): Volunteer[] {
+  return [...items].sort((left, right) => {
+    if (left.sortOrder !== right.sortOrder) {
+      return left.sortOrder - right.sortOrder;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
 }
 
 export function formatDateLabel(value: string): string {
