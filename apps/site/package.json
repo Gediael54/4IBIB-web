@@ -11,8 +11,6 @@
   },
   "dependencies": {
     "@4ibib/core": "*",
-    "@4ibib/mock": "*",
-    "@4ibib/runtime": "*",
     "@4ibib/supabase": "*",
     "@tanstack/react-query": "^5.100.6",
     "lucide-react": "^0.468.0",
