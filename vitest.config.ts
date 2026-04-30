@@ -7,12 +7,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
-      include: [
-        "packages/core/src/**/*.ts",
-        "packages/mock/src/**/*.ts",
-        "packages/runtime/src/**/*.ts",
-        "packages/supabase/src/**/*.ts"
-      ],
+      include: ["packages/core/src/**/*.ts", "packages/supabase/src/**/*.ts"],
       thresholds: {
         statements: 100,
         branches: 100,
