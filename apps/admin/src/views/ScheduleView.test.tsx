@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import type { SiteSnapshot } from "@4ibib/core";
+import type { SiteSnapshot, Volunteer } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,52 +10,33 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../backend", () => ({
-  createBackend: () => ({
-    mode: "mock",
+  backend: {
+    mode: "supabase",
     content: {
       saveScheduleItem: mocks.saveScheduleItem,
       deleteScheduleItem: mocks.deleteScheduleItem
     }
-  })
+  }
 }));
 
 import ScheduleView from "./ScheduleView";
 
-function buildSnapshot(): SiteSnapshot {
+function buildSnapshot(volunteers: Volunteer[] = []): SiteSnapshot {
   return {
-    profile: {
-      id: "main",
-      name: "Igreja",
-      shortName: "Igreja",
-      tagline: "Tagline",
-      city: "Cidade",
-      pastorName: "Pastor",
-      address: "Rua",
-      email: "contato@example.test",
-      whatsapp: "5581900000000",
-      instagramUrl: "",
-      youtubeUrl: "",
-      mapsUrl: "",
-      heroVerse: "Versiculo",
-      mission: "Missao",
-      foundedText: "Historia",
-      regularMeetings: [],
-      updatedAt: "2030-01-01T00:00:00.000Z"
-    },
     announcements: [],
-    ministries: [],
-    schedule: []
+    schedule: [],
+    volunteers
   };
 }
 
-function renderView() {
+function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } }
   });
   return render(
     <QueryClientProvider client={queryClient}>
       <ScheduleView
-        snapshot={buildSnapshot()}
+        snapshot={snapshot}
         state={{ search: "", sort: "startsAsc", page: 1 }}
         onStateChange={vi.fn()}
       />
@@ -94,6 +75,9 @@ describe("ScheduleView form", () => {
 
     fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Culto solene" } });
     fireEvent.change(screen.getByLabelText("Ministerio"), { target: { value: "Louvor" } });
+    fireEvent.change(screen.getByLabelText("Equipe de som"), {
+      target: { value: "Miguel, Brainer" }
+    });
 
     const form = screen.getByRole("button", { name: /salvar/i }).closest("form");
     if (!form) {
@@ -110,5 +94,28 @@ describe("ScheduleView form", () => {
     expect(payload.ministry).toBe("Louvor");
     expect(payload.status).toBe("scheduled");
     expect(typeof payload.startsAt).toBe("string");
+    expect(payload.soundTeam).toBe("Miguel, Brainer");
+  });
+
+  it("renders sound team field with datalist suggestions from volunteers", () => {
+    const snapshot = buildSnapshot([
+      { id: "v1", name: "Miguel", role: "som", sortOrder: 0 },
+      { id: "v2", name: "Brainer", role: "som", sortOrder: 1 },
+      { id: "v3", name: "Pastor Joao", role: "geral", sortOrder: 0 }
+    ]);
+    renderView(snapshot);
+
+    const soundField = screen.getByLabelText("Equipe de som") as HTMLInputElement;
+    expect(soundField).toBeInTheDocument();
+    expect(soundField.getAttribute("list")).toBe("schedule-sound-team");
+
+    const datalist = document.getElementById("schedule-sound-team");
+    expect(datalist).not.toBeNull();
+    const optionValues = Array.from(datalist?.querySelectorAll("option") ?? []).map(
+      (option) => (option as HTMLOptionElement).value
+    );
+    expect(optionValues).toContain("Miguel");
+    expect(optionValues).toContain("Brainer");
+    expect(optionValues).not.toContain("Pastor Joao");
   });
 });
