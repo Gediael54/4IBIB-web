@@ -1,4 +1,5 @@
 import { Camera } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 interface GalleryItem {
   src: string;
@@ -10,37 +11,138 @@ interface GalleryItem {
 const ITEMS: GalleryItem[] = [
   {
     src: "/gallery-worship.jpg",
-    alt: "Congregacao em adoracao no templo",
-    eyebrow: "Adoracao",
+    alt: "Fachada da igreja a noite com cruz iluminada e congregacao reunida",
+    eyebrow: "Adoração",
     title: "Cultos congregacionais"
   },
   {
     src: "/gallery-prayer.jpg",
-    alt: "Momento de oracao com a congregacao",
-    eyebrow: "Oracao",
-    title: "Cultos de oracao"
+    alt: "Irmão em oração usando camiseta com João 1.14",
+    eyebrow: "Oração",
+    title: "Cultos de oração"
   },
   {
     src: "/gallery-missions.jpg",
-    alt: "Trabalho de evangelismo no sertao",
-    eyebrow: "Missoes",
-    title: "Evangelismo no sertao"
+    alt: "Evangelismo no Pororoca com violão em visita a uma casa",
+    eyebrow: "Missões",
+    title: "Evangelismo no sertão"
+  },
+  {
+    src: "/gallery-evangelismo-local.jpg",
+    alt: "Grupo da igreja em visita pastoral usando camisetas com Marcos 16:15",
+    eyebrow: "Visitas",
+    title: "Evangelismo local"
   },
   {
     src: "/gallery-community.jpg",
-    alt: "Igreja reunida em frente ao templo",
+    alt: "Membros da igreja em abraço em frente ao templo",
     eyebrow: "Comunidade",
-    title: "Vida em familia"
+    title: "Vida em família"
+  },
+  {
+    src: "/gallery-lado-a-lado.jpg",
+    alt: "Pai e filha abraçados após a corrida da igreja",
+    eyebrow: "Comunhão",
+    title: "Lado a lado"
   },
   {
     src: "/gallery-fellowship.jpg",
-    alt: "Reuniao de senhoras da igreja",
-    eyebrow: "Comunhao",
-    title: "Encontros e celebracoes"
+    alt: "Grupo da corrida do Dia dos Pais reunido em frente à fachada da igreja",
+    eyebrow: "Confraternização",
+    title: "Encontros e celebrações"
   }
 ];
 
+const AUTOSCROLL_PX_PER_FRAME = 0.4;
+const RESUME_DELAY_MS = 2400;
+
 export default function Gallery() {
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const pauseTimeoutRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
+
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+
+    const getWrapPoint = () => {
+      const cards = strip.querySelectorAll<HTMLElement>(".gallery-card");
+      const first = cards[0];
+      const second = cards[ITEMS.length];
+      return first && second ? second.offsetLeft - first.offsetLeft : 0;
+    };
+
+    const tick = () => {
+      if (!pausedRef.current && strip) {
+        const wrap = getWrapPoint();
+        if (wrap > 0) {
+          let next = strip.scrollLeft + AUTOSCROLL_PX_PER_FRAME;
+          while (next >= wrap) next -= wrap;
+          while (next < 0) next += wrap;
+          strip.scrollLeft = next;
+        }
+      }
+      rafRef.current = window.requestAnimationFrame(tick);
+    };
+
+    const pause = () => {
+      pausedRef.current = true;
+      if (pauseTimeoutRef.current) window.clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = window.setTimeout(() => {
+        pausedRef.current = false;
+      }, RESUME_DELAY_MS);
+    };
+
+    let dragging = false;
+    let dragStartX = 0;
+    let dragStartScroll = 0;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === "mouse") {
+        dragging = true;
+        dragStartX = e.clientX;
+        dragStartScroll = strip.scrollLeft;
+        strip.setPointerCapture(e.pointerId);
+        strip.classList.add("is-dragging");
+      }
+      pause();
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      strip.scrollLeft = dragStartScroll - (e.clientX - dragStartX);
+    };
+
+    const onPointerUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      strip.classList.remove("is-dragging");
+    };
+
+    strip.addEventListener("touchstart", pause, { passive: true });
+    strip.addEventListener("touchmove", pause, { passive: true });
+    strip.addEventListener("wheel", pause, { passive: true });
+    strip.addEventListener("pointerdown", onPointerDown);
+    strip.addEventListener("pointermove", onPointerMove);
+    strip.addEventListener("pointerup", onPointerUp);
+    strip.addEventListener("pointercancel", onPointerUp);
+
+    rafRef.current = window.requestAnimationFrame(tick);
+
+    return () => {
+      if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
+      if (pauseTimeoutRef.current) window.clearTimeout(pauseTimeoutRef.current);
+      strip.removeEventListener("touchstart", pause);
+      strip.removeEventListener("touchmove", pause);
+      strip.removeEventListener("wheel", pause);
+      strip.removeEventListener("pointerdown", onPointerDown);
+      strip.removeEventListener("pointermove", onPointerMove);
+      strip.removeEventListener("pointerup", onPointerUp);
+      strip.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, []);
+
   return (
     <section className="gallery-section" aria-label="Vida da igreja">
       <div className="section-heading">
@@ -50,10 +152,15 @@ export default function Gallery() {
         </div>
         <Camera />
       </div>
-      <div className="gallery-strip" role="list">
-        {ITEMS.map((item) => (
-          <figure className="gallery-card" key={item.src} role="listitem">
-            <img src={item.src} alt={item.alt} loading="lazy" />
+      <div className="gallery-strip" role="list" ref={stripRef}>
+        {[...ITEMS, ...ITEMS].map((item, index) => (
+          <figure
+            className="gallery-card"
+            key={`${item.src}-${index}`}
+            role="listitem"
+            aria-hidden={index >= ITEMS.length}
+          >
+            <img src={item.src} alt={item.alt} loading="lazy" draggable={false} />
             <figcaption className="gallery-card-overlay">
               <span className="gallery-card-eyebrow">{item.eyebrow}</span>
               <span className="gallery-card-title">{item.title}</span>
