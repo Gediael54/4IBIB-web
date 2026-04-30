@@ -2,6 +2,8 @@ import { buildWhatsAppUrl, getPinnedAnnouncements } from "@4ibib/core";
 import { QueryClient, QueryClientProvider, useMutation, useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
+  ChevronDown,
+  ChevronUp,
   HeartHandshake,
   Instagram,
   LoaderCircle,
@@ -12,9 +14,10 @@ import {
   UsersRound,
   Youtube
 } from "lucide-react";
-import { useEffect, useMemo, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { createBackend } from "./backend";
+import Gallery from "./components/Gallery";
 import MonthScrollCalendar from "./components/MonthScrollCalendar";
 import UpcomingEvents from "./components/UpcomingEvents";
 import { initMonitoring } from "./monitoring";
@@ -63,6 +66,7 @@ function getDocumentTitle(hash: string) {
 }
 
 export function App() {
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const {
     data: snapshot,
     isLoading,
@@ -151,12 +155,15 @@ export function App() {
 
       <header className="hero">
         <section className="hero-content" id="inicio">
-          <p className="eyebrow">{profile.city}</p>
+          <p className="eyebrow">{profile.city || "Caruaru, PE"}</p>
           <h1>{profile.name}</h1>
-          <p className="hero-copy">{profile.tagline}</p>
+          <p className="hero-copy">
+            {profile.tagline ||
+              "Uma igreja confessional e historica, comprometida com a pregacao fiel das Escrituras."}
+          </p>
           <div className="hero-actions">
             <a href="#programacao" className="button primary">
-              <CalendarDays size={18} /> Ver programacao
+              <CalendarDays size={18} /> Conheca nossa programacao
             </a>
             {profile.whatsapp && (
               <a
@@ -185,13 +192,30 @@ export function App() {
       </section>
 
       <section className="section intro">
-        <div>
-          <p className="eyebrow">Nossa missao</p>
-          <h2>{profile.mission}</h2>
+        <div className="intro-image">
+          <img src="/intro.jpg" alt="Membro da congregacao em momento de leitura biblica" loading="lazy" />
         </div>
-        <p>{profile.heroVerse}</p>
-        <p>{profile.foundedText}</p>
+        <div className="intro-text">
+          <p className="eyebrow">Nossa missao</p>
+          <h2>
+            {profile.mission ||
+              "Glorificar a Deus pela proclamacao fiel da Palavra, pela edificacao dos santos e pelo amor ao proximo."}
+          </h2>
+          {profile.heroVerse ? (
+            <blockquote className="intro-verse">{profile.heroVerse}</blockquote>
+          ) : (
+            <blockquote className="intro-verse">
+              "Edificarei a minha igreja, e as portas do inferno nao prevalecerao contra ela." — Mateus 16.18
+            </blockquote>
+          )}
+          <p className="intro-founded">
+            {profile.foundedText ||
+              "Comunidade local em Caruaru, comprometida com as Escrituras como unica regra de fe e pratica e com a tradicao reformada batista."}
+          </p>
+        </div>
       </section>
+
+      <Gallery />
 
       <section className="section" id="avisos">
         <div className="section-heading">
@@ -230,8 +254,21 @@ export function App() {
         </div>
         <p className="schedule-subhead">Proximos eventos</p>
         <UpcomingEvents schedule={schedule} profile={profile} />
-        <p className="schedule-subhead">Calendario do mes</p>
-        <MonthScrollCalendar schedule={schedule} profile={profile} />
+        <button
+          type="button"
+          className="calendar-toggle"
+          onClick={() => setCalendarOpen((open) => !open)}
+          aria-expanded={calendarOpen}
+          aria-controls="calendar-panel"
+        >
+          <span>{calendarOpen ? "Ocultar calendario do mes" : "Ver calendario do mes"}</span>
+          {calendarOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
+        {calendarOpen && (
+          <div id="calendar-panel">
+            <MonthScrollCalendar schedule={schedule} profile={profile} />
+          </div>
+        )}
       </section>
 
       <section className="section" id="ministerios">
