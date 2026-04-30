@@ -13,6 +13,7 @@ import {
   SelectField,
   TextAreaField
 } from "../components/ui";
+import { MINISTRIES } from "../config/church";
 import { useDeleteScheduleItem, useSaveScheduleItem } from "../hooks";
 import { scheduleSchema, type ScheduleFormValues } from "../schemas";
 import {
@@ -50,6 +51,7 @@ function emptyScheduleValues(): ScheduleFormValues {
     summary: "",
     preacher: "",
     director: "",
+    soundTeam: "",
     passage: "",
     occasionLabel: "",
     status: "scheduled",
@@ -67,6 +69,7 @@ function scheduleToFormValues(item: ScheduleItem): ScheduleFormValues {
     summary: item.summary,
     preacher: item.preacher,
     director: item.director,
+    soundTeam: item.soundTeam ?? "",
     passage: item.passage,
     occasionLabel: item.occasionLabel,
     status: item.status,
@@ -106,7 +109,7 @@ export function ScheduleForm(props: {
   const ministryNames = useMemo(
     () =>
       uniqueSorted([
-        ...props.snapshot.ministries.map((item) => item.name),
+        ...MINISTRIES.map((item) => item.name),
         ...props.snapshot.schedule.map((item) => item.ministry)
       ]),
     [props.snapshot]
@@ -117,14 +120,26 @@ export function ScheduleForm(props: {
     [props.snapshot]
   );
 
+  const volunteers = useMemo(() => props.snapshot.volunteers ?? [], [props.snapshot]);
+
+  const generalVolunteerNames = useMemo(
+    () => uniqueSorted(volunteers.filter((item) => item.role === "geral").map((item) => item.name)),
+    [volunteers]
+  );
+
+  const soundVolunteerNames = useMemo(
+    () => uniqueSorted(volunteers.filter((item) => item.role === "som").map((item) => item.name)),
+    [volunteers]
+  );
+
   const schedulePreachers = useMemo(
-    () => uniqueSorted(props.snapshot.schedule.map((item) => item.preacher)),
-    [props.snapshot]
+    () => uniqueSorted([...generalVolunteerNames, ...props.snapshot.schedule.map((item) => item.preacher)]),
+    [props.snapshot, generalVolunteerNames]
   );
 
   const scheduleDirectors = useMemo(
-    () => uniqueSorted(props.snapshot.schedule.map((item) => item.director)),
-    [props.snapshot]
+    () => uniqueSorted([...generalVolunteerNames, ...props.snapshot.schedule.map((item) => item.director)]),
+    [props.snapshot, generalVolunteerNames]
   );
 
   const schedulePassages = useMemo(
@@ -163,6 +178,7 @@ export function ScheduleForm(props: {
       summary: values.summary,
       preacher: values.preacher,
       director: values.director,
+      soundTeam: values.soundTeam,
       passage: values.passage,
       occasionLabel: values.occasionLabel,
       status: values.status,
@@ -251,6 +267,19 @@ export function ScheduleForm(props: {
           {...register("director")}
         />
       </div>
+      <Field
+        label="Equipe de som"
+        list="schedule-sound-team"
+        placeholder="Miguel, Brainer (separe com virgula)"
+        maxLength={TEXT_MAX}
+        error={errors.soundTeam?.message}
+        {...register("soundTeam")}
+      />
+      <datalist id="schedule-sound-team">
+        {soundVolunteerNames.map((value) => (
+          <option key={value} value={value} />
+        ))}
+      </datalist>
       <div className="form-grid">
         <Field
           label="Passagem biblica"
