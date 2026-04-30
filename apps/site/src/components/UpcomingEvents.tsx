@@ -1,12 +1,11 @@
 import { useMemo } from "react";
 import { getUpcomingSchedule } from "@4ibib/core";
-import type { ChurchProfile, ScheduleItem } from "@4ibib/core";
+import type { ScheduleItem } from "@4ibib/core";
 import { formatMonthShort, formatWeekdayShort, getZonedParts } from "../lib/date";
 import EventCard from "./EventCard";
 
 export interface UpcomingEventsProps {
   schedule: ScheduleItem[];
-  profile: ChurchProfile;
   limit?: number;
 }
 
@@ -17,7 +16,7 @@ function buildDayLabel(iso: string): string {
   return `${weekday} · ${parts.day} ${month}`;
 }
 
-export default function UpcomingEvents({ schedule, profile, limit = 5 }: UpcomingEventsProps) {
+export default function UpcomingEvents({ schedule, limit = 5 }: UpcomingEventsProps) {
   const upcoming = useMemo(() => getUpcomingSchedule(schedule, limit), [schedule, limit]);
 
   if (upcoming.length === 0) {
@@ -28,7 +27,7 @@ export default function UpcomingEvents({ schedule, profile, limit = 5 }: Upcomin
     <ul className="upcoming-events" aria-label="Proximos eventos">
       {upcoming.map((item) => (
         <li key={item.id}>
-          <EventCard item={item} profile={profile} compact showDay dayLabel={buildDayLabel(item.startsAt)} />
+          <EventCard item={item} compact showDay dayLabel={buildDayLabel(item.startsAt)} />
         </li>
       ))}
     </ul>
