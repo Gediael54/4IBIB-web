@@ -113,3 +113,22 @@ export function isoForDay(year: number, monthNumber: number, day: number): strin
   const dd = String(day).padStart(2, "0");
   return `${year}-${mm}-${dd}T12:00:00.000Z`;
 }
+
+export interface MonthKey {
+  year: number;
+  month: number;
+  key: string;
+  label: string;
+}
+
+export function getMonthKey(value: string | Date): MonthKey {
+  const parts = getZonedParts(value);
+  const key = `${parts.year}-${String(parts.month).padStart(2, "0")}`;
+  const label = formatMonthLabel(new Date(parts.year, parts.month - 1, 1));
+  return { year: parts.year, month: parts.month, key, label };
+}
+
+export function getDayKey(value: string | Date): string {
+  const parts = getZonedParts(value);
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
