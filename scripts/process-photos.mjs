@@ -21,47 +21,80 @@ const baseGrade = (image) =>
     ])
     .sharpen({ sigma: 0.6 });
 
+const vibrantGrade = (image) =>
+  image
+    .modulate({ brightness: 1.06, saturation: 1.28 })
+    .linear(1.12, -12)
+    .recomb([
+      [1.08, 0.06, -0.02],
+      [0.03, 1.04, -0.04],
+      [-0.05, 0.0, 0.96]
+    ])
+    .sharpen({ sigma: 0.9 });
+
 const jobs = [
   {
     name: "hero",
-    src: "corrida-grupo-fachada-igreja.jpg",
+    src: "fachada-igreja-dia.png",
+    grade: "vibrant",
     desktop: {
       width: 2400,
       height: 1350,
-      left: 30,
-      top: 570,
-      width_src: 1020,
-      height_src: 580,
+      left: 60,
+      top: 1050,
+      width_src: 1440,
+      height_src: 809,
       position: "center"
     },
     mobile: {
       width: 1200,
       height: 700,
-      left: 30,
-      top: 570,
-      width_src: 1020,
-      height_src: 580,
+      left: 60,
+      top: 1050,
+      width_src: 1440,
+      height_src: 809,
       position: "center"
     }
   },
   {
     name: "intro",
-    src: "culto-homem-lendo-biblia-perfil.jpg",
+    src: "pororoca-aula-criancas-tenda.jpg",
     desktop: { width: 1400, height: 1750, mode: "portrait" }
   },
   {
     name: "gallery-worship",
-    src: "culto-oracao-jovem-cruz-templo.jpg",
+    src: "fachada-igreja-noite-cruz-iluminada.jpg",
     desktop: { width: 800, height: 1000, mode: "portrait" }
   },
   {
     name: "gallery-prayer",
-    src: "culto-oracao-mulher-camiseta-joao114.jpg",
-    desktop: { width: 800, height: 1000, mode: "portrait" }
+    src: "culto-oracao-joao114-vermelho.jpg",
+    desktop: {
+      width: 800,
+      height: 1000,
+      mode: "portrait",
+      left: 20,
+      top: 140,
+      width_src: 650,
+      height_src: 1590
+    }
   },
   {
     name: "gallery-missions",
-    src: "evangelismo-mae-bebe-biblia.jpg",
+    src: "pororoca-evangelismo-violao-casa.jpg",
+    desktop: {
+      width: 800,
+      height: 1000,
+      mode: "portrait",
+      left: 120,
+      top: 300,
+      width_src: 1200,
+      height_src: 1500
+    }
+  },
+  {
+    name: "gallery-evangelismo-local",
+    src: "evangelismo-local-visita-casa-missoes.jpg",
     desktop: { width: 800, height: 1000, mode: "portrait" }
   },
   {
@@ -70,8 +103,13 @@ const jobs = [
     desktop: { width: 800, height: 1000, mode: "portrait" }
   },
   {
+    name: "gallery-lado-a-lado",
+    src: "corrida-casal-medalha.jpg",
+    desktop: { width: 800, height: 1000, mode: "portrait" }
+  },
+  {
     name: "gallery-fellowship",
-    src: "evangelismo-mulheres-mesa-ar-livre.jpg",
+    src: "corrida-dia-dos-pais-grupo-fachada.jpg",
     desktop: { width: 800, height: 1000, mode: "portrait" }
   }
 ];
@@ -102,7 +140,7 @@ for (const job of jobs) {
       position: cfg.position ?? (cfg.mode === "portrait" ? "center" : "top")
     });
 
-    pipe = baseGrade(pipe);
+    pipe = job.grade === "vibrant" ? vibrantGrade(pipe) : baseGrade(pipe);
 
     const outFile = resolve(out, `${job.name}${suffix}.jpg`);
     await pipe.jpeg({ quality: 84, progressive: true, mozjpeg: true }).toFile(outFile);
