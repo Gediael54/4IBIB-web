@@ -1,9 +1,8 @@
 import { buildWhatsAppUrl, getPinnedAnnouncements } from "@4ibib/core";
 import { QueryClient, QueryClientProvider, useMutation, useQuery } from "@tanstack/react-query";
 import {
+  ArrowRight,
   CalendarDays,
-  ChevronDown,
-  ChevronUp,
   HeartHandshake,
   Instagram,
   LoaderCircle,
@@ -16,16 +15,16 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
-import { createBackend } from "./backend";
+import { backend } from "./backend";
 import Gallery from "./components/Gallery";
-import MonthScrollCalendar from "./components/MonthScrollCalendar";
+import SchedulePage from "./components/SchedulePage";
 import UpcomingEvents from "./components/UpcomingEvents";
+import { CHURCH, MINISTRIES, REGULAR_MEETINGS } from "./config/church";
 import { initMonitoring } from "./monitoring";
 import "./styles.css";
 
 void initMonitoring();
 
-const backend = createBackend();
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "";
 
 const queryClient = new QueryClient({
@@ -46,7 +45,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   oracao: "Oracao"
 };
 
-const SITE_TITLE = "4a Igreja Batista Independente Betel";
+const SITE_TITLE = CHURCH.name;
 const SECTION_TITLES: Record<string, string> = {
   inicio: SITE_TITLE,
   avisos: `Avisos | ${SITE_TITLE}`,
@@ -65,8 +64,15 @@ function getDocumentTitle(hash: string) {
   return SECTION_TITLES[sectionId] ?? SITE_TITLE;
 }
 
+function getCurrentHash(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.location.hash.replace(/^#/, "");
+}
+
 export function App() {
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [route, setRoute] = useState<string>(() => getCurrentHash());
   const {
     data: snapshot,
     isLoading,
@@ -82,13 +88,14 @@ export function App() {
   });
 
   useEffect(() => {
-    const updateTitle = () => {
+    const updateHash = () => {
       document.title = getDocumentTitle(window.location.hash);
+      setRoute(getCurrentHash());
     };
 
-    updateTitle();
-    window.addEventListener("hashchange", updateTitle);
-    return () => window.removeEventListener("hashchange", updateTitle);
+    updateHash();
+    window.addEventListener("hashchange", updateHash);
+    return () => window.removeEventListener("hashchange", updateHash);
   }, []);
 
   const pinnedAnnouncements = useMemo(
@@ -133,7 +140,9 @@ export function App() {
     );
   }
 
-  const { profile, ministries } = snapshot;
+  if (route === "programacao") {
+    return <SchedulePage schedule={schedule} />;
+  }
 
   return (
     <main>
@@ -143,7 +152,7 @@ export function App() {
       <nav className="nav" aria-label="Navegacao principal">
         <a className="brand" href="#inicio">
           <img src="/logo.png" alt="" className="brand-logo" />
-          <span>{profile.shortName}</span>
+          <span>{CHURCH.shortName}</span>
         </a>
         <div className="nav-links">
           <a href="#avisos">Avisos</a>
@@ -155,19 +164,16 @@ export function App() {
 
       <header className="hero">
         <section className="hero-content" id="inicio">
-          <p className="eyebrow">{profile.city || "Caruaru, PE"}</p>
-          <h1>{profile.name}</h1>
-          <p className="hero-copy">
-            {profile.tagline ||
-              "Uma igreja confessional e historica, comprometida com a pregacao fiel das Escrituras."}
-          </p>
+          <p className="eyebrow">{CHURCH.city}</p>
+          <h1>{CHURCH.name}</h1>
+          <p className="hero-copy">{CHURCH.tagline}</p>
           <div className="hero-actions">
             <a href="#programacao" className="button primary">
               <CalendarDays size={18} /> Conheca nossa programacao
             </a>
-            {profile.whatsapp && (
+            {CHURCH.whatsapp && (
               <a
-                href={buildWhatsAppUrl(profile.whatsapp, "Ola, quero saber mais sobre a igreja.")}
+                href={buildWhatsAppUrl(CHURCH.whatsapp, "Ola, quero saber mais sobre a igreja.")}
                 className="button secondary"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -180,13 +186,13 @@ export function App() {
       </header>
 
       <section className="meeting-band">
-        {profile.regularMeetings.map((meeting) => (
-          <article key={meeting.id}>
+        {REGULAR_MEETINGS.map((meeting) => (
+          <article key={`${meeting.weekday}-${meeting.startsAt}-${meeting.title}`}>
             <strong>{meeting.title}</strong>
             <span>
-              {meeting.weekday}, {meeting.time}
+              {meeting.weekday}, {meeting.startsAt} - {meeting.endsAt}
             </span>
-            <p>{meeting.description}</p>
+            {meeting.description && <p>{meeting.description}</p>}
           </article>
         ))}
       </section>
@@ -197,21 +203,8 @@ export function App() {
         </div>
         <div className="intro-text">
           <p className="eyebrow">Nossa missao</p>
-          <h2>
-            {profile.mission ||
-              "Glorificar a Deus pela proclamacao fiel da Palavra, pela edificacao dos santos e pelo amor ao proximo."}
-          </h2>
-          {profile.heroVerse ? (
-            <blockquote className="intro-verse">{profile.heroVerse}</blockquote>
-          ) : (
-            <blockquote className="intro-verse">
-              "Edificarei a minha igreja, e as portas do inferno nao prevalecerao contra ela." — Mateus 16.18
-            </blockquote>
-          )}
-          <p className="intro-founded">
-            {profile.foundedText ||
-              "Comunidade local em Caruaru, comprometida com as Escrituras como unica regra de fe e pratica e com a tradicao reformada batista."}
-          </p>
+          <h2>{CHURCH.mission}</h2>
+          <blockquote className="intro-verse">{CHURCH.heroVerse}</blockquote>
         </div>
       </section>
 
@@ -253,22 +246,11 @@ export function App() {
           <CalendarDays />
         </div>
         <p className="schedule-subhead">Proximos eventos</p>
-        <UpcomingEvents schedule={schedule} profile={profile} />
-        <button
-          type="button"
-          className="calendar-toggle"
-          onClick={() => setCalendarOpen((open) => !open)}
-          aria-expanded={calendarOpen}
-          aria-controls="calendar-panel"
-        >
-          <span>{calendarOpen ? "Ocultar calendario do mes" : "Ver calendario do mes"}</span>
-          {calendarOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </button>
-        {calendarOpen && (
-          <div id="calendar-panel">
-            <MonthScrollCalendar schedule={schedule} profile={profile} />
-          </div>
-        )}
+        <UpcomingEvents schedule={schedule} />
+        <a href="#programacao" className="schedule-section-cta">
+          <span>Ver agenda completa</span>
+          <ArrowRight size={18} aria-hidden="true" />
+        </a>
       </section>
 
       <section className="section" id="ministerios">
@@ -280,12 +262,16 @@ export function App() {
           <UsersRound />
         </div>
         <div className="ministry-grid">
-          {ministries.map((ministry) => (
-            <article className="ministry-card" key={ministry.id} style={{ borderLeftColor: ministry.color }}>
+          {MINISTRIES.map((ministry) => (
+            <article
+              className="ministry-card"
+              key={ministry.slug}
+              style={{ borderLeftColor: ministry.color }}
+            >
               <h3>{ministry.name}</h3>
-              <p>{ministry.summary}</p>
-              <strong>{ministry.meetingTime}</strong>
-              <small>{ministry.contact}</small>
+              {ministry.summary && <p>{ministry.summary}</p>}
+              {ministry.meetingTime && <strong>{ministry.meetingTime}</strong>}
+              {ministry.contact && <small>{ministry.contact}</small>}
             </article>
           ))}
         </div>
@@ -297,23 +283,23 @@ export function App() {
           <h2>Pedido de oracao</h2>
           <p>Envie um pedido para a equipe pastoral acompanhar em oracao.</p>
           <div className="contact-links">
-            {profile.email && (
-              <a href={`mailto:${profile.email}`}>
-                <Mail size={18} /> {profile.email}
+            {CHURCH.email && (
+              <a href={`mailto:${CHURCH.email}`}>
+                <Mail size={18} /> {CHURCH.email}
               </a>
             )}
-            {profile.mapsUrl && (
-              <a href={profile.mapsUrl} target="_blank" rel="noopener noreferrer">
-                <MapPin size={18} /> {profile.address}
+            {CHURCH.mapsUrl && (
+              <a href={CHURCH.mapsUrl} target="_blank" rel="noopener noreferrer">
+                <MapPin size={18} /> {CHURCH.address}
               </a>
             )}
-            {profile.instagramUrl && (
-              <a href={profile.instagramUrl} target="_blank" rel="noopener noreferrer">
+            {CHURCH.instagramUrl && (
+              <a href={CHURCH.instagramUrl} target="_blank" rel="noopener noreferrer">
                 <Instagram size={18} /> Instagram
               </a>
             )}
-            {profile.youtubeUrl && (
-              <a href={profile.youtubeUrl} target="_blank" rel="noopener noreferrer">
+            {CHURCH.youtubeUrl && (
+              <a href={CHURCH.youtubeUrl} target="_blank" rel="noopener noreferrer">
                 <Youtube size={18} /> YouTube
               </a>
             )}
@@ -370,7 +356,7 @@ export function App() {
         <div className="footer-brand">
           <img src="/logo.png" alt="" className="footer-logo" />
           <span>
-            {profile.name} - {profile.city}
+            {CHURCH.name} - {CHURCH.city}
           </span>
         </div>
         <nav className="footer-nav" aria-label="Navegacao do rodape">
