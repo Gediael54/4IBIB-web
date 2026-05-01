@@ -42,7 +42,10 @@ function emptyAnnouncementValues(): AnnouncementFormValues {
     publishedAt: formatInputDateTime(new Date().toISOString()),
     pinned: false,
     ctaLabel: "",
-    ctaUrl: ""
+    ctaUrl: "",
+    status: "published",
+    expiresAt: "",
+    imageUrl: ""
   };
 }
 
@@ -54,7 +57,10 @@ function announcementToFormValues(item: Announcement): AnnouncementFormValues {
     publishedAt: formatInputDateTime(item.publishedAt),
     pinned: item.pinned,
     ctaLabel: item.ctaLabel,
-    ctaUrl: item.ctaUrl
+    ctaUrl: item.ctaUrl,
+    status: item.status,
+    expiresAt: item.expiresAt ? formatInputDateTime(item.expiresAt) : "",
+    imageUrl: item.imageUrl
   };
 }
 
@@ -117,7 +123,10 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
       publishedAt: inputDateTimeToIso(values.publishedAt),
       pinned: values.pinned,
       ctaLabel: values.ctaLabel,
-      ctaUrl: values.ctaUrl
+      ctaUrl: values.ctaUrl,
+      status: values.status,
+      expiresAt: values.expiresAt ? inputDateTimeToIso(values.expiresAt) : null,
+      imageUrl: values.imageUrl
     });
     cancelEdit();
   }

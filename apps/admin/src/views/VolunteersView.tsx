@@ -39,7 +39,12 @@ function emptyVolunteerValues(): VolunteerFormValues {
   return {
     name: "",
     role: "geral",
-    sortOrder: 0
+    sortOrder: 0,
+    contact: "",
+    photoUrl: "",
+    ministries: [],
+    unavailableDates: [],
+    notes: ""
   };
 }
 
@@ -48,7 +53,12 @@ function volunteerToFormValues(item: Volunteer): VolunteerFormValues {
     id: item.id,
     name: item.name,
     role: item.role,
-    sortOrder: item.sortOrder
+    sortOrder: item.sortOrder,
+    contact: item.contact,
+    photoUrl: item.photoUrl,
+    ministries: item.ministries,
+    unavailableDates: item.unavailableDates,
+    notes: item.notes
   };
 }
 
