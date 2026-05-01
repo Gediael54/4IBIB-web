@@ -1,28 +1,26 @@
 # Supabase
 
 `schema.sql` e o unico script. Cole ele inteiro no SQL Editor do Supabase para
-aplicar (ou reaplicar) tudo: estrutura, indices, RLS, bootstrap e seed dos
-eventos.
+aplicar tudo: estrutura, indices, RLS, funcoes, triggers e seed dos eventos.
 
 ## Estrutura do arquivo
 
-1. Extensoes
-2. Tabelas (estado final, todas as constraints inline)
-3. Funcoes
-4. Indices
-5. Views
-6. Triggers
-7. RLS e policies
-8. Bootstrap (singleton de `church_profile` + reunioes recorrentes padrao)
+1. Reset (drop tudo do schema public)
+2. Extensoes
+3. Enum types
+4. Tabelas (estado final, todas as constraints inline)
+5. Funcoes
+6. Indices
+7. Triggers
+8. RLS e policies
 9. Seed da programacao (entre os marcadores `BEGIN SEED` / `END SEED`,
-   gerado a partir de `sources/Escala-de-cultos.xlsx`)
+   gerado a partir das planilhas em `sources/`)
 
-Tudo e idempotente: rodar de novo nao duplica dados nem quebra dados ja
-existentes.
+Roda numa transacao so — se algo falha, rollback.
 
 ## Atualizar o seed
 
-Edite a planilha em `sources/Escala-de-cultos.xlsx` e rode:
+Edite as planilhas em `sources/` e rode:
 
 ```bash
 npm run seed:schedule
