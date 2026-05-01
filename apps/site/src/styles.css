@@ -1062,6 +1062,47 @@ h3 {
   font-family: var(--sans);
 }
 
+.month-theme-banner {
+  margin: 0 0 22px;
+  padding: 14px 18px;
+  border-left: 3px solid var(--accent-bronze, #a07337);
+  background: rgba(200, 162, 78, 0.1);
+  border-radius: 6px;
+}
+
+.month-theme-banner p {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--sans);
+}
+
+.month-theme-banner p + p {
+  margin-top: 6px;
+}
+
+.month-theme-banner-month {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-bronze, #a07337);
+}
+
+.month-theme-banner-sep {
+  color: var(--muted, #6b5d4f);
+  opacity: 0.6;
+}
+
+.month-theme-banner-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-text, #1a1a1a);
+}
+
 .event-card-head {
   display: grid;
   grid-template-columns: auto 1fr;
