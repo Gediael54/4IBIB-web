@@ -8,14 +8,19 @@ export interface DisplayLocation {
   isHome: boolean;
 }
 
+export interface ChurchIdentity {
+  name: string;
+  shortName: string;
+}
+
 const HOME_LOCATIONS = new Set(["", "templo principal"]);
 
-export function displayLocation(item: ScheduleItem): DisplayLocation {
+export function displayLocation(item: ScheduleItem, church: ChurchIdentity = CHURCH): DisplayLocation {
   const raw = item.location?.trim() ?? "";
   if (HOME_LOCATIONS.has(raw.toLowerCase())) {
     return {
-      primary: CHURCH.shortName,
-      secondary: CHURCH.name,
+      primary: church.shortName,
+      secondary: church.name,
       isHome: true
     };
   }

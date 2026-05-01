@@ -19,7 +19,8 @@ import { backend } from "./backend";
 import Gallery from "./components/Gallery";
 import SchedulePage from "./components/SchedulePage";
 import UpcomingEvents from "./components/UpcomingEvents";
-import { CHURCH, MINISTRIES, REGULAR_MEETINGS } from "./config/church";
+import { CHURCH } from "./config/church";
+import { ChurchProvider, useChurchProfile, useMinistries, useRegularMeetings } from "./lib/church-context";
 import { initMonitoring } from "./monitoring";
 import "./styles.css";
 
@@ -70,6 +71,252 @@ function getCurrentHash(): string {
     return "";
   }
   return window.location.hash.replace(/^#/, "");
+}
+
+interface SiteHomeProps {
+  pinnedAnnouncements: ReturnType<typeof getPinnedAnnouncements>;
+  schedule: Parameters<typeof UpcomingEvents>[0]["schedule"];
+  prayerMutation: ReturnType<
+    typeof useMutation<
+      Awaited<ReturnType<typeof backend.content.createPrayerRequest>>,
+      Error,
+      Parameters<typeof backend.content.createPrayerRequest>[0]
+    >
+  >;
+  onPrayerRequest: (event: FormEvent<HTMLFormElement>) => void;
+}
+
+function SiteHome({ pinnedAnnouncements, schedule, prayerMutation, onPrayerRequest }: SiteHomeProps) {
+  const church = useChurchProfile();
+  const regularMeetings = useRegularMeetings();
+  const ministries = useMinistries();
+
+  return (
+    <main>
+      <a className="skip-link" href="#inicio">
+        Pular para o conteudo
+      </a>
+      <nav className="nav" aria-label="Navegacao principal">
+        <a className="brand" href="#inicio">
+          <img src="/logo.png" alt="" className="brand-logo" />
+          <span>{church.shortName}</span>
+        </a>
+        <div className="nav-links">
+          <a href="#avisos">Avisos</a>
+          <a href="#programacao">Programacao</a>
+          <a href="#ministerios">Ministerios</a>
+          <a href="/admin">Admin</a>
+        </div>
+      </nav>
+
+      <header className="hero">
+        <section className="hero-content" id="inicio">
+          <p className="eyebrow">{church.city}</p>
+          <h1>{church.name}</h1>
+          <p className="hero-copy">{church.tagline}</p>
+          <div className="hero-actions">
+            <a href="#programacao" className="button primary">
+              <CalendarDays size={18} /> Conheca nossa programacao
+            </a>
+            {church.whatsapp && (
+              <a
+                href={buildWhatsAppUrl(church.whatsapp, "Ola, quero saber mais sobre a igreja.")}
+                className="button secondary"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Send size={18} /> Falar no WhatsApp
+              </a>
+            )}
+          </div>
+        </section>
+      </header>
+
+      <section className="meeting-band">
+        {regularMeetings.map((meeting) => (
+          <article key={`${meeting.weekday}-${meeting.startsAt}-${meeting.title}`}>
+            <strong>{meeting.title}</strong>
+            <span>
+              {meeting.weekday}, {meeting.startsAt} - {meeting.endsAt}
+            </span>
+            {meeting.description && <p>{meeting.description}</p>}
+          </article>
+        ))}
+      </section>
+
+      <section className="section intro">
+        <div className="intro-image">
+          <img src="/intro.jpg" alt="Membro da congregacao em momento de leitura biblica" loading="lazy" />
+        </div>
+        <div className="intro-text">
+          <p className="eyebrow">Nossa missao</p>
+          <h2>{church.mission}</h2>
+          <blockquote className="intro-verse">{church.heroVerse}</blockquote>
+        </div>
+      </section>
+
+      <Gallery />
+
+      <section className="section" id="avisos">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Atualizacoes</p>
+            <h2>Avisos importantes</h2>
+          </div>
+          <Megaphone />
+        </div>
+        <div className="announcement-grid">
+          {pinnedAnnouncements.map((announcement) => (
+            <article className="announcement-card" key={announcement.id}>
+              <span>{CATEGORY_LABELS[announcement.category] ?? announcement.category}</span>
+              <h3>{announcement.title}</h3>
+              <p>{announcement.summary}</p>
+              {announcement.ctaUrl && announcement.ctaLabel && (
+                <a href={announcement.ctaUrl} target="_blank" rel="noopener noreferrer">
+                  {announcement.ctaLabel}
+                </a>
+              )}
+            </article>
+          ))}
+          {pinnedAnnouncements.length === 0 && (
+            <p className="empty-note">Nenhum aviso publicado no momento.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="section schedule-section" id="programacao">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Cultos e agenda</p>
+            <h2>Programacao</h2>
+          </div>
+          <CalendarDays />
+        </div>
+        <p className="schedule-subhead">Proximos eventos</p>
+        <UpcomingEvents schedule={schedule} />
+        <a href="#agenda" className="schedule-section-cta">
+          <span>Ver agenda completa</span>
+          <ArrowRight size={18} aria-hidden="true" />
+        </a>
+      </section>
+
+      <section className="section" id="ministerios">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Servico</p>
+            <h2>Ministerios</h2>
+          </div>
+          <UsersRound />
+        </div>
+        <div className="ministry-grid">
+          {ministries.map((ministry) => (
+            <article
+              className="ministry-card"
+              key={ministry.slug}
+              style={{ borderLeftColor: ministry.color }}
+            >
+              <h3>{ministry.name}</h3>
+              {ministry.summary && <p>{ministry.summary}</p>}
+              {ministry.meetingTime && <strong>{ministry.meetingTime}</strong>}
+              {ministry.contact && <small>{ministry.contact}</small>}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="contact-section" id="contato">
+        <div>
+          <p className="eyebrow">Cuidado pastoral</p>
+          <h2>Pedido de oracao</h2>
+          <p>Envie um pedido para a equipe pastoral acompanhar em oracao.</p>
+          <div className="contact-links">
+            {church.email && (
+              <a href={`mailto:${church.email}`}>
+                <Mail size={18} /> {church.email}
+              </a>
+            )}
+            {church.mapsUrl && (
+              <a href={church.mapsUrl} target="_blank" rel="noopener noreferrer">
+                <MapPin size={18} /> {church.address}
+              </a>
+            )}
+            {church.instagramUrl && (
+              <a href={church.instagramUrl} target="_blank" rel="noopener noreferrer">
+                <Instagram size={18} /> Instagram
+              </a>
+            )}
+            {church.youtubeUrl && (
+              <a href={church.youtubeUrl} target="_blank" rel="noopener noreferrer">
+                <Youtube size={18} /> YouTube
+              </a>
+            )}
+          </div>
+        </div>
+
+        <form className="prayer-form" onSubmit={onPrayerRequest}>
+          <label>
+            Nome
+            <input name="name" required maxLength={PRAYER_FIELD_LIMITS.name} placeholder="Seu nome" />
+          </label>
+          <label>
+            Contato
+            <input name="contact" maxLength={PRAYER_FIELD_LIMITS.contact} placeholder="WhatsApp ou email" />
+          </label>
+          <label>
+            Pedido
+            <textarea
+              name="message"
+              required
+              rows={5}
+              maxLength={PRAYER_FIELD_LIMITS.message}
+              placeholder="Como podemos orar?"
+            />
+          </label>
+          {TURNSTILE_SITE_KEY && (
+            <div
+              className="cf-turnstile"
+              data-sitekey={TURNSTILE_SITE_KEY}
+              data-theme="light"
+              data-language="pt-BR"
+            />
+          )}
+          <button className="button primary" type="submit" disabled={prayerMutation.isPending}>
+            <HeartHandshake size={18} />
+            {prayerMutation.isPending
+              ? "Enviando..."
+              : prayerMutation.isSuccess
+                ? "Pedido enviado"
+                : "Enviar pedido"}
+          </button>
+          {prayerMutation.isSuccess && <p className="form-success">Recebemos seu pedido. Estamos orando.</p>}
+          {prayerMutation.isError && (
+            <p className="form-error">
+              {prayerMutation.error instanceof Error
+                ? prayerMutation.error.message
+                : "Nao foi possivel enviar o pedido."}
+            </p>
+          )}
+        </form>
+      </section>
+
+      <footer className="footer">
+        <div className="footer-brand">
+          <img src="/logo.png" alt="" className="footer-logo" />
+          <span>
+            {church.name} - {church.city}
+          </span>
+        </div>
+        <nav className="footer-nav" aria-label="Navegacao do rodape">
+          <a href="#inicio">Inicio</a>
+          <a href="#avisos">Avisos</a>
+          <a href="#programacao">Programacao</a>
+          <a href="#ministerios">Ministerios</a>
+          <a href="#contato">Pedido de oracao</a>
+          <a href="/admin">Admin</a>
+        </nav>
+      </footer>
+    </main>
+  );
 }
 
 export function App() {
@@ -141,235 +388,23 @@ export function App() {
     );
   }
 
-  if (route === "agenda") {
-    return <SchedulePage schedule={schedule} />;
-  }
-
   return (
-    <main>
-      <a className="skip-link" href="#inicio">
-        Pular para o conteudo
-      </a>
-      <nav className="nav" aria-label="Navegacao principal">
-        <a className="brand" href="#inicio">
-          <img src="/logo.png" alt="" className="brand-logo" />
-          <span>{CHURCH.shortName}</span>
-        </a>
-        <div className="nav-links">
-          <a href="#avisos">Avisos</a>
-          <a href="#programacao">Programacao</a>
-          <a href="#ministerios">Ministerios</a>
-          <a href="/admin">Admin</a>
-        </div>
-      </nav>
-
-      <header className="hero">
-        <section className="hero-content" id="inicio">
-          <p className="eyebrow">{CHURCH.city}</p>
-          <h1>{CHURCH.name}</h1>
-          <p className="hero-copy">{CHURCH.tagline}</p>
-          <div className="hero-actions">
-            <a href="#programacao" className="button primary">
-              <CalendarDays size={18} /> Conheca nossa programacao
-            </a>
-            {CHURCH.whatsapp && (
-              <a
-                href={buildWhatsAppUrl(CHURCH.whatsapp, "Ola, quero saber mais sobre a igreja.")}
-                className="button secondary"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Send size={18} /> Falar no WhatsApp
-              </a>
-            )}
-          </div>
-        </section>
-      </header>
-
-      <section className="meeting-band">
-        {REGULAR_MEETINGS.map((meeting) => (
-          <article key={`${meeting.weekday}-${meeting.startsAt}-${meeting.title}`}>
-            <strong>{meeting.title}</strong>
-            <span>
-              {meeting.weekday}, {meeting.startsAt} - {meeting.endsAt}
-            </span>
-            {meeting.description && <p>{meeting.description}</p>}
-          </article>
-        ))}
-      </section>
-
-      <section className="section intro">
-        <div className="intro-image">
-          <img src="/intro.jpg" alt="Membro da congregacao em momento de leitura biblica" loading="lazy" />
-        </div>
-        <div className="intro-text">
-          <p className="eyebrow">Nossa missao</p>
-          <h2>{CHURCH.mission}</h2>
-          <blockquote className="intro-verse">{CHURCH.heroVerse}</blockquote>
-        </div>
-      </section>
-
-      <Gallery />
-
-      <section className="section" id="avisos">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Atualizacoes</p>
-            <h2>Avisos importantes</h2>
-          </div>
-          <Megaphone />
-        </div>
-        <div className="announcement-grid">
-          {pinnedAnnouncements.map((announcement) => (
-            <article className="announcement-card" key={announcement.id}>
-              <span>{CATEGORY_LABELS[announcement.category] ?? announcement.category}</span>
-              <h3>{announcement.title}</h3>
-              <p>{announcement.summary}</p>
-              {announcement.ctaUrl && announcement.ctaLabel && (
-                <a href={announcement.ctaUrl} target="_blank" rel="noopener noreferrer">
-                  {announcement.ctaLabel}
-                </a>
-              )}
-            </article>
-          ))}
-          {pinnedAnnouncements.length === 0 && (
-            <p className="empty-note">Nenhum aviso publicado no momento.</p>
-          )}
-        </div>
-      </section>
-
-      <section className="section schedule-section" id="programacao">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Cultos e agenda</p>
-            <h2>Programacao</h2>
-          </div>
-          <CalendarDays />
-        </div>
-        <p className="schedule-subhead">Proximos eventos</p>
-        <UpcomingEvents schedule={schedule} />
-        <a href="#agenda" className="schedule-section-cta">
-          <span>Ver agenda completa</span>
-          <ArrowRight size={18} aria-hidden="true" />
-        </a>
-      </section>
-
-      <section className="section" id="ministerios">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Servico</p>
-            <h2>Ministerios</h2>
-          </div>
-          <UsersRound />
-        </div>
-        <div className="ministry-grid">
-          {MINISTRIES.map((ministry) => (
-            <article
-              className="ministry-card"
-              key={ministry.slug}
-              style={{ borderLeftColor: ministry.color }}
-            >
-              <h3>{ministry.name}</h3>
-              {ministry.summary && <p>{ministry.summary}</p>}
-              {ministry.meetingTime && <strong>{ministry.meetingTime}</strong>}
-              {ministry.contact && <small>{ministry.contact}</small>}
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="contact-section" id="contato">
-        <div>
-          <p className="eyebrow">Cuidado pastoral</p>
-          <h2>Pedido de oracao</h2>
-          <p>Envie um pedido para a equipe pastoral acompanhar em oracao.</p>
-          <div className="contact-links">
-            {CHURCH.email && (
-              <a href={`mailto:${CHURCH.email}`}>
-                <Mail size={18} /> {CHURCH.email}
-              </a>
-            )}
-            {CHURCH.mapsUrl && (
-              <a href={CHURCH.mapsUrl} target="_blank" rel="noopener noreferrer">
-                <MapPin size={18} /> {CHURCH.address}
-              </a>
-            )}
-            {CHURCH.instagramUrl && (
-              <a href={CHURCH.instagramUrl} target="_blank" rel="noopener noreferrer">
-                <Instagram size={18} /> Instagram
-              </a>
-            )}
-            {CHURCH.youtubeUrl && (
-              <a href={CHURCH.youtubeUrl} target="_blank" rel="noopener noreferrer">
-                <Youtube size={18} /> YouTube
-              </a>
-            )}
-          </div>
-        </div>
-
-        <form className="prayer-form" onSubmit={handlePrayerRequest}>
-          <label>
-            Nome
-            <input name="name" required maxLength={PRAYER_FIELD_LIMITS.name} placeholder="Seu nome" />
-          </label>
-          <label>
-            Contato
-            <input name="contact" maxLength={PRAYER_FIELD_LIMITS.contact} placeholder="WhatsApp ou email" />
-          </label>
-          <label>
-            Pedido
-            <textarea
-              name="message"
-              required
-              rows={5}
-              maxLength={PRAYER_FIELD_LIMITS.message}
-              placeholder="Como podemos orar?"
-            />
-          </label>
-          {TURNSTILE_SITE_KEY && (
-            <div
-              className="cf-turnstile"
-              data-sitekey={TURNSTILE_SITE_KEY}
-              data-theme="light"
-              data-language="pt-BR"
-            />
-          )}
-          <button className="button primary" type="submit" disabled={prayerMutation.isPending}>
-            <HeartHandshake size={18} />
-            {prayerMutation.isPending
-              ? "Enviando..."
-              : prayerMutation.isSuccess
-                ? "Pedido enviado"
-                : "Enviar pedido"}
-          </button>
-          {prayerMutation.isSuccess && <p className="form-success">Recebemos seu pedido. Estamos orando.</p>}
-          {prayerMutation.isError && (
-            <p className="form-error">
-              {prayerMutation.error instanceof Error
-                ? prayerMutation.error.message
-                : "Nao foi possivel enviar o pedido."}
-            </p>
-          )}
-        </form>
-      </section>
-
-      <footer className="footer">
-        <div className="footer-brand">
-          <img src="/logo.png" alt="" className="footer-logo" />
-          <span>
-            {CHURCH.name} - {CHURCH.city}
-          </span>
-        </div>
-        <nav className="footer-nav" aria-label="Navegacao do rodape">
-          <a href="#inicio">Inicio</a>
-          <a href="#avisos">Avisos</a>
-          <a href="#programacao">Programacao</a>
-          <a href="#ministerios">Ministerios</a>
-          <a href="#contato">Pedido de oracao</a>
-          <a href="/admin">Admin</a>
-        </nav>
-      </footer>
-    </main>
+    <ChurchProvider
+      profile={snapshot.profile}
+      ministries={snapshot.ministries}
+      recurringMeetings={snapshot.recurringMeetings}
+    >
+      {route === "agenda" ? (
+        <SchedulePage schedule={schedule} />
+      ) : (
+        <SiteHome
+          pinnedAnnouncements={pinnedAnnouncements}
+          schedule={schedule}
+          prayerMutation={prayerMutation}
+          onPrayerRequest={handlePrayerRequest}
+        />
+      )}
+    </ChurchProvider>
   );
 }
 

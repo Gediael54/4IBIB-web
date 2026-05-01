@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { ScheduleItem } from "@4ibib/core";
 import { sortSchedule } from "@4ibib/core";
-import { CHURCH } from "../config/church";
+import { useChurchProfile } from "../lib/church-context";
 import { formatMonthShort, formatWeekdayLong, getDayKey, getMonthKey, getZonedParts } from "../lib/date";
 import { categoryOf, monthThemesFor, nameMatches, splitNames, type ScheduleCategory } from "../lib/event";
 import EventCard from "./EventCard";
@@ -82,6 +82,7 @@ const TYPE_OPTIONS: { value: ScheduleCategory; label: string }[] = [
 ];
 
 export default function SchedulePage({ schedule }: SchedulePageProps) {
+  const church = useChurchProfile();
   const [query, setQuery] = useState<string>(() => getInitialQuery());
   const monthOptions = useMemo(() => buildMonthOptions(schedule), [schedule]);
   const [pickedMonth, setPickedMonth] = useState<string>("");
@@ -189,7 +190,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
           <span>Voltar</span>
         </a>
         <nav className="schedule-page-crumbs" aria-label="Caminho">
-          <span className="schedule-page-brand">{CHURCH.shortName}</span>
+          <span className="schedule-page-brand">{church.shortName}</span>
           <span className="schedule-page-crumb-sep" aria-hidden="true">
             ›
           </span>

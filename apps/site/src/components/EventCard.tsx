@@ -1,6 +1,7 @@
 import { Star } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ScheduleItem } from "@4ibib/core";
+import { useChurchProfile } from "../lib/church-context";
 import { formatTime } from "../lib/date";
 import { displayLocation, getSoundTeam, occasionStyle, splitNames } from "../lib/event";
 
@@ -76,8 +77,9 @@ export default function EventCard({
   dayLabel,
   highlight = ""
 }: EventCardProps) {
+  const church = useChurchProfile();
   const occasion = occasionStyle(item.occasionLabel);
-  const location = displayLocation(item);
+  const location = displayLocation(item, church);
   const time = formatTime(item.startsAt);
   const soundTeam = getSoundTeam(item);
 
