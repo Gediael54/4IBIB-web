@@ -1110,6 +1110,79 @@ select:focus-visible {
   min-width: 160px;
 }
 
+.command-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(19, 28, 47, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  z-index: 50;
+}
+
+.command-palette {
+  width: min(640px, calc(100vw - 32px));
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(19, 28, 47, 0.35);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+}
+
+.command-palette-input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  padding: 16px 20px;
+  font-size: 16px;
+  color: var(--ink-text);
+  outline: none;
+}
+
+.command-palette-input::placeholder {
+  color: var(--muted-soft);
+}
+
+.command-palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.command-palette-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+
+.command-palette-item.active {
+  background: var(--bg-soft);
+  border-left-color: var(--accent-bronze);
+}
+
+.command-palette-item-title {
+  color: var(--ink-navy);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.command-palette-item-meta {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 @media (max-width: 980px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -1155,4 +1228,139 @@ select:focus-visible {
   .form-actions {
     flex-wrap: wrap;
   }
+}
+
+.annual-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 16px 0 12px;
+}
+
+.annual-controls > label {
+  flex: 0 1 200px;
+}
+
+.annual-auto-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.annual-auto-panel .form-actions {
+  grid-column: 1 / -1;
+}
+
+.annual-auto-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink-text);
+}
+
+.annual-grid {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.annual-grid th,
+.annual-grid td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+  font-size: 14px;
+}
+
+.annual-grid thead th {
+  background: var(--bg-soft);
+  font-weight: 600;
+  color: var(--ink-navy);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+}
+
+.annual-grid tbody tr:hover {
+  background: var(--bg-soft);
+}
+
+.annual-grid td strong {
+  display: block;
+  color: var(--ink-text);
+}
+
+.annual-grid td small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.annual-cell {
+  padding: 4px 8px;
+  min-width: 140px;
+}
+
+.annual-cell-empty .annual-cell-button {
+  color: var(--muted-soft);
+  font-style: italic;
+}
+
+.annual-cell-pending {
+  background: rgba(200, 162, 78, 0.18);
+}
+
+.annual-cell-pending .annual-cell-button {
+  color: var(--accent-bronze-deep);
+  font-weight: 600;
+}
+
+.annual-cell-button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: inherit;
+  font-size: 14px;
+}
+
+.annual-cell-button:hover {
+  border-color: var(--border);
+  background: var(--bg-page);
+}
+
+.annual-cell-select,
+.annual-cell-editor input {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-bronze);
+  background: var(--bg-card);
+  color: var(--ink-text);
+  font-size: 14px;
+}
+
+.annual-cell-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-gold);
+  color: var(--ink-navy-deep);
+  font-size: 11px;
+  font-weight: 600;
 }
