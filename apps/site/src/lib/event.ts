@@ -75,15 +75,7 @@ export function monthThemesFor(items: ScheduleItem[]): MonthTheme[] {
   return Array.from(seen.values()).sort((a, b) => (a.monthKey < b.monthKey ? -1 : 1));
 }
 
-export function splitNames(value: string | undefined | null): string[] {
-  if (!value) {
-    return [];
-  }
-  return value
-    .split(",")
-    .map((token) => token.trim())
-    .filter(Boolean);
-}
+export { splitNames } from "@4ibib/core";
 
 export function getSoundTeam(item: ScheduleItem): string {
   return item.soundTeam ?? "";
