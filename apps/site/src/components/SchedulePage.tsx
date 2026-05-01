@@ -1,5 +1,5 @@
 import { ArrowLeft, Search } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { ScheduleItem } from "@4ibib/core";
 import { sortSchedule } from "@4ibib/core";
@@ -86,7 +86,6 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
   const monthOptions = useMemo(() => buildMonthOptions(schedule), [schedule]);
   const [pickedMonth, setPickedMonth] = useState<string>("");
   const [typeValue, setTypeValue] = useState<ScheduleCategory>("all");
-  const controlsRef = useRef<HTMLElement>(null);
 
   const monthValue = useMemo(() => {
     if (pickedMonth && monthOptions.some((opt) => opt.value === pickedMonth)) {
@@ -108,8 +107,8 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
   }, [schedule]);
 
   useEffect(() => {
-    if (typeof controlsRef.current?.scrollIntoView === "function") {
-      controlsRef.current.scrollIntoView({ block: "start", behavior: "smooth" });
+    if (typeof window !== "undefined" && typeof window.scrollTo === "function") {
+      window.scrollTo({ top: 0, behavior: "auto" });
     }
   }, []);
 
@@ -172,7 +171,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
         <p className="schedule-page-lead">Veja onde voce serve nos cultos.</p>
       </section>
 
-      <section className="schedule-page-controls" aria-label="Filtros da programacao" ref={controlsRef}>
+      <section className="schedule-page-controls" aria-label="Filtros da programacao">
         <label className="schedule-page-search">
           <span className="schedule-page-search-label">Seu nome</span>
           <span className="schedule-page-search-input">
