@@ -1,5 +1,6 @@
 import type { ScheduleItem } from "@4ibib/core";
 import { CHURCH } from "../config/church";
+import { formatMonthShort, getMonthKey } from "./date";
 
 export interface DisplayLocation {
   primary: string;
@@ -26,9 +27,15 @@ export interface OccasionStyle {
   border: string;
 }
 
+export function isMonthTheme(label: string | undefined | null): boolean {
+  const trimmed = (label ?? "").trim();
+  if (!trimmed) return false;
+  return /^MES\s+D[AEO]\b/i.test(trimmed);
+}
+
 export function occasionStyle(label: string): OccasionStyle | null {
   const trimmed = label?.trim() ?? "";
-  if (!trimmed) {
+  if (!trimmed || isMonthTheme(trimmed)) {
     return null;
   }
   return {
@@ -37,6 +44,28 @@ export function occasionStyle(label: string): OccasionStyle | null {
     color: "#7a5320",
     border: "rgba(160, 115, 55, 0.45)"
   };
+}
+
+export interface MonthTheme {
+  monthKey: string;
+  monthLabel: string;
+  theme: string;
+}
+
+export function monthThemesFor(items: ScheduleItem[]): MonthTheme[] {
+  const seen = new Map<string, MonthTheme>();
+  for (const item of items) {
+    const label = item.occasionLabel?.trim() ?? "";
+    if (!isMonthTheme(label)) continue;
+    const { key } = getMonthKey(item.startsAt);
+    if (seen.has(key)) continue;
+    seen.set(key, {
+      monthKey: key,
+      monthLabel: formatMonthShort(item.startsAt),
+      theme: label
+    });
+  }
+  return Array.from(seen.values()).sort((a, b) => (a.monthKey < b.monthKey ? -1 : 1));
 }
 
 export function splitNames(value: string | undefined | null): string[] {
