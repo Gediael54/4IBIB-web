@@ -140,13 +140,15 @@ export default function EventCard({
               <dd>{item.passage}</dd>
             </div>
           )}
-          <div>
-            <dt>Local</dt>
-            <dd>
-              <span>{location.primary}</span>
-              {location.secondary && <small>{location.secondary}</small>}
-            </dd>
-          </div>
+          {!location.isHome && (
+            <div>
+              <dt>Local</dt>
+              <dd>
+                <span>{location.primary}</span>
+                {location.secondary && <small>{location.secondary}</small>}
+              </dd>
+            </div>
+          )}
         </dl>
       )}
     </article>

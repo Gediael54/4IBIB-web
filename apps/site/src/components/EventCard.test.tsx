@@ -36,7 +36,7 @@ describe("EventCard", () => {
     vi.useRealTimers();
   });
 
-  it("renders title, time, preacher, passage and home location fallback", () => {
+  it("renders title, time, preacher and passage but hides Local when at home", () => {
     render(<EventCard item={makeItem()} />);
     expect(screen.getByText("Culto Solene")).toBeInTheDocument();
     expect(screen.getByText("17h00")).toBeInTheDocument();
@@ -44,8 +44,8 @@ describe("EventCard", () => {
     expect(screen.getByText("Pr. Augusto")).toBeInTheDocument();
     expect(screen.getByText("Leitura")).toBeInTheDocument();
     expect(screen.getByText("Marcos 5")).toBeInTheDocument();
-    expect(screen.getByText(CHURCH.shortName)).toBeInTheDocument();
-    expect(screen.getByText(CHURCH.name)).toBeInTheDocument();
+    expect(screen.queryByText("Local")).toBeNull();
+    expect(screen.queryByText(CHURCH.shortName)).toBeNull();
   });
 
   it("hides empty optional fields", () => {
