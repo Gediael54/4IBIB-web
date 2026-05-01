@@ -22,7 +22,7 @@ export const CHURCH = {
   city: "Caruaru, PE",
   pastorName: "Pr. Samuel Costa",
   address: "478 Rua Jose Victor de Albuquerque",
-  email: "contato@4abetel.org",
+  email: "4ibibetel@gmail.com",
   whatsapp: "+55 81 98122-0651",
   instagramUrl: "https://www.instagram.com/4igrejabatista/",
   youtubeUrl: "https://www.youtube.com/@4aibibetel864",
