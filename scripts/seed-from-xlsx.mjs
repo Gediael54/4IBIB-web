@@ -115,6 +115,8 @@ function parseRow(row) {
   const isoDay = excelDateToIsoDay(date);
   const ministryName = ministryFor(title);
 
+  const isCultoSolene = title.toLowerCase() === "culto solene";
+
   return {
     id: deterministicUuid(startsAt, ministryName, title),
     title,
@@ -125,7 +127,7 @@ function parseRow(row) {
     summary: "",
     preacher: normalizeName(preacher),
     director: normalizeName(director),
-    soundTeam: soundByDay.get(isoDay) ?? "",
+    soundTeam: isCultoSolene ? (soundByDay.get(isoDay) ?? "") : "",
     passage: leitura ? stripAccents(String(leitura).trim()) : "",
     occasionLabel: special ? stripAccents(String(special).trim()) : "",
     status
@@ -284,4 +286,6 @@ if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
 
 const next = schema.slice(0, startIdx) + block + schema.slice(endIdx + END_MARKER.length);
 await writeFile(SCHEMA_PATH, next);
-console.log(`Updated SEED block: ${items.length} schedule items, ${volunteers.length} volunteers`);
+console.log(
+  `Updated SEED block in ${SCHEMA_PATH}: ${items.length} schedule items, ${volunteers.length} volunteers`
+);
