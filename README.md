@@ -70,7 +70,7 @@ No Supabase SQL Editor, rode o arquivo unico:
 supabase/schema.sql
 ```
 
-Ele e idempotente e junta schema, enums, RLS, policies, funcoes, triggers e seed da programacao inline (regerado por `npm run seed:schedule`).
+Ele junta schema, enums, RLS, policies, funcoes, triggers e seed da programacao inline (regerado por `npm run seed:schedule`).
 
 ## Validacao
 
