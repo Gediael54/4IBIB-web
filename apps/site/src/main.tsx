@@ -50,6 +50,7 @@ const SECTION_TITLES: Record<string, string> = {
   inicio: SITE_TITLE,
   avisos: `Avisos | ${SITE_TITLE}`,
   programacao: `Programacao | ${SITE_TITLE}`,
+  agenda: `Agenda completa | ${SITE_TITLE}`,
   ministerios: `Ministerios | ${SITE_TITLE}`,
   contato: `Pedido de oracao | ${SITE_TITLE}`
 };
@@ -140,7 +141,7 @@ export function App() {
     );
   }
 
-  if (route === "programacao") {
+  if (route === "agenda") {
     return <SchedulePage schedule={schedule} />;
   }
 
@@ -247,7 +248,7 @@ export function App() {
         </div>
         <p className="schedule-subhead">Proximos eventos</p>
         <UpcomingEvents schedule={schedule} />
-        <a href="#programacao" className="schedule-section-cta">
+        <a href="#agenda" className="schedule-section-cta">
           <span>Ver agenda completa</span>
           <ArrowRight size={18} aria-hidden="true" />
         </a>
