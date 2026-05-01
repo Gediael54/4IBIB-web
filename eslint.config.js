@@ -28,7 +28,9 @@ const workerGlobals = {
 
 const nodeGlobals = {
   console: "readonly",
-  process: "readonly"
+  process: "readonly",
+  fetch: "readonly",
+  URL: "readonly"
 };
 
 export default tseslint.config(
