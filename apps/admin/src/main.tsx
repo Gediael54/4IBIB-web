@@ -243,7 +243,9 @@ export function App() {
             </div>
           }
         >
-          {view === "dashboard" && <DashboardView snapshot={snapshot} prayers={prayers} />}
+          {view === "dashboard" && (
+            <DashboardView snapshot={snapshot} prayers={prayers} onNavigate={setView} />
+          )}
           {view === "announcements" && (
             <AnnouncementsView
               snapshot={snapshot}
