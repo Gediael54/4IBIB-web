@@ -15,11 +15,158 @@ interface PendingState {
   soundTeam?: string;
 }
 
+type Frequency = "weekly" | "biweekly" | "monthly_1x" | "monthly_2x" | "every_2_months" | "every_3_months";
+
+type WeekdayFilter = "any" | 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+interface GeneratorRule {
+  id: string;
+  volunteerName: string;
+  role: RoleColumn;
+  frequency: Frequency;
+  weekday: WeekdayFilter;
+}
+
 const ROLE_LABELS: Record<RoleColumn, string> = {
   preacher: "Pregador",
   director: "Dirigente",
   soundTeam: "Som"
 };
+
+const FREQUENCY_LABELS: Record<Frequency, string> = {
+  weekly: "Toda semana",
+  biweekly: "Dia sim, dia nao (a cada 2 semanas)",
+  monthly_1x: "1x por mes",
+  monthly_2x: "2x por mes",
+  every_2_months: "1x a cada 2 meses",
+  every_3_months: "1x por trimestre"
+};
+
+const WEEKDAY_OPTIONS: Array<{ value: WeekdayFilter; label: string }> = [
+  { value: "any", label: "Qualquer" },
+  { value: 0, label: "Domingo" },
+  { value: 4, label: "Quinta" },
+  { value: 1, label: "Segunda" },
+  { value: 2, label: "Terca" },
+  { value: 3, label: "Quarta" },
+  { value: 5, label: "Sexta" },
+  { value: 6, label: "Sabado" }
+];
+
+function makeRuleId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `rule-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function pickByCadence(eligible: ScheduleItem[], frequency: Frequency): ScheduleItem[] {
+  if (eligible.length === 0) return [];
+  if (frequency === "weekly") return eligible;
+  if (frequency === "biweekly") return eligible.filter((_, index) => index % 2 === 0);
+
+  const groups = new Map<string, ScheduleItem[]>();
+  const order: string[] = [];
+  for (const item of eligible) {
+    const date = new Date(item.startsAt);
+    const key = `${date.getFullYear()}-${date.getMonth()}`;
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+    }
+    groups.get(key)!.push(item);
+  }
+
+  const picks: ScheduleItem[] = [];
+  if (frequency === "monthly_1x") {
+    for (const key of order) {
+      picks.push(groups.get(key)![0]);
+    }
+    return picks;
+  }
+  if (frequency === "monthly_2x") {
+    for (const key of order) {
+      picks.push(...groups.get(key)!.slice(0, 2));
+    }
+    return picks;
+  }
+  if (frequency === "every_2_months") {
+    for (const key of order) {
+      const month = Number(key.split("-")[1]);
+      if (month % 2 === 0) {
+        picks.push(groups.get(key)![0]);
+      }
+    }
+    return picks;
+  }
+  if (frequency === "every_3_months") {
+    for (const key of order) {
+      const month = Number(key.split("-")[1]);
+      if (month % 3 === 0) {
+        picks.push(groups.get(key)![0]);
+      }
+    }
+    return picks;
+  }
+  return picks;
+}
+
+function generateAssignments(
+  rules: GeneratorRule[],
+  items: ScheduleItem[],
+  current: Map<string, PendingState>,
+  schedule: ScheduleItem[],
+  overwrite: boolean
+): { next: Map<string, PendingState>; assignments: number } {
+  const next = new Map<string, PendingState>();
+  current.forEach((value, key) => {
+    next.set(key, { ...value });
+  });
+
+  let assignments = 0;
+  const itemById = new Map<string, ScheduleItem>();
+  for (const item of schedule) {
+    itemById.set(item.id, item);
+  }
+
+  for (const rule of rules) {
+    const trimmed = rule.volunteerName.trim();
+    if (!trimmed) continue;
+
+    const eligible = items.filter((item) => {
+      if (item.status !== "scheduled") return false;
+      const date = new Date(item.startsAt);
+      if (rule.weekday !== "any" && date.getDay() !== rule.weekday) return false;
+      const merged = applyPending(item, next.get(item.id));
+      const currentValue = getCurrentValue(merged, rule.role).trim();
+      return overwrite || currentValue === "";
+    });
+
+    const picks = pickByCadence(eligible, rule.frequency);
+
+    for (const item of picks) {
+      const original = itemById.get(item.id);
+      if (!original) continue;
+      const existing = next.get(item.id) ?? {};
+      const updated: PendingState = { ...existing, [rule.role]: trimmed };
+      const cleaned: PendingState = {};
+      (Object.keys(updated) as RoleColumn[]).forEach((key) => {
+        const candidate = updated[key];
+        if (candidate !== undefined && candidate !== getCurrentValue(original, key)) {
+          cleaned[key] = candidate;
+        }
+      });
+      if (Object.keys(cleaned).length === 0) {
+        next.delete(item.id);
+      } else {
+        next.set(item.id, cleaned);
+      }
+      assignments += 1;
+    }
+  }
+
+  return { next, assignments };
+}
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
   weekday: "short",
@@ -93,6 +240,9 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
   const [autoCount, setAutoCount] = useState(4);
   const [autoAvoidConflicts, setAutoAvoidConflicts] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [generatorRules, setGeneratorRules] = useState<GeneratorRule[]>([]);
+  const [generatorOverwrite, setGeneratorOverwrite] = useState(false);
+  const [generatorMessage, setGeneratorMessage] = useState<string | null>(null);
 
   const ministryOptions = useMemo(() => {
     const set = new Set<string>();
@@ -192,6 +342,67 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
     }
 
     setAutoOpen(false);
+  }
+
+  function addGeneratorRule() {
+    setGeneratorRules((current) => [
+      ...current,
+      {
+        id: makeRuleId(),
+        volunteerName: "",
+        role: "preacher",
+        frequency: "monthly_1x",
+        weekday: "any"
+      }
+    ]);
+    setGeneratorMessage(null);
+  }
+
+  function updateGeneratorRule(id: string, patch: Partial<Omit<GeneratorRule, "id">>) {
+    setGeneratorRules((current) =>
+      current.map((rule) => {
+        if (rule.id !== id) return rule;
+        const next = { ...rule, ...patch };
+        if (patch.role !== undefined && patch.role !== rule.role) {
+          next.volunteerName = "";
+        }
+        return next;
+      })
+    );
+    setGeneratorMessage(null);
+  }
+
+  function removeGeneratorRule(id: string) {
+    setGeneratorRules((current) => current.filter((rule) => rule.id !== id));
+    setGeneratorMessage(null);
+  }
+
+  function clearGeneratorRules() {
+    setGeneratorRules([]);
+    setGeneratorMessage(null);
+  }
+
+  function handleGenerate() {
+    const validRules = generatorRules.filter((rule) => rule.volunteerName.trim() !== "");
+    if (validRules.length === 0) {
+      setGeneratorMessage("Adicione ao menos uma regra com voluntario selecionado.");
+      return;
+    }
+    const { next, assignments } = generateAssignments(
+      validRules,
+      yearItems,
+      pending,
+      snapshot.schedule,
+      generatorOverwrite
+    );
+    setPending(next);
+    if (assignments === 0) {
+      setGeneratorMessage("Nenhuma celula elegivel encontrada para as regras informadas.");
+    } else {
+      setGeneratorMessage(
+        `Geradas ${assignments} ${assignments === 1 ? "atribuicao" : "atribuicoes"}. Revise o grid antes de salvar.`
+      );
+    }
   }
 
   function buildBatch(): Array<{ id: string; patch: ScheduleBulkPatch }> {
@@ -486,6 +697,121 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
           </div>
         </div>
       )}
+
+      <details className="annual-generator">
+        <summary>Gerador de escalas (cadencia por voluntario)</summary>
+        <p className="annual-generator-help">
+          Defina regras tipo "1x por mes", "2x por mes", "a cada 2 meses" por voluntario e gere a escala
+          automaticamente.
+        </p>
+
+        {generatorRules.length === 0 ? (
+          <p className="empty-note">Nenhuma regra adicionada ainda.</p>
+        ) : (
+          <div className="annual-generator-rules">
+            {generatorRules.map((rule) => {
+              const ruleVolunteerOptions = eligibleVolunteers(volunteers, rule.role);
+              return (
+                <div key={rule.id} className="annual-generator-rule">
+                  <SelectField
+                    label="Voluntario"
+                    value={rule.volunteerName}
+                    onChange={(event) =>
+                      updateGeneratorRule(rule.id, { volunteerName: event.currentTarget.value })
+                    }
+                  >
+                    <option value="">Selecione...</option>
+                    {ruleVolunteerOptions.map((volunteer) => (
+                      <option key={volunteer.id} value={volunteer.name}>
+                        {volunteer.name}
+                      </option>
+                    ))}
+                  </SelectField>
+                  <SelectField
+                    label="Funcao"
+                    value={rule.role}
+                    onChange={(event) =>
+                      updateGeneratorRule(rule.id, {
+                        role: event.currentTarget.value as RoleColumn
+                      })
+                    }
+                  >
+                    <option value="preacher">Pregador</option>
+                    <option value="director">Dirigente</option>
+                    <option value="soundTeam">Som</option>
+                  </SelectField>
+                  <SelectField
+                    label="Cadencia"
+                    value={rule.frequency}
+                    onChange={(event) =>
+                      updateGeneratorRule(rule.id, {
+                        frequency: event.currentTarget.value as Frequency
+                      })
+                    }
+                  >
+                    {(Object.keys(FREQUENCY_LABELS) as Frequency[]).map((frequency) => (
+                      <option key={frequency} value={frequency}>
+                        {FREQUENCY_LABELS[frequency]}
+                      </option>
+                    ))}
+                  </SelectField>
+                  <SelectField
+                    label="Dia da semana"
+                    value={String(rule.weekday)}
+                    onChange={(event) => {
+                      const raw = event.currentTarget.value;
+                      const next: WeekdayFilter = raw === "any" ? "any" : (Number(raw) as WeekdayFilter);
+                      updateGeneratorRule(rule.id, { weekday: next });
+                    }}
+                  >
+                    {WEEKDAY_OPTIONS.map((option) => (
+                      <option key={String(option.value)} value={String(option.value)}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </SelectField>
+                  <button type="button" className="button ghost" onClick={() => removeGeneratorRule(rule.id)}>
+                    Remover
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <label className="annual-auto-toggle">
+          <input
+            type="checkbox"
+            checked={generatorOverwrite}
+            onChange={(event) => setGeneratorOverwrite(event.currentTarget.checked)}
+          />
+          Sobrescrever celulas ja preenchidas
+        </label>
+
+        <div className="annual-generator-actions">
+          <button type="button" className="button ghost" onClick={addGeneratorRule}>
+            Adicionar regra
+          </button>
+          <button
+            type="button"
+            className="button primary"
+            onClick={handleGenerate}
+            disabled={generatorRules.length === 0}
+          >
+            Gerar
+          </button>
+          <button
+            type="button"
+            className="button ghost"
+            onClick={clearGeneratorRules}
+            disabled={generatorRules.length === 0}
+          >
+            Limpar regras
+          </button>
+        </div>
+
+        {generatorMessage && <p className="annual-generator-message">{generatorMessage}</p>}
+      </details>
 
       {yearItems.length === 0 ? (
         <p className="empty-note">Nenhum item de programacao para {year}.</p>
