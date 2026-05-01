@@ -1,11 +1,11 @@
 import { ArrowLeft, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { ScheduleItem } from "@4ibib/core";
 import { sortSchedule } from "@4ibib/core";
 import { CHURCH } from "../config/church";
 import { formatMonthShort, formatWeekdayLong, getDayKey, getMonthKey, getZonedParts } from "../lib/date";
-import { categoryOf, nameMatches, type ScheduleCategory } from "../lib/event";
+import { categoryOf, monthThemesFor, nameMatches, splitNames, type ScheduleCategory } from "../lib/event";
 import EventCard from "./EventCard";
 
 export interface SchedulePageProps {
@@ -86,6 +86,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
   const monthOptions = useMemo(() => buildMonthOptions(schedule), [schedule]);
   const [pickedMonth, setPickedMonth] = useState<string>("");
   const [typeValue, setTypeValue] = useState<ScheduleCategory>("all");
+  const controlsRef = useRef<HTMLElement>(null);
 
   const monthValue = useMemo(() => {
     if (pickedMonth && monthOptions.some((opt) => opt.value === pickedMonth)) {
@@ -93,6 +94,24 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
     }
     return pickInitialMonth(monthOptions);
   }, [pickedMonth, monthOptions]);
+
+  const nameSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of schedule) {
+      if (item.preacher) set.add(item.preacher);
+      if (item.director) set.add(item.director);
+      for (const name of splitNames(item.soundTeam)) {
+        set.add(name);
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [schedule]);
+
+  useEffect(() => {
+    if (typeof controlsRef.current?.scrollIntoView === "function") {
+      controlsRef.current.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     return schedule.filter((item) => {
@@ -112,9 +131,14 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
   }, [schedule, monthValue, typeValue, query]);
 
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
+  const monthThemes = useMemo(() => monthThemesFor(filtered), [filtered]);
 
   function handleQueryChange(event: ChangeEvent<HTMLInputElement>) {
-    setQuery(event.target.value);
+    const value = event.target.value;
+    setQuery(value);
+    if (value && nameSuggestions.includes(value)) {
+      event.target.blur();
+    }
   }
 
   function handleClear() {
@@ -148,7 +172,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
         <p className="schedule-page-lead">Veja onde voce serve nos cultos.</p>
       </section>
 
-      <section className="schedule-page-controls" aria-label="Filtros da programacao">
+      <section className="schedule-page-controls" aria-label="Filtros da programacao" ref={controlsRef}>
         <label className="schedule-page-search">
           <span className="schedule-page-search-label">Seu nome</span>
           <span className="schedule-page-search-input">
@@ -156,11 +180,17 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
             <input
               type="search"
               name="nome"
+              list="schedule-name-suggestions"
               autoComplete="off"
               placeholder="Digite seu nome"
               value={query}
               onChange={handleQueryChange}
             />
+            <datalist id="schedule-name-suggestions">
+              {nameSuggestions.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
           </span>
         </label>
 
@@ -199,6 +229,20 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
           </label>
         </div>
       </section>
+
+      {monthThemes.length > 0 && (
+        <aside className="month-theme-banner" aria-label="Tema do mes">
+          {monthThemes.map((theme) => (
+            <p key={theme.monthKey}>
+              <span className="month-theme-banner-month">{theme.monthLabel}</span>
+              <span className="month-theme-banner-sep" aria-hidden="true">
+                ·
+              </span>
+              <span className="month-theme-banner-label">{theme.theme}</span>
+            </p>
+          ))}
+        </aside>
+      )}
 
       <section className="schedule-page-list" aria-label="Lista de eventos">
         {grouped.length === 0 ? (
