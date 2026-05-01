@@ -118,7 +118,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
 
   const filteredSuggestions = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return nameSuggestions.slice(0, 8);
+    if (trimmed.length < 2) return [];
     return nameSuggestions.filter((name) => name.toLowerCase().includes(trimmed)).slice(0, 8);
   }, [query, nameSuggestions]);
 
