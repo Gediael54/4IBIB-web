@@ -14,6 +14,55 @@ import {
   type ListState
 } from "../utils";
 
+const PRAYER_STATUS_CSV_LABELS: Record<PrayerRequest["status"], string> = {
+  novo: "novo",
+  em_oracao: "em oracao",
+  concluido: "concluido"
+};
+
+function escapeCsvField(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function buildPrayersCsv(items: PrayerRequest[]): string {
+  const header = ["Nome", "Contato", "Mensagem", "Status", "Criado em", "Visto em", "Notas pastorais"]
+    .map(escapeCsvField)
+    .join(",");
+  const rows = items.map((item) =>
+    [
+      item.name,
+      item.contact,
+      item.message,
+      PRAYER_STATUS_CSV_LABELS[item.status],
+      formatDateTimeLabel(item.createdAt),
+      item.seenAt ? formatDateTimeLabel(item.seenAt) : "",
+      item.pastoralNotes
+    ]
+      .map(escapeCsvField)
+      .join(",")
+  );
+  return [header, ...rows].join("\r\n");
+}
+
+function csvDateStamp(date: Date): string {
+  const year = date.getFullYear().toString().padStart(4, "0");
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const day = date.getDate().toString().padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 interface PrayersViewProps {
   prayers: PrayerRequest[];
   state: ListState;
@@ -47,13 +96,13 @@ export default function PrayersView({
   const adminsQuery = useAdmins();
   const admins = adminsQuery.data ?? [];
 
-  const list = useMemo(() => {
+  const filteredSorted = useMemo(() => {
     const query = normalizeSearch(state.search);
     const filtered = prayers.filter((item) => {
       const statusMatches = statusFilter === "all" || item.status === statusFilter;
       return statusMatches && matchesSearch(query, [item.name, item.contact, item.message, item.status]);
     });
-    const sorted = [...filtered].sort((left, right) => {
+    return [...filtered].sort((left, right) => {
       if (state.sort === "createdAsc") {
         return Date.parse(left.createdAt) - Date.parse(right.createdAt);
       }
@@ -65,8 +114,15 @@ export default function PrayersView({
       }
       return Date.parse(right.createdAt) - Date.parse(left.createdAt);
     });
-    return paginateItems(sorted, state.page);
-  }, [prayers, state, statusFilter]);
+  }, [prayers, state.search, state.sort, statusFilter]);
+
+  const list = useMemo(() => paginateItems(filteredSorted, state.page), [filteredSorted, state.page]);
+
+  function handleExportCsv() {
+    if (filteredSorted.length === 0) return;
+    const csv = buildPrayersCsv(filteredSorted);
+    downloadCsv(`pedidos-oracao-${csvDateStamp(new Date())}.csv`, csv);
+  }
 
   return (
     <section>
@@ -100,6 +156,14 @@ export default function PrayersView({
               </option>
             ))}
           </SelectField>
+          <button
+            type="button"
+            className="button ghost"
+            onClick={handleExportCsv}
+            disabled={filteredSorted.length === 0}
+          >
+            Exportar CSV
+          </button>
         </ListToolbar>
         {list.items.map((request) => {
           const whatsappUrl = request.contact ? buildWhatsAppForPrayer(request.contact) : null;

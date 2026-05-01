@@ -1,6 +1,6 @@
 import { formatInputDateTime, inputDateTimeToIso, type Announcement, type SiteSnapshot } from "@4ibib/core";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Trash2 } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import {
@@ -14,6 +14,7 @@ import {
   TextAreaField
 } from "../components/ui";
 import { useDeleteAnnouncement, useSaveAnnouncement } from "../hooks";
+import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
 import { announcementSchema, type AnnouncementFormValues } from "../schemas";
 import {
   ANNOUNCEMENT_SORT_OPTIONS,
@@ -97,6 +98,8 @@ function formatExpirationLabel(value: string): string | null {
   }).format(parsed);
 }
 
+const ANNOUNCEMENT_DRAFT_KEY = "announcement-draft";
+
 export default function AnnouncementsView({ snapshot, state, onStateChange }: AnnouncementsViewProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -113,6 +116,8 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
     resolver: zodResolver(announcementSchema),
     defaultValues: emptyAnnouncementValues()
   });
+
+  useFormAutosave(ANNOUNCEMENT_DRAFT_KEY, control, reset, editingId === null);
 
   const previewValues = useWatch({ control });
 
@@ -150,6 +155,9 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
   }
 
   function cancelEdit() {
+    if (editingId === null) {
+      clearFormAutosave(ANNOUNCEMENT_DRAFT_KEY);
+    }
     setEditingId(null);
     reset(emptyAnnouncementValues());
   }
@@ -231,6 +239,16 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
           <button onClick={() => startEdit(item)} type="button">
             Editar
           </button>
+          <a
+            href="/#avisos"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="row-action-link"
+            aria-label={`Ver aviso ${item.title} no site`}
+            title="Ver no site"
+          >
+            <ExternalLink size={16} />
+          </a>
           <button
             onClick={() => handleDelete(item)}
             type="button"

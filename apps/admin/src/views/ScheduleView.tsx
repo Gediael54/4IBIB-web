@@ -7,7 +7,7 @@ import {
   type SiteSnapshot
 } from "@4ibib/core";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Copy, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import {
@@ -27,6 +27,7 @@ import {
   useDuplicateScheduleItem,
   useSaveScheduleItem
 } from "../hooks";
+import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
 import { scheduleSchema, type ScheduleFormValues } from "../schemas";
 import {
   compareText,
@@ -91,6 +92,8 @@ function scheduleToFormValues(item: ScheduleItem): ScheduleFormValues {
   };
 }
 
+const SCHEDULE_DRAFT_KEY = "schedule-draft";
+
 export function ScheduleForm(props: {
   snapshot: SiteSnapshot;
   editingId: string | null;
@@ -113,6 +116,8 @@ export function ScheduleForm(props: {
     resolver: zodResolver(scheduleSchema),
     defaultValues: props.initialValues
   });
+
+  useFormAutosave(SCHEDULE_DRAFT_KEY, control, reset, props.editingId === null);
 
   useEffect(() => {
     reset(props.initialValues);
@@ -476,6 +481,9 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
   }
 
   function cancelEdit() {
+    if (editingId === null) {
+      clearFormAutosave(SCHEDULE_DRAFT_KEY);
+    }
     setEditingId(null);
     setInitialValues(emptyScheduleValues());
     setResetSignal((value) => value + 1);
@@ -724,6 +732,16 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
             >
               <Copy size={16} />
             </button>
+            <a
+              href="/#agenda"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="row-action-link"
+              aria-label={`Ver ${item.title} no site`}
+              title="Ver no site"
+            >
+              <ExternalLink size={16} />
+            </a>
             <button
               onClick={() => handleDelete(item)}
               type="button"
