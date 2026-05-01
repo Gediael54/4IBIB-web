@@ -37,8 +37,10 @@ function makeQuery(result: Result) {
 
 interface FakeClient {
   from: ReturnType<typeof vi.fn>;
+  rpc: ReturnType<typeof vi.fn>;
   queries: ReturnType<typeof makeQuery>[];
   setNext: (result: Result) => void;
+  setNextRpc: (result: Result) => void;
   auth: {
     getSession: ReturnType<typeof vi.fn>;
     signInWithPassword: ReturnType<typeof vi.fn>;
@@ -50,6 +52,7 @@ interface FakeClient {
 
 function createFakeClient(): FakeClient {
   const queue: Result[] = [];
+  const rpcQueue: Result[] = [];
   const queries: ReturnType<typeof makeQuery>[] = [];
 
   const from = vi.fn(() => {
@@ -57,6 +60,11 @@ function createFakeClient(): FakeClient {
     const query = makeQuery(result);
     queries.push(query);
     return query;
+  });
+
+  const rpc = vi.fn(() => {
+    const result = rpcQueue.shift() ?? { data: null, error: null };
+    return Promise.resolve(result);
   });
 
   const unsubscribe = vi.fn();
@@ -73,9 +81,13 @@ function createFakeClient(): FakeClient {
 
   return {
     from,
+    rpc,
     queries,
     setNext: (result) => {
       queue.push(result);
+    },
+    setNextRpc: (result) => {
+      rpcQueue.push(result);
     },
     auth,
     authSubscriptionUnsubscribe: unsubscribe
@@ -180,6 +192,14 @@ const recurringMeetingRow = {
 
 const adminUserRow = {
   user_id: "u-1",
+  role: "owner",
+  created_at: "2030-01-01T10:00:00.000Z"
+};
+
+const adminUserRpcRow = {
+  user_id: "u-1",
+  email: "admin@ex.com",
+  display_name: "Admin",
   role: "owner",
   created_at: "2030-01-01T10:00:00.000Z"
 };
@@ -1232,23 +1252,24 @@ describe("SupabaseContentRepository", () => {
     await expect(backend().content.deleteRecurringMeeting("r1")).rejects.toThrow("rec-del");
   });
 
-  it("lists admins with empty email/displayName placeholders", async () => {
-    client.setNext({ data: [adminUserRow], error: null });
+  it("lists admins enriched via list_admins rpc", async () => {
+    client.setNextRpc({ data: [adminUserRpcRow], error: null });
     const items = await backend().content.listAdmins();
     expect(items[0]?.userId).toBe("u-1");
-    expect(items[0]?.email).toBe("");
-    expect(items[0]?.displayName).toBe("");
+    expect(items[0]?.email).toBe("admin@ex.com");
+    expect(items[0]?.displayName).toBe("Admin");
     expect(items[0]?.role).toBe("owner");
+    expect(client.rpc).toHaveBeenCalledWith("list_admins");
   });
 
-  it("propagates supabase error on listAdmins", async () => {
-    client.setNext({ data: null, error: { message: "admin-list" } });
+  it("propagates rpc error on listAdmins", async () => {
+    client.setNextRpc({ data: null, error: { message: "admin-list" } });
     await expect(backend().content.listAdmins()).rejects.toThrow("admin-list");
   });
 
-  it("inviteAdmin throws Phase 4 stub", async () => {
+  it("inviteAdmin throws guidance pointing to Auth dashboard", async () => {
     await expect(backend().content.inviteAdmin({ email: "x@y", role: "editor" })).rejects.toThrow(
-      "inviteAdmin requer service_role; sera completado na Fase 4"
+      "Convite por email exige edge function (planejado para depois). Use o Supabase Auth dashboard para criar o usuario, depois adicione o user_id manualmente em admin_users."
     );
   });
 
@@ -1324,10 +1345,15 @@ describe("SupabaseContentRepository", () => {
     await expect(backend().content.listAuditLog()).rejects.toThrow("audit-fail");
   });
 
-  it("revertAuditEntry throws Phase 4 stub", async () => {
-    await expect(backend().content.revertAuditEntry("log-1")).rejects.toThrow(
-      "Reverter sera implementado na Fase 4 via funcao Postgres"
-    );
+  it("revertAuditEntry calls revert_audit_entry rpc and resolves", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await expect(backend().content.revertAuditEntry("log-1")).resolves.toBeUndefined();
+    expect(client.rpc).toHaveBeenCalledWith("revert_audit_entry", { entry_id: "log-1" });
+  });
+
+  it("propagates rpc error on revertAuditEntry", async () => {
+    client.setNextRpc({ data: null, error: { message: "revert-fail" } });
+    await expect(backend().content.revertAuditEntry("log-1")).rejects.toThrow("revert-fail");
   });
 });
 

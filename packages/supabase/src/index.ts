@@ -323,10 +323,6 @@ function toRecurringMeetingRow(input: RecurringMeetingRecord): JsonObject {
   };
 }
 
-// admin_users so possui user_id, role e created_at no banco. email e displayName
-// vem da auth.users e exigem service_role para serem buscados. Phase 4 vai
-// adicionar uma funcao Postgres ou edge function para enriquecer; por enquanto
-// retornamos os campos vazios.
 function mapAdminUser(row: JsonObject): AdminUser {
   return {
     userId: String(row.user_id),
@@ -689,17 +685,16 @@ class SupabaseContentRepository implements ContentRepository {
     requireOk(error);
   }
 
-  // admin_users guarda apenas user_id, role e created_at. email/displayName
-  // dependem de service_role para consultar auth.users; ate la os campos vem
-  // vazios (Phase 4 deve adicionar uma view enriquecida ou edge function).
   async listAdmins() {
-    const { data, error } = await this.client.from("admin_users").select("*");
+    const { data, error } = await this.client.rpc("list_admins");
     return sortAdmins(requireData(data as JsonObject[] | null, error).map(mapAdminUser));
   }
 
   async inviteAdmin(_input: InviteAdminInput): Promise<AdminUser> {
     void _input;
-    throw new Error("inviteAdmin requer service_role; sera completado na Fase 4");
+    throw new Error(
+      "Convite por email exige edge function (planejado para depois). Use o Supabase Auth dashboard para criar o usuario, depois adicione o user_id manualmente em admin_users."
+    );
   }
 
   async updateAdminRole(userId: string, role: AdminRole) {
@@ -746,9 +741,9 @@ class SupabaseContentRepository implements ContentRepository {
     return sortAuditLog(requireData(data as JsonObject[] | null, error).map(mapAuditLog));
   }
 
-  async revertAuditEntry(_id: string): Promise<void> {
-    void _id;
-    throw new Error("Reverter sera implementado na Fase 4 via funcao Postgres");
+  async revertAuditEntry(id: string): Promise<void> {
+    const { error } = await this.client.rpc("revert_audit_entry", { entry_id: id });
+    requireOk(error);
   }
 }
 
