@@ -23,7 +23,7 @@ const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
 const THIRTY_DAYS_MS = 30 * ONE_DAY_MS;
 const BURNOUT_THRESHOLD = 5;
 
-function isCultoSolene(item: ScheduleItem): boolean {
+function isMainService(item: ScheduleItem): boolean {
   return item.title.toLowerCase().includes("culto solene");
 }
 
@@ -39,14 +39,14 @@ function countNewPrayers(prayers: PrayerRequest[]): number {
   ).length;
 }
 
-function countCultosWithoutRole(schedule: ScheduleItem[], field: "preacher" | "director"): number {
+function countServicesMissingRole(schedule: ScheduleItem[], field: "preacher" | "director"): number {
   const now = Date.now();
   return schedule.filter(
     (item) =>
       item.status === "scheduled" &&
       isWithinNextDays(item, now, SEVEN_DAYS_MS) &&
       item[field].trim() === "" &&
-      isCultoSolene(item)
+      isMainService(item)
   ).length;
 }
 
@@ -144,8 +144,8 @@ function DashboardCard({
 
 export default function DashboardView({ snapshot, prayers, onNavigate }: DashboardViewProps) {
   const newPrayersCount = countNewPrayers(prayers);
-  const cultosWithoutPreacher = countCultosWithoutRole(snapshot.schedule, "preacher");
-  const cultosWithoutDirector = countCultosWithoutRole(snapshot.schedule, "director");
+  const servicesMissingPreacher = countServicesMissingRole(snapshot.schedule, "preacher");
+  const servicesMissingDirector = countServicesMissingRole(snapshot.schedule, "director");
   const stalePinnedCount = countStalePinned(snapshot);
   const top = topVolunteer(snapshot.schedule);
   const burnoutTone: CardTone = top && top.count >= BURNOUT_THRESHOLD ? "warning" : "default";
@@ -173,7 +173,7 @@ export default function DashboardView({ snapshot, prayers, onNavigate }: Dashboa
         <DashboardCard
           tone="warning"
           title="Cultos solenes sem pregador"
-          count={cultosWithoutPreacher}
+          count={servicesMissingPreacher}
           description="Cultos solenes nos proximos 7 dias ainda sem pregador definido."
           emptyDescription="OK, nada pendente."
           ctaLabel={onNavigate ? "Editar programacao" : undefined}
@@ -183,7 +183,7 @@ export default function DashboardView({ snapshot, prayers, onNavigate }: Dashboa
         <DashboardCard
           tone="warning"
           title="Cultos solenes sem dirigente"
-          count={cultosWithoutDirector}
+          count={servicesMissingDirector}
           description="Cultos solenes nos proximos 7 dias ainda sem dirigente definido."
           emptyDescription="OK, nada pendente."
           ctaLabel={onNavigate ? "Editar programacao" : undefined}
