@@ -423,7 +423,7 @@ h3 {
   width: min(1180px, calc(100% - 40px));
   margin: 0 auto;
   padding: clamp(72px, 10vw, 130px) 0;
-  scroll-margin-top: 80px;
+  scroll-margin-top: calc(80px - clamp(72px, 10vw, 130px));
 }
 
 .gallery-section,
