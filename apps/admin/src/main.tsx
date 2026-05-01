@@ -1,12 +1,16 @@
 import { type AdminSession, type PrayerRequest } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  Building2,
   CalendarDays,
   ClipboardList,
   HeartHandshake,
+  History,
   LoaderCircle,
   LogOut,
   Megaphone,
+  ShieldCheck,
+  Sparkles,
   Users
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
@@ -23,6 +27,10 @@ const AnnouncementsView = lazy(() => import("./views/AnnouncementsView"));
 const ScheduleView = lazy(() => import("./views/ScheduleView"));
 const VolunteersView = lazy(() => import("./views/VolunteersView"));
 const PrayersView = lazy(() => import("./views/PrayersView"));
+const ProfileView = lazy(() => import("./views/ProfileView"));
+const MinistriesView = lazy(() => import("./views/MinistriesView"));
+const AuditLogView = lazy(() => import("./views/AuditLogView"));
+const TeamView = lazy(() => import("./views/TeamView"));
 
 const TEXT_MAX = 200;
 
@@ -37,7 +45,16 @@ const queryClient = new QueryClient({
   }
 });
 
-type AdminView = "dashboard" | "announcements" | "schedule" | "volunteers" | "prayers";
+type AdminView =
+  | "dashboard"
+  | "announcements"
+  | "schedule"
+  | "volunteers"
+  | "prayers"
+  | "profile"
+  | "ministries"
+  | "audit"
+  | "team";
 
 export function App() {
   const [session, setSession] = useState<AdminSession | null>(null);
@@ -202,6 +219,16 @@ export function App() {
             label="Oracao"
             onClick={setView}
           />
+          <NavButton
+            current={view}
+            target="ministries"
+            icon={<Sparkles />}
+            label="Ministerios"
+            onClick={setView}
+          />
+          <NavButton current={view} target="profile" icon={<Building2 />} label="Perfil" onClick={setView} />
+          <NavButton current={view} target="audit" icon={<History />} label="Auditoria" onClick={setView} />
+          <NavButton current={view} target="team" icon={<ShieldCheck />} label="Equipe" onClick={setView} />
         </nav>
         <button className="sidebar-logout" onClick={handleLogout} type="button">
           <LogOut size={18} /> Sair
@@ -248,6 +275,23 @@ export function App() {
               statusFilter={prayerStatusFilter}
               onStatusFilterChange={setPrayerStatusFilter}
             />
+          )}
+          {view === "profile" && <ProfileView snapshot={snapshot} />}
+          {view === "ministries" && (
+            <MinistriesView
+              snapshot={snapshot}
+              state={listState.ministries}
+              onStateChange={(patch) => updateListState("ministries", patch)}
+            />
+          )}
+          {view === "audit" && (
+            <AuditLogView
+              state={listState.audit}
+              onStateChange={(patch) => updateListState("audit", patch)}
+            />
+          )}
+          {view === "team" && (
+            <TeamView state={listState.team} onStateChange={(patch) => updateListState("team", patch)} />
           )}
         </Suspense>
       </section>
