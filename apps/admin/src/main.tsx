@@ -6,6 +6,7 @@ import {
   ClipboardList,
   HeartHandshake,
   History,
+  LayoutGrid,
   LoaderCircle,
   LogOut,
   Megaphone,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
+import { CommandPalette } from "./components/CommandPalette";
 import { backend, usePrayers, useSnapshot } from "./hooks";
 import { initMonitoring } from "./monitoring";
 import "./styles.css";
@@ -25,6 +27,7 @@ void initMonitoring();
 const DashboardView = lazy(() => import("./views/DashboardView"));
 const AnnouncementsView = lazy(() => import("./views/AnnouncementsView"));
 const ScheduleView = lazy(() => import("./views/ScheduleView"));
+const AnnualScheduleView = lazy(() => import("./views/AnnualScheduleView"));
 const VolunteersView = lazy(() => import("./views/VolunteersView"));
 const PrayersView = lazy(() => import("./views/PrayersView"));
 const ProfileView = lazy(() => import("./views/ProfileView"));
@@ -49,6 +52,7 @@ type AdminView =
   | "dashboard"
   | "announcements"
   | "schedule"
+  | "annual"
   | "volunteers"
   | "prayers"
   | "profile"
@@ -64,6 +68,21 @@ export function App() {
   const [listState, setListState] = useState<Record<ListView, ListState>>(INITIAL_LIST_STATE);
   const [prayerStatusFilter, setPrayerStatusFilter] = useState<PrayerRequest["status"] | "all">("all");
   const [volunteerRoleFilter, setVolunteerRoleFilter] = useState<VolunteerRoleFilter>("all");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+      if (event.key === "Escape" && paletteOpen) {
+        setPaletteOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [paletteOpen]);
 
   useEffect(() => {
     return backend.auth.subscribe((nextSession) => {
@@ -214,6 +233,13 @@ export function App() {
           />
           <NavButton
             current={view}
+            target="annual"
+            icon={<LayoutGrid />}
+            label="Escala anual"
+            onClick={setView}
+          />
+          <NavButton
+            current={view}
             target="prayers"
             icon={<HeartHandshake />}
             label="Oracao"
@@ -260,6 +286,7 @@ export function App() {
               onStateChange={(patch) => updateListState("schedule", patch)}
             />
           )}
+          {view === "annual" && <AnnualScheduleView snapshot={snapshot} />}
           {view === "volunteers" && (
             <VolunteersView
               snapshot={snapshot}
@@ -297,6 +324,17 @@ export function App() {
           )}
         </Suspense>
       </section>
+
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        snapshot={snapshot}
+        prayers={prayers}
+        onNavigate={(nextView) => {
+          setView(nextView);
+          setPaletteOpen(false);
+        }}
+      />
     </main>
   );
 }
