@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { uniqueSorted } from "./utils";
+import { uniqueSorted } from "./lib/list-state";
 
 describe("uniqueSorted", () => {
   it("removes duplicates regardless of surrounding whitespace", () => {

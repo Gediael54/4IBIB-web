@@ -16,7 +16,8 @@ import {
   type ProfileFormValues,
   type RecurringMeetingFormValues
 } from "../schemas";
-import { TEXT_MAX, TEXTAREA_MAX, URL_MAX, WEEKDAY_LABELS } from "../utils";
+import { WEEKDAY_LABELS } from "../lib/labels";
+import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "../lib/limits";
 
 interface ProfileViewProps {
   snapshot: SiteSnapshot;

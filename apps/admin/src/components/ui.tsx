@@ -6,7 +6,8 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes
 } from "react";
-import { TEXT_MAX, type VisibleList } from "../utils";
+import { TEXT_MAX } from "../lib/limits";
+import { type VisibleList } from "../lib/list-state";
 
 export const Field = forwardRef<
   HTMLInputElement,
@@ -66,7 +67,7 @@ export function ListToolbar(props: {
   search: string;
   searchLabel: string;
   sort: string;
-  sortOptions: Array<{ value: string; label: string }>;
+  sortOptions: ReadonlyArray<{ value: string; label: string }>;
   total: number;
   onSearch: (value: string) => void;
   onSort: (value: string) => void;

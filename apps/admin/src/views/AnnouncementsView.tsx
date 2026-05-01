@@ -1,4 +1,10 @@
-import { formatInputDateTime, inputDateTimeToIso, type Announcement, type SiteSnapshot } from "@4ibib/core";
+import {
+  formatDateOnly,
+  formatInputDateTime,
+  inputDateTimeToIso,
+  type Announcement,
+  type SiteSnapshot
+} from "@4ibib/core";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ExternalLink, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -16,19 +22,17 @@ import {
 import { useDeleteAnnouncement, useSaveAnnouncement } from "../hooks";
 import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
 import { announcementSchema, type AnnouncementFormValues } from "../schemas";
+import { ANNOUNCEMENT_STATUS_LABELS, ANNOUNCEMENT_STATUS_OPTIONS } from "../lib/labels";
+import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "../lib/limits";
 import {
-  ANNOUNCEMENT_SORT_OPTIONS,
-  ANNOUNCEMENT_STATUS_OPTIONS,
   compareText,
   matchesSearch,
   normalizeSearch,
   paginateItems,
-  TEXT_MAX,
-  TEXTAREA_MAX,
   uniqueSorted,
-  URL_MAX,
   type ListState
-} from "../utils";
+} from "../lib/list-state";
+import { ANNOUNCEMENT_SORT_OPTIONS } from "../lib/sort-options";
 
 interface AnnouncementsViewProps {
   snapshot: SiteSnapshot;
@@ -44,13 +48,6 @@ const CATEGORY_LABELS: Record<AnnouncementFormValues["category"], string> = {
   evento: "Evento",
   juventude: "Juventude",
   oracao: "Oracao"
-};
-
-const STATUS_LABELS: Record<StatusValue, string> = {
-  draft: "Rascunho",
-  scheduled: "Agendado",
-  published: "Publicado",
-  archived: "Arquivado"
 };
 
 function emptyAnnouncementValues(): AnnouncementFormValues {
@@ -81,21 +78,6 @@ function announcementToFormValues(item: Announcement): AnnouncementFormValues {
     expiresAt: item.expiresAt ? formatInputDateTime(item.expiresAt) : "",
     imageUrl: item.imageUrl
   };
-}
-
-function formatExpirationLabel(value: string): string | null {
-  if (!value) {
-    return null;
-  }
-  const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
-    return null;
-  }
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  }).format(parsed);
 }
 
 const ANNOUNCEMENT_DRAFT_KEY = "announcement-draft";
@@ -200,7 +182,7 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
   const previewImage = previewValues.imageUrl?.trim() ?? "";
   const previewCtaLabel = previewValues.ctaLabel?.trim() ?? "";
   const previewCtaUrl = previewValues.ctaUrl?.trim() ?? "";
-  const previewExpiresLabel = formatExpirationLabel(previewValues.expiresAt ?? "");
+  const previewExpiresLabel = formatDateOnly(previewValues.expiresAt ?? "");
 
   return (
     <CrudPanel
@@ -235,7 +217,11 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
       footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
       emptyLabel="Nenhum aviso encontrado."
       renderItem={(item) => (
-        <ItemRow key={item.id} title={item.title} detail={`${item.category} - ${STATUS_LABELS[item.status]}`}>
+        <ItemRow
+          key={item.id}
+          title={item.title}
+          detail={`${item.category} - ${ANNOUNCEMENT_STATUS_LABELS[item.status]}`}
+        >
           <button onClick={() => startEdit(item)} type="button">
             Editar
           </button>
@@ -353,7 +339,7 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
             <div className="announcement-preview-meta">
               <span className="announcement-preview-badge">{CATEGORY_LABELS[previewCategory]}</span>
               <span className={`announcement-preview-status announcement-preview-status-${previewStatus}`}>
-                {STATUS_LABELS[previewStatus]}
+                {ANNOUNCEMENT_STATUS_LABELS[previewStatus]}
               </span>
               {previewValues.pinned && <span className="announcement-preview-pinned">Fixado</span>}
             </div>

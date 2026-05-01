@@ -14,16 +14,15 @@ import {
 } from "../components/ui";
 import { useDeleteMinistry, useSaveMinistry } from "../hooks";
 import { ministrySchema, type MinistryFormValues } from "../schemas";
+import { TEXT_MAX, TEXTAREA_MAX } from "../lib/limits";
 import {
   compareText,
   matchesSearch,
-  MINISTRY_SORT_OPTIONS,
   normalizeSearch,
   paginateItems,
-  TEXT_MAX,
-  TEXTAREA_MAX,
   type ListState
-} from "../utils";
+} from "../lib/list-state";
+import { MINISTRY_SORT_OPTIONS } from "../lib/sort-options";
 
 interface MinistriesViewProps {
   snapshot: SiteSnapshot;

@@ -1,4 +1,4 @@
-import type { ScheduleItem, SiteSnapshot, Volunteer } from "@4ibib/core";
+import { splitNames, type ScheduleItem, type SiteSnapshot, type Volunteer } from "@4ibib/core";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -15,20 +15,17 @@ import {
 } from "../components/ui";
 import { useDeleteVolunteer, useRenameVolunteer, useSaveVolunteer } from "../hooks";
 import { volunteerSchema, type VolunteerFormValues } from "../schemas";
+import { VOLUNTEER_ROLE_LABELS, VOLUNTEER_ROLE_OPTIONS } from "../lib/labels";
+import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "../lib/limits";
 import {
   compareText,
   matchesSearch,
   normalizeSearch,
   paginateItems,
-  TEXT_MAX,
-  TEXTAREA_MAX,
-  URL_MAX,
-  VOLUNTEER_ROLE_LABELS,
-  VOLUNTEER_ROLE_OPTIONS,
-  VOLUNTEER_SORT_OPTIONS,
   type ListState,
   type VolunteerRoleFilter
-} from "../utils";
+} from "../lib/list-state";
+import { VOLUNTEER_SORT_OPTIONS } from "../lib/sort-options";
 
 interface VolunteersViewProps {
   snapshot: SiteSnapshot;
@@ -65,13 +62,6 @@ function volunteerToFormValues(item: Volunteer): VolunteerFormValues {
   };
 }
 
-function splitCsv(value: string): string[] {
-  return value
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
 function countParticipation(volunteer: Volunteer, schedule: ScheduleItem[]): number {
   const now = Date.now();
   const lower = volunteer.name.trim().toLowerCase();
@@ -81,7 +71,7 @@ function countParticipation(volunteer: Volunteer, schedule: ScheduleItem[]): num
   return schedule.filter((item) => {
     if (item.status !== "scheduled") return false;
     if (Date.parse(item.startsAt) < now) return false;
-    const soundNames = splitCsv(item.soundTeam).map((entry) => entry.toLowerCase());
+    const soundNames = splitNames(item.soundTeam).map((entry) => entry.toLowerCase());
     return (
       item.preacher.trim().toLowerCase() === lower ||
       item.director.trim().toLowerCase() === lower ||
@@ -159,7 +149,7 @@ export default function VolunteersView({
   }
 
   function handleMinistriesChange(value: string) {
-    setValue("ministries", splitCsv(value), { shouldDirty: true, shouldValidate: true });
+    setValue("ministries", splitNames(value), { shouldDirty: true, shouldValidate: true });
   }
 
   function handleAddDate() {
@@ -384,7 +374,7 @@ function countSchedulesReferencingName(name: string, schedule: ScheduleItem[]): 
   const lower = name.trim().toLowerCase();
   if (!lower) return 0;
   return schedule.filter((item) => {
-    const sound = splitCsv(item.soundTeam).map((entry) => entry.toLowerCase());
+    const sound = splitNames(item.soundTeam).map((entry) => entry.toLowerCase());
     return (
       item.preacher.trim().toLowerCase() === lower ||
       item.director.trim().toLowerCase() === lower ||

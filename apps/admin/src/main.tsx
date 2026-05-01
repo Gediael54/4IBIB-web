@@ -20,7 +20,13 @@ import { CommandPalette } from "./components/CommandPalette";
 import { backend, usePrayers, useSnapshot } from "./hooks";
 import { initMonitoring } from "./monitoring";
 import "./styles.css";
-import { INITIAL_LIST_STATE, type ListState, type ListView, type VolunteerRoleFilter } from "./utils";
+import { TEXT_MAX } from "./lib/limits";
+import {
+  INITIAL_LIST_STATE,
+  type ListState,
+  type ListView,
+  type VolunteerRoleFilter
+} from "./lib/list-state";
 
 void initMonitoring();
 
@@ -34,8 +40,6 @@ const ProfileView = lazy(() => import("./views/ProfileView"));
 const MinistriesView = lazy(() => import("./views/MinistriesView"));
 const AuditLogView = lazy(() => import("./views/AuditLogView"));
 const TeamView = lazy(() => import("./views/TeamView"));
-
-const TEXT_MAX = 200;
 
 const queryClient = new QueryClient({
   defaultOptions: {

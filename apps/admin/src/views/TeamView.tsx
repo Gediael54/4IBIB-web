@@ -1,21 +1,20 @@
-import type { AdminRole, AdminUser } from "@4ibib/core";
+import { formatDateTime, type AdminRole, type AdminUser } from "@4ibib/core";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Field, ListToolbar, Pagination, SelectField } from "../components/ui";
-import { inviteAdminSchema, type InviteAdminFormValues } from "../schemas";
-import { useAdmins, useInviteAdmin, useRemoveAdmin, useUpdateAdminRole } from "../hooks";
+import { ADMIN_ROLE_LABELS } from "../lib/labels";
 import {
-  ADMIN_ROLE_LABELS,
   compareText,
-  formatDateTimeLabel,
   matchesSearch,
   normalizeSearch,
   paginateItems,
-  TEAM_SORT_OPTIONS,
   type ListState
-} from "../utils";
+} from "../lib/list-state";
+import { TEAM_SORT_OPTIONS } from "../lib/sort-options";
+import { inviteAdminSchema, type InviteAdminFormValues } from "../schemas";
+import { useAdmins, useInviteAdmin, useRemoveAdmin, useUpdateAdminRole } from "../hooks";
 
 interface TeamViewProps {
   state: ListState;
@@ -160,7 +159,7 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
               <div>
                 <strong>{getEmailLabel(admin)}</strong>
                 <span>{ADMIN_ROLE_LABELS[admin.role]}</span>
-                <span>{formatDateTimeLabel(admin.createdAt)}</span>
+                <span>{formatDateTime(admin.createdAt)}</span>
                 {admin.displayName && admin.email && <span>{admin.displayName}</span>}
               </div>
               <SelectField

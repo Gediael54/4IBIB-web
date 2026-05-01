@@ -29,18 +29,17 @@ import {
 } from "../hooks";
 import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
 import { scheduleSchema, type ScheduleFormValues } from "../schemas";
+import { formatScheduleDetail } from "../lib/format";
+import { TEXT_MAX, TEXTAREA_MAX } from "../lib/limits";
 import {
   compareText,
-  formatScheduleDetail,
   matchesSearch,
   normalizeSearch,
   paginateItems,
-  SCHEDULE_SORT_OPTIONS,
-  TEXT_MAX,
-  TEXTAREA_MAX,
   uniqueSorted,
   type ListState
-} from "../utils";
+} from "../lib/list-state";
+import { SCHEDULE_SORT_OPTIONS } from "../lib/sort-options";
 
 interface ScheduleViewProps {
   snapshot: SiteSnapshot;

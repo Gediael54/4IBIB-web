@@ -1,18 +1,16 @@
-import type { AuditAction, AuditLogEntry, AuditLogFilter } from "@4ibib/core";
+import { formatDateTime, type AuditAction, type AuditLogEntry, type AuditLogFilter } from "@4ibib/core";
 import { useMemo, useState } from "react";
 import { Field, ListToolbar, Pagination, SelectField } from "../components/ui";
 import { useAuditLog, useRevertAuditEntry } from "../hooks";
+import { AUDIT_ACTION_LABELS, AUDIT_ACTION_OPTIONS, AUDIT_TABLE_OPTIONS } from "../lib/labels";
 import {
-  AUDIT_ACTION_OPTIONS,
-  AUDIT_SORT_OPTIONS,
-  AUDIT_TABLE_OPTIONS,
   compareText,
-  formatDateTimeLabel,
   matchesSearch,
   normalizeSearch,
   paginateItems,
   type ListState
-} from "../utils";
+} from "../lib/list-state";
+import { AUDIT_SORT_OPTIONS } from "../lib/sort-options";
 
 interface AuditLogViewProps {
   state: ListState;
@@ -20,12 +18,6 @@ interface AuditLogViewProps {
 }
 
 type ActionFilter = "all" | AuditAction;
-
-const ACTION_LABELS: Record<AuditAction, string> = {
-  INSERT: "Criacao",
-  UPDATE: "Edicao",
-  DELETE: "Exclusao"
-};
 
 function inputDateTimeToIso(value: string): string {
   if (!value) {
@@ -210,9 +202,9 @@ export default function AuditLogView({ state, onStateChange }: AuditLogViewProps
             <article className="audit-row" key={entry.id}>
               <div>
                 <strong>
-                  {entry.tableName} - {ACTION_LABELS[entry.action]}
+                  {entry.tableName} - {AUDIT_ACTION_LABELS[entry.action]}
                 </strong>
-                <span>{formatDateTimeLabel(entry.changedAt)}</span>
+                <span>{formatDateTime(entry.changedAt)}</span>
                 <span>Row {entry.rowId}</span>
                 <span>By: {entry.changedBy ?? "sistema"}</span>
                 <details>

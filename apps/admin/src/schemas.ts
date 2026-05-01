@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { isValidOptionalHttpUrl, TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "./utils";
+import { isValidOptionalHttpUrl } from "./lib/format";
+import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "./lib/limits";
 
 const optionalHttpUrl = z
   .string()

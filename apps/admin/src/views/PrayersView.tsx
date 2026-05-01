@@ -1,18 +1,17 @@
-import { buildWhatsAppUrl, type AdminUser, type PrayerRequest } from "@4ibib/core";
+import { buildWhatsAppForContact, formatDateTime, type AdminUser, type PrayerRequest } from "@4ibib/core";
 import { useMemo } from "react";
 import { ListToolbar, Pagination, SelectField, TextAreaField } from "../components/ui";
 import { useAdmins, useUpdatePrayer, useUpdatePrayerStatus } from "../hooks";
+import { PRAYER_STATUS_OPTIONS } from "../lib/labels";
+import { TEXTAREA_MAX } from "../lib/limits";
 import {
   compareText,
-  formatDateTimeLabel,
   matchesSearch,
   normalizeSearch,
   paginateItems,
-  PRAYER_SORT_OPTIONS,
-  PRAYER_STATUS_OPTIONS,
-  TEXTAREA_MAX,
   type ListState
-} from "../utils";
+} from "../lib/list-state";
+import { PRAYER_SORT_OPTIONS } from "../lib/sort-options";
 
 const PRAYER_STATUS_CSV_LABELS: Record<PrayerRequest["status"], string> = {
   novo: "novo",
@@ -34,8 +33,8 @@ function buildPrayersCsv(items: PrayerRequest[]): string {
       item.contact,
       item.message,
       PRAYER_STATUS_CSV_LABELS[item.status],
-      formatDateTimeLabel(item.createdAt),
-      item.seenAt ? formatDateTimeLabel(item.seenAt) : "",
+      formatDateTime(item.createdAt),
+      item.seenAt ? formatDateTime(item.seenAt) : "",
       item.pastoralNotes
     ]
       .map(escapeCsvField)
@@ -72,12 +71,6 @@ interface PrayersViewProps {
 }
 
 const WHATSAPP_DEFAULT_MESSAGE = "Ola, recebemos seu pedido de oracao na 4a Betel. Estamos orando por voce.";
-
-function buildWhatsAppForPrayer(contact: string): string | null {
-  const digits = contact.replace(/\D+/g, "");
-  if (digits.length < 10) return null;
-  return buildWhatsAppUrl(digits, WHATSAPP_DEFAULT_MESSAGE);
-}
 
 function formatAdminLabel(admin: AdminUser): string {
   if (admin.email) return admin.email;
@@ -166,17 +159,19 @@ export default function PrayersView({
           </button>
         </ListToolbar>
         {list.items.map((request) => {
-          const whatsappUrl = request.contact ? buildWhatsAppForPrayer(request.contact) : null;
+          const whatsappUrl = request.contact
+            ? buildWhatsAppForContact(request.contact, WHATSAPP_DEFAULT_MESSAGE)
+            : null;
           return (
             <article className="prayer-row" key={request.id}>
               <div className="prayer-main">
                 <strong>{request.name}</strong>
-                <span>{formatDateTimeLabel(request.createdAt)}</span>
+                <span>{formatDateTime(request.createdAt)}</span>
                 <span>{request.contact || "Sem contato"}</span>
                 <p>{request.message}</p>
                 <div className="prayer-meta">
                   {request.seenAt ? (
-                    <span className="prayer-seen">Visto em {formatDateTimeLabel(request.seenAt)}</span>
+                    <span className="prayer-seen">Visto em {formatDateTime(request.seenAt)}</span>
                   ) : (
                     <button
                       className="button ghost"
