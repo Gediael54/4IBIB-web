@@ -249,50 +249,81 @@ export interface AdminSession {
   displayName: string;
 }
 
-export interface ContentRepository {
-  getSnapshot(): Promise<SiteSnapshot>;
-
+export interface AnnouncementRepo {
   listAnnouncements(): Promise<Announcement[]>;
   saveAnnouncement(input: AnnouncementInput): Promise<Announcement>;
   deleteAnnouncement(id: string): Promise<void>;
+}
 
+export interface ScheduleRepo {
   listSchedule(): Promise<ScheduleItem[]>;
   saveScheduleItem(input: ScheduleItemInput): Promise<ScheduleItem>;
   deleteScheduleItem(id: string): Promise<void>;
   duplicateScheduleItem(id: string): Promise<ScheduleItem>;
   bulkUpdateScheduleItems(ids: string[], patch: ScheduleBulkPatch): Promise<ScheduleItem[]>;
+}
 
+export interface VolunteerRepo {
   listVolunteers(): Promise<Volunteer[]>;
   saveVolunteer(input: VolunteerInput): Promise<Volunteer>;
   deleteVolunteer(id: string): Promise<void>;
   renameVolunteer(
     input: RenameVolunteerInput
   ): Promise<{ volunteer: Volunteer; updatedScheduleItems: number }>;
+}
 
+export interface PrayerRepo {
   createPrayerRequest(input: PrayerRequestInput): Promise<PrayerRequest>;
   listPrayerRequests(): Promise<PrayerRequest[]>;
   updatePrayerRequestStatus(id: string, status: PrayerStatus): Promise<void>;
   updatePrayerRequest(id: string, patch: PrayerRequestPatch): Promise<PrayerRequest>;
+}
 
+export interface ProfileRepo {
   getProfile(): Promise<ChurchProfile | null>;
   saveProfile(input: ChurchProfileInput): Promise<ChurchProfile>;
+}
 
+export interface MinistryRepo {
   listMinistries(): Promise<MinistryRecord[]>;
   saveMinistry(input: MinistryInput): Promise<MinistryRecord>;
   deleteMinistry(id: string): Promise<void>;
+}
 
+export interface RecurringMeetingRepo {
   listRecurringMeetings(): Promise<RecurringMeetingRecord[]>;
   saveRecurringMeeting(input: RecurringMeetingInput): Promise<RecurringMeetingRecord>;
   deleteRecurringMeeting(id: string): Promise<void>;
+}
 
+export interface AdminRepo {
   listAdmins(): Promise<AdminUser[]>;
   inviteAdmin(input: InviteAdminInput): Promise<AdminUser>;
   updateAdminRole(userId: string, role: AdminRole): Promise<AdminUser>;
   removeAdmin(userId: string): Promise<void>;
+}
 
+export interface AuditRepo {
   listAuditLog(filter?: AuditLogFilter): Promise<AuditLogEntry[]>;
   revertAuditEntry(id: string): Promise<void>;
 }
+
+export interface SnapshotRepo {
+  getSnapshot(): Promise<SiteSnapshot>;
+}
+
+export interface ContentRepository
+  extends
+    AnnouncementRepo,
+    ScheduleRepo,
+    VolunteerRepo,
+    PrayerRepo,
+    ProfileRepo,
+    MinistryRepo,
+    RecurringMeetingRepo,
+    AdminRepo,
+    AuditRepo,
+    SnapshotRepo {}
 
 export interface AuthGateway {
   getSession(): Promise<AdminSession | null>;
