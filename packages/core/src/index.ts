@@ -439,6 +439,63 @@ export function buildWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
+const WHATSAPP_MIN_DIGITS = 10;
+
+export function buildWhatsAppForContact(contact: string, message: string): string | null {
+  const digits = contact.replace(/\D+/g, "");
+  if (digits.length < WHATSAPP_MIN_DIGITS) return null;
+  return buildWhatsAppUrl(digits, message);
+}
+
+export function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+export function formatDateOnly(value: string): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(parsed);
+}
+
+export function splitNames(value: string | undefined | null): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+export function getScheduleInRange(items: ScheduleItem[], fromMs: number, toMs: number): ScheduleItem[] {
+  return items.filter((item) => {
+    if (item.status !== "scheduled") {
+      return false;
+    }
+
+    const startsAt = Date.parse(item.startsAt);
+    return startsAt >= fromMs && startsAt < toMs;
+  });
+}
+
 export function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`;

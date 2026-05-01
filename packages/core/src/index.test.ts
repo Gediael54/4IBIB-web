@@ -1,10 +1,14 @@
 import {
+  buildWhatsAppForContact,
   buildWhatsAppUrl,
   createId,
   formatDateLabel,
+  formatDateOnly,
+  formatDateTime,
   formatInputDateTime,
   formatTimeRange,
   getPinnedAnnouncements,
+  getScheduleInRange,
   getUpcomingSchedule,
   getVisibleAnnouncements,
   inputDateTimeToIso,
@@ -16,6 +20,7 @@ import {
   sortRecurringMeetings,
   sortSchedule,
   sortVolunteers,
+  splitNames,
   type AdminUser,
   type Announcement,
   type AuditLogEntry,
@@ -371,6 +376,44 @@ it("converts date-time input values", () => {
 
 it("builds whatsapp links with encoded messages", () => {
   expect(buildWhatsAppUrl("559599999999", "Ola igreja")).toBe("https://wa.me/559599999999?text=Ola%20igreja");
+});
+
+it("strips non-digits when building whatsapp from contact", () => {
+  expect(buildWhatsAppForContact("(81) 98122-0651", "msg")).toBe("https://wa.me/81981220651?text=msg");
+});
+
+it("returns null when contact has fewer than 10 digits", () => {
+  expect(buildWhatsAppForContact("123", "msg")).toBeNull();
+  expect(buildWhatsAppForContact("", "msg")).toBeNull();
+});
+
+it("formats full date and time labels", () => {
+  expect(formatDateTime("2030-01-01T10:30:00.000Z")).toMatch(/\d{2}\/\d{2}\/\d{4}/);
+});
+
+it("formats date-only labels and rejects invalid input", () => {
+  expect(formatDateOnly("2030-01-01T10:30:00.000Z")).toMatch(/\d{2}\/\d{2}\/\d{4}/);
+  expect(formatDateOnly("")).toBeNull();
+  expect(formatDateOnly("not-a-date")).toBeNull();
+});
+
+it("splits comma-separated names and ignores empty entries", () => {
+  expect(splitNames("Ana, Bruno , , Carla")).toEqual(["Ana", "Bruno", "Carla"]);
+  expect(splitNames("")).toEqual([]);
+  expect(splitNames(null)).toEqual([]);
+  expect(splitNames(undefined)).toEqual([]);
+});
+
+it("filters schedule items inside a date range and only scheduled status", () => {
+  const items: ScheduleItem[] = [
+    makeSchedule({ id: "before", startsAt: "2030-01-01T10:00:00.000Z" }),
+    makeSchedule({ id: "in", startsAt: "2030-02-01T10:00:00.000Z" }),
+    makeSchedule({ id: "after", startsAt: "2030-03-01T10:00:00.000Z" }),
+    makeSchedule({ id: "suspended", startsAt: "2030-02-01T10:00:00.000Z", status: "suspended" })
+  ];
+  const from = Date.parse("2030-01-15T00:00:00.000Z");
+  const to = Date.parse("2030-02-15T00:00:00.000Z");
+  expect(getScheduleInRange(items, from, to).map((item) => item.id)).toEqual(["in"]);
 });
 
 it("creates ids with the requested prefix", () => {
