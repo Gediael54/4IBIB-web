@@ -290,6 +290,98 @@ h1 {
   color: var(--ink-navy);
 }
 
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.dashboard-card {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dashboard-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-card h3 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--ink-navy);
+  letter-spacing: 0.01em;
+}
+
+.dashboard-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.dashboard-card-count {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--ink-navy);
+  font-weight: 800;
+}
+
+.dashboard-card.warning {
+  border-left-color: var(--accent-gold);
+}
+
+.dashboard-card.warning .dashboard-card-count {
+  color: var(--accent-bronze-deep);
+}
+
+.dashboard-card.alert {
+  border-left-color: var(--error);
+  background: #fdf3f0;
+}
+
+.dashboard-card.alert .dashboard-card-count {
+  color: var(--error);
+}
+
+.dashboard-card.empty {
+  border-left-color: var(--border);
+  background: var(--bg-soft);
+  opacity: 0.85;
+}
+
+.dashboard-card.empty .dashboard-card-count {
+  color: var(--muted-soft);
+}
+
+.dashboard-card .button {
+  align-self: flex-start;
+}
+
+.dashboard-totals {
+  margin-top: 22px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .crud-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 420px;
@@ -362,6 +454,27 @@ h1 {
 }
 
 .row-actions button:hover {
+  background: var(--bg-soft);
+  border-color: var(--accent-bronze);
+}
+
+.row-actions .row-action-link {
+  width: 36px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--ink-navy);
+  text-decoration: none;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.row-actions .row-action-link:hover {
   background: var(--bg-soft);
   border-color: var(--accent-bronze);
 }
@@ -1025,6 +1138,7 @@ select:focus-visible {
 
   .crud-layout,
   .stats-grid,
+  .dashboard-grid,
   .list-toolbar {
     grid-template-columns: 1fr;
   }
