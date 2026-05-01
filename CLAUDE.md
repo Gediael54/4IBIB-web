@@ -91,27 +91,28 @@ Relatorio de gaps e roadmap completo do admin. Aprovado pelo usuario em 2026-05-
 
 ## Status (atualizado 2026-05-01)
 
-- **Fase 1**: ✅ COMPLETA — schema, core types, supabase adapter, 152 testes verdes, 100% cobertura.
+- **Fase 1**: ✅ COMPLETA — schema, core types, supabase adapter, 153 testes verdes, 100% cobertura.
 - **Smoke test**: ✅ `npm run smoke` valida build + serve + GET das rotas.
 - **Fase 2** (4 views novas): ✅ COMPLETA — Profile, Ministries, AuditLog, Team.
 - **Fase 3** (4 views turbinadas): ✅ COMPLETA — Schedule (bulk + duplicar + date range), Announcements (status + expires + preview), Volunteers (campos novos + rename cascade + participation count), Prayers (WhatsApp + notas + assigned + seen).
-- **Fase 4**: ⏳ PARCIAL.
+- **Fase 4**: ✅ COMPLETA (exceto serie recorrente).
   - ✅ Dashboard com alertas acionaveis.
   - ✅ Site le do banco com fallback hardcoded.
-  - ⏸ **Escala anual** (grid datas × papeis com auto-distribuir) — pendente, sozinho meia sessao.
-  - ⏸ **Serie recorrente** (tabela `schedule_series` + criador) — pendente, exige schema novo.
-- **Fase 5**: ⏳ PARCIAL.
+  - ✅ Escala anual (grid datas × papeis com auto-distribuir + deteccao de conflito).
+  - ✅ **Gerador de escalas por cadencia** — regras por voluntario (toda semana / 1x mes / 2x mes / 1x cada 2 meses / quinzenal / 1x trimestre + filtro de dia da semana). Gera assignments dentro do mesmo grid pra revisao antes de salvar.
+  - ⏸ Serie recorrente (tabela `schedule_series` + criador de eventos repetidos) — pendente. **Provavelmente nao mais necessaria**: o gerador de cadencia resolve a maior parte do caso de uso. Reavaliar antes de implementar.
+- **Fase 5**: ✅ COMPLETA (exceto notificacoes).
   - ✅ Botao "Ver no site" em ScheduleView e AnnouncementsView.
   - ✅ Autosave de rascunho em localStorage (form de novo evento/aviso).
   - ✅ Export CSV de pedidos de oracao.
-  - ⏸ **Cmd-K busca global** — pendente.
-  - ⏸ **Notificacao ao chegar pedido novo** — pendente, depende de canal (email/WhatsApp).
+  - ✅ Cmd-K busca global em todos os dominios.
+  - ⏸ Notificacao ao chegar pedido novo — pendente, depende de decisao de canal (email/WhatsApp).
 
-### Phase 1 stubs no adapter (carregar depois)
+### Phase 1 stubs no adapter
 
-- `inviteAdmin` → throw `"inviteAdmin requer service_role; sera completado na Fase 4"`. UI da TeamView mostra esse erro inline.
-- `revertAuditEntry` → throw `"Reverter sera implementado na Fase 4 via funcao Postgres"`. UI da AuditLogView mostra inline.
-- `listAdmins` retorna rows com `email: ""` e `displayName: ""` (admin_users so tem user_id+role; enrichment via auth.users precisa de funcao Postgres ou edge function).
+- ✅ `revertAuditEntry` — agora via funcao Postgres `public.revert_audit_entry(uuid)` (SECURITY DEFINER, whitelist de tabelas, INSERT/UPDATE/DELETE reversal).
+- ✅ `listAdmins` — agora via funcao Postgres `public.list_admins()` (JOIN com `auth.users` para email + display_name).
+- ⏸ `inviteAdmin` — ainda throw com mensagem orientando a usar painel Auth + insert manual em `admin_users`. Edge function fica pra depois.
 
 ## Fase 1 — Fundacoes (sequencial, BLOQUEIA fases seguintes)
 
