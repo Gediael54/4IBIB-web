@@ -53,7 +53,7 @@ const ITEMS: GalleryItem[] = [
   }
 ];
 
-const AUTOSCROLL_PX_PER_FRAME = 0.4;
+const AUTOSCROLL_PX_PER_FRAME = 1.2;
 const RESUME_DELAY_MS = 2400;
 
 export default function Gallery() {
@@ -66,6 +66,8 @@ export default function Gallery() {
     const strip = stripRef.current;
     if (!strip) return;
 
+    let position = strip.scrollLeft;
+
     const getWrapPoint = () => {
       const cards = strip.querySelectorAll<HTMLElement>(".gallery-card");
       const first = cards[0];
@@ -74,13 +76,13 @@ export default function Gallery() {
     };
 
     const tick = () => {
-      if (!pausedRef.current && strip) {
+      if (!pausedRef.current) {
         const wrap = getWrapPoint();
         if (wrap > 0) {
-          let next = strip.scrollLeft + AUTOSCROLL_PX_PER_FRAME;
-          while (next >= wrap) next -= wrap;
-          while (next < 0) next += wrap;
-          strip.scrollLeft = next;
+          position += AUTOSCROLL_PX_PER_FRAME;
+          while (position >= wrap) position -= wrap;
+          while (position < 0) position += wrap;
+          strip.scrollLeft = position;
         }
       }
       rafRef.current = window.requestAnimationFrame(tick);
@@ -90,6 +92,7 @@ export default function Gallery() {
       pausedRef.current = true;
       if (pauseTimeoutRef.current) window.clearTimeout(pauseTimeoutRef.current);
       pauseTimeoutRef.current = window.setTimeout(() => {
+        position = strip.scrollLeft;
         pausedRef.current = false;
       }, RESUME_DELAY_MS);
     };
@@ -118,8 +121,20 @@ export default function Gallery() {
       if (!dragging) return;
       dragging = false;
       strip.classList.remove("is-dragging");
+      position = strip.scrollLeft;
     };
 
+    const onScroll = () => {
+      const wrap = getWrapPoint();
+      if (wrap <= 0) return;
+      if (strip.scrollLeft >= wrap) {
+        const next = strip.scrollLeft - wrap;
+        strip.scrollLeft = next;
+        position = next;
+      }
+    };
+
+    strip.addEventListener("scroll", onScroll, { passive: true });
     strip.addEventListener("touchstart", pause, { passive: true });
     strip.addEventListener("touchmove", pause, { passive: true });
     strip.addEventListener("wheel", pause, { passive: true });
@@ -133,6 +148,7 @@ export default function Gallery() {
     return () => {
       if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
       if (pauseTimeoutRef.current) window.clearTimeout(pauseTimeoutRef.current);
+      strip.removeEventListener("scroll", onScroll);
       strip.removeEventListener("touchstart", pause);
       strip.removeEventListener("touchmove", pause);
       strip.removeEventListener("wheel", pause);
