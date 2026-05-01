@@ -5,7 +5,14 @@ export const TEXTAREA_MAX = 2000;
 export const URL_MAX = 500;
 export const PAGE_SIZE = 8;
 
-export type ListView = "announcements" | "schedule" | "prayers" | "volunteers";
+export type ListView =
+  | "announcements"
+  | "schedule"
+  | "prayers"
+  | "volunteers"
+  | "ministries"
+  | "audit"
+  | "team";
 
 export interface ListState {
   search: string;
@@ -26,14 +33,29 @@ export const INITIAL_LIST_STATE: Record<ListView, ListState> = {
   announcements: { search: "", sort: "publishedDesc", page: 1 },
   schedule: { search: "", sort: "startsAsc", page: 1 },
   prayers: { search: "", sort: "createdDesc", page: 1 },
-  volunteers: { search: "", sort: "nameAsc", page: 1 }
+  volunteers: { search: "", sort: "nameAsc", page: 1 },
+  ministries: { search: "", sort: "sortOrderAsc", page: 1 },
+  audit: { search: "", sort: "changedDesc", page: 1 },
+  team: { search: "", sort: "roleAsc", page: 1 }
 };
 
 export const ANNOUNCEMENT_SORT_OPTIONS = [
   { value: "publishedDesc", label: "Mais recentes" },
   { value: "publishedAsc", label: "Mais antigos" },
   { value: "titleAsc", label: "Titulo A-Z" },
-  { value: "categoryAsc", label: "Categoria A-Z" }
+  { value: "categoryAsc", label: "Categoria A-Z" },
+  { value: "statusAsc", label: "Status A-Z" }
+];
+
+export const ANNOUNCEMENT_STATUS_OPTIONS: Array<{
+  value: "all" | "draft" | "scheduled" | "published" | "archived";
+  label: string;
+}> = [
+  { value: "all", label: "Todos" },
+  { value: "draft", label: "Rascunho" },
+  { value: "scheduled", label: "Agendado" },
+  { value: "published", label: "Publicado" },
+  { value: "archived", label: "Arquivado" }
 ];
 
 export const SCHEDULE_SORT_OPTIONS = [
@@ -78,6 +100,49 @@ export const VOLUNTEER_ROLE_LABELS: Record<"geral" | "som", string> = {
   geral: "Geral",
   som: "Som"
 };
+
+export const MINISTRY_SORT_OPTIONS = [
+  { value: "sortOrderAsc", label: "Ordem manual" },
+  { value: "nameAsc", label: "Nome A-Z" },
+  { value: "nameDesc", label: "Nome Z-A" }
+];
+
+export const AUDIT_SORT_OPTIONS = [
+  { value: "changedDesc", label: "Mais recentes" },
+  { value: "changedAsc", label: "Mais antigos" },
+  { value: "tableAsc", label: "Tabela A-Z" }
+];
+
+export const AUDIT_TABLE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "all", label: "Todas" },
+  { value: "announcements", label: "Avisos" },
+  { value: "schedule_items", label: "Programacao" },
+  { value: "volunteers", label: "Voluntarios" },
+  { value: "prayer_requests", label: "Oracao" },
+  { value: "church_profile", label: "Perfil" },
+  { value: "ministries", label: "Ministerios" },
+  { value: "recurring_meetings", label: "Encontros regulares" }
+];
+
+export const AUDIT_ACTION_OPTIONS: Array<{ value: "all" | "INSERT" | "UPDATE" | "DELETE"; label: string }> = [
+  { value: "all", label: "Todas" },
+  { value: "INSERT", label: "Criacao" },
+  { value: "UPDATE", label: "Edicao" },
+  { value: "DELETE", label: "Exclusao" }
+];
+
+export const TEAM_SORT_OPTIONS = [
+  { value: "roleAsc", label: "Funcao (owner primeiro)" },
+  { value: "emailAsc", label: "Email A-Z" },
+  { value: "createdDesc", label: "Mais recentes" }
+];
+
+export const ADMIN_ROLE_LABELS: Record<"owner" | "editor", string> = {
+  owner: "Owner",
+  editor: "Editor"
+};
+
+export const WEEKDAY_LABELS = ["Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"];
 
 export function uniqueSorted(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((left, right) =>
