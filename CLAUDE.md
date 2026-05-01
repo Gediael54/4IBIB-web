@@ -38,7 +38,7 @@ npm run dev:admin     # admin em http://localhost:5174
 npm test              # vitest run --coverage (gate 100% em core/mock/supabase)
 npm run typecheck     # todos os workspaces
 npm run build         # gera dist/ pra Cloudflare Pages
-npm run seed:schedule # regenera bloco de seed inline em supabase/schema.sql a partir da planilha
+npm run seed:schedule # regenera bloco de seed inline em supabase/schema.sql a partir das planilhas
 ```
 
 ## Convenções
