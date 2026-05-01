@@ -1,5 +1,5 @@
 import { ArrowLeft, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { ScheduleItem } from "@4ibib/core";
 import { sortSchedule } from "@4ibib/core";
@@ -86,6 +86,10 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
   const monthOptions = useMemo(() => buildMonthOptions(schedule), [schedule]);
   const [pickedMonth, setPickedMonth] = useState<string>("");
   const [typeValue, setTypeValue] = useState<ScheduleCategory>("all");
+  const [openSuggestions, setOpenSuggestions] = useState<boolean>(false);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const controlsRef = useRef<HTMLElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const monthValue = useMemo(() => {
     if (pickedMonth && monthOptions.some((opt) => opt.value === pickedMonth)) {
@@ -107,10 +111,16 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
   }, [schedule]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && typeof window.scrollTo === "function") {
-      window.scrollTo({ top: 0, behavior: "auto" });
+    if (typeof controlsRef.current?.scrollIntoView === "function") {
+      controlsRef.current.scrollIntoView({ block: "start", behavior: "auto" });
     }
   }, []);
+
+  const filteredSuggestions = useMemo(() => {
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) return nameSuggestions.slice(0, 8);
+    return nameSuggestions.filter((name) => name.toLowerCase().includes(trimmed)).slice(0, 8);
+  }, [query, nameSuggestions]);
 
   const filtered = useMemo(() => {
     return schedule.filter((item) => {
@@ -133,10 +143,31 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
   const monthThemes = useMemo(() => monthThemesFor(filtered), [filtered]);
 
   function handleQueryChange(event: ChangeEvent<HTMLInputElement>) {
-    const value = event.target.value;
-    setQuery(value);
-    if (value && nameSuggestions.includes(value)) {
-      event.target.blur();
+    setQuery(event.target.value);
+    setOpenSuggestions(true);
+    setHighlightedIndex(-1);
+  }
+
+  function selectSuggestion(name: string) {
+    setQuery(name);
+    setOpenSuggestions(false);
+    setHighlightedIndex(-1);
+    inputRef.current?.blur();
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (!openSuggestions || filteredSuggestions.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedIndex((prev) => (prev + 1) % filteredSuggestions.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedIndex((prev) => (prev <= 0 ? filteredSuggestions.length - 1 : prev - 1));
+    } else if (event.key === "Enter" && highlightedIndex >= 0) {
+      event.preventDefault();
+      selectSuggestion(filteredSuggestions[highlightedIndex]);
+    } else if (event.key === "Escape") {
+      setOpenSuggestions(false);
     }
   }
 
@@ -144,6 +175,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
     setQuery("");
     setPickedMonth("");
     setTypeValue("all");
+    setOpenSuggestions(false);
   }
 
   return (
@@ -171,25 +203,46 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
         <p className="schedule-page-lead">Veja onde voce serve nos cultos.</p>
       </section>
 
-      <section className="schedule-page-controls" aria-label="Filtros da programacao">
+      <section className="schedule-page-controls" aria-label="Filtros da programacao" ref={controlsRef}>
         <label className="schedule-page-search">
           <span className="schedule-page-search-label">Seu nome</span>
           <span className="schedule-page-search-input">
             <Search size={20} aria-hidden="true" />
             <input
-              type="search"
+              ref={inputRef}
+              type="text"
               name="nome"
-              list="schedule-name-suggestions"
+              role="combobox"
               autoComplete="off"
+              aria-autocomplete="list"
+              aria-controls="schedule-suggestions-list"
+              aria-expanded={openSuggestions && filteredSuggestions.length > 0}
               placeholder="Digite seu nome"
               value={query}
               onChange={handleQueryChange}
+              onFocus={() => setOpenSuggestions(true)}
+              onBlur={() => setTimeout(() => setOpenSuggestions(false), 120)}
+              onKeyDown={handleKeyDown}
             />
-            <datalist id="schedule-name-suggestions">
-              {nameSuggestions.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
+            {openSuggestions && filteredSuggestions.length > 0 && (
+              <ul id="schedule-suggestions-list" className="schedule-page-suggestions" role="listbox">
+                {filteredSuggestions.map((name, index) => (
+                  <li
+                    key={name}
+                    role="option"
+                    aria-selected={index === highlightedIndex}
+                    className={index === highlightedIndex ? "is-highlighted" : ""}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      selectSuggestion(name);
+                    }}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                  >
+                    {name}
+                  </li>
+                ))}
+              </ul>
+            )}
           </span>
         </label>
 
@@ -230,7 +283,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
       </section>
 
       {monthThemes.length > 0 && (
-        <aside className="month-theme-banner" aria-label="Tema do mes">
+        <aside className="month-theme-banner schedule-page-month-theme" aria-label="Tema do mes">
           {monthThemes.map((theme) => (
             <p key={theme.monthKey}>
               <span className="month-theme-banner-month">{theme.monthLabel}</span>
