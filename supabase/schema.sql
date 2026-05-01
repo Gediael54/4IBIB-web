@@ -48,6 +48,8 @@ drop function if exists public.is_owner() cascade;
 drop function if exists public.upsert_ministry_id(text) cascade;
 drop function if exists public.set_ministry_slug() cascade;
 drop function if exists public.ministry_slug(text) cascade;
+drop function if exists public.list_admins() cascade;
+drop function if exists public.revert_audit_entry(uuid) cascade;
 
 drop type if exists public.admin_role cascade;
 drop type if exists public.announcement_category cascade;
@@ -306,6 +308,113 @@ as $$
     select 1 from public.admin_users
     where user_id = auth.uid() and role = 'owner'
   );
+$$;
+
+create or replace function public.list_admins()
+returns table (
+  user_id uuid,
+  email text,
+  display_name text,
+  role public.admin_role,
+  created_at timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado: apenas admins podem listar admins.';
+  end if;
+
+  return query
+    select
+      a.user_id,
+      u.email::text,
+      coalesce(u.raw_user_meta_data->>'name', '')::text as display_name,
+      a.role,
+      a.created_at
+    from public.admin_users a
+    inner join auth.users u on u.id = a.user_id;
+end;
+$$;
+
+create or replace function public.revert_audit_entry(entry_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  entry public.content_audit_log%rowtype;
+  allowed_tables text[] := array[
+    'announcements',
+    'schedule_items',
+    'volunteers',
+    'prayer_requests',
+    'church_profile',
+    'ministries',
+    'recurring_meetings'
+  ];
+  cols text;
+  vals text;
+  set_clause text;
+  payload jsonb;
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado: apenas admins podem reverter alteracoes.';
+  end if;
+
+  select * into entry from public.content_audit_log where id = entry_id;
+  if not found then
+    raise exception 'Entrada de audit log nao encontrada: %', entry_id;
+  end if;
+
+  if not (entry.table_name = any(allowed_tables)) then
+    raise exception 'Tabela nao autorizada para revert: %', entry.table_name;
+  end if;
+
+  if entry.action = 'INSERT' then
+    execute format('delete from public.%I where id = $1', entry.table_name)
+      using entry.row_id;
+  elsif entry.action = 'UPDATE' then
+    payload := entry.old_row;
+    if payload is null then
+      raise exception 'old_row ausente em UPDATE; impossivel reverter.';
+    end if;
+    select string_agg(format('%I = (jsonb_populate_record(null::public.%I, $1)).%I', key, entry.table_name, key), ', ')
+      into set_clause
+      from jsonb_object_keys(payload) as key
+      where key <> 'id';
+    if set_clause is null then
+      return;
+    end if;
+    execute format(
+      'update public.%I set %s where id = $2',
+      entry.table_name,
+      set_clause
+    ) using payload, entry.row_id;
+  elsif entry.action = 'DELETE' then
+    payload := entry.old_row;
+    if payload is null then
+      raise exception 'old_row ausente em DELETE; impossivel reverter.';
+    end if;
+    select
+      string_agg(format('%I', key), ', '),
+      string_agg(format('(jsonb_populate_record(null::public.%I, $1)).%I', entry.table_name, key), ', ')
+      into cols, vals
+      from jsonb_object_keys(payload) as key;
+    execute format(
+      'insert into public.%I (%s) values (%s)',
+      entry.table_name,
+      cols,
+      vals
+    ) using payload;
+  else
+    raise exception 'Acao desconhecida: %', entry.action;
+  end if;
+end;
 $$;
 
 
