@@ -25,7 +25,25 @@ function buildSnapshot(volunteers: Volunteer[] = []): SiteSnapshot {
   return {
     announcements: [],
     schedule: [],
-    volunteers
+    volunteers,
+    profile: null,
+    ministries: [],
+    recurringMeetings: []
+  };
+}
+
+function makeVolunteer(overrides: Partial<Volunteer> = {}): Volunteer {
+  return {
+    id: "v",
+    name: "Voluntario",
+    role: "geral",
+    sortOrder: 0,
+    contact: "",
+    photoUrl: "",
+    ministries: [],
+    unavailableDates: [],
+    notes: "",
+    ...overrides
   };
 }
 
@@ -99,9 +117,9 @@ describe("ScheduleView form", () => {
 
   it("renders sound team field with datalist suggestions from volunteers", () => {
     const snapshot = buildSnapshot([
-      { id: "v1", name: "Miguel", role: "som", sortOrder: 0 },
-      { id: "v2", name: "Brainer", role: "som", sortOrder: 1 },
-      { id: "v3", name: "Pastor Joao", role: "geral", sortOrder: 0 }
+      makeVolunteer({ id: "v1", name: "Miguel", role: "som", sortOrder: 0 }),
+      makeVolunteer({ id: "v2", name: "Brainer", role: "som", sortOrder: 1 }),
+      makeVolunteer({ id: "v3", name: "Pastor Joao", role: "geral", sortOrder: 0 })
     ]);
     renderView(snapshot);
 

@@ -20,6 +20,7 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     occasionLabel: "",
     status: "scheduled",
     featured: false,
+    seriesId: null,
     ...overrides
   };
 }

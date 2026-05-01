@@ -23,6 +23,7 @@ function makeItem(id: string, daysFromNow: number, overrides: Partial<ScheduleIt
     occasionLabel: "",
     status: "scheduled",
     featured: false,
+    seriesId: null,
     ...overrides
   };
 }
