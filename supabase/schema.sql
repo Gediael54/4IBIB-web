@@ -51,6 +51,7 @@ drop function if exists public.ministry_slug(text) cascade;
 
 drop type if exists public.admin_role cascade;
 drop type if exists public.announcement_category cascade;
+drop type if exists public.announcement_status cascade;
 drop type if exists public.schedule_status cascade;
 drop type if exists public.prayer_status cascade;
 
@@ -68,6 +69,7 @@ create extension if not exists pgcrypto;
 
 create type public.admin_role as enum ('owner', 'editor');
 create type public.announcement_category as enum ('geral', 'evento', 'juventude', 'oracao');
+create type public.announcement_status as enum ('draft', 'scheduled', 'published', 'archived');
 create type public.schedule_status as enum ('scheduled', 'suspended', 'free');
 create type public.prayer_status as enum ('novo', 'em_oracao', 'concluido');
 
@@ -91,6 +93,9 @@ create table public.announcements (
   pinned boolean not null default false,
   cta_label text not null default '',
   cta_url text not null default '',
+  status public.announcement_status not null default 'published',
+  expires_at timestamptz null,
+  image_url text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -110,6 +115,7 @@ create table public.schedule_items (
   occasion_label text not null default '',
   status public.schedule_status not null default 'scheduled',
   featured boolean not null default false,
+  series_id uuid null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint schedule_time_order check (ends_at > starts_at),
@@ -121,6 +127,11 @@ create table public.volunteers (
   name text not null,
   role text not null default 'geral',
   sort_order int not null default 0,
+  contact text not null default '',
+  photo_url text not null default '',
+  ministries text[] not null default '{}',
+  unavailable_dates date[] not null default '{}',
+  notes text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -131,6 +142,9 @@ create table public.prayer_requests (
   contact text not null default '',
   message text not null,
   status public.prayer_status not null default 'novo',
+  pastoral_notes text not null default '',
+  assigned_to uuid null references public.admin_users(user_id) on delete set null,
+  seen_at timestamptz null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -151,6 +165,72 @@ create table public.content_audit_log (
   old_row jsonb,
   new_row jsonb
 );
+
+create table public.church_profile (
+  id text primary key default 'main' check (id = 'main'),
+  name text not null default '',
+  short_name text not null default '',
+  tagline text not null default '',
+  city text not null default '',
+  pastor_name text not null default '',
+  address text not null default '',
+  email text not null default '',
+  whatsapp text not null default '',
+  instagram_url text not null default '',
+  youtube_url text not null default '',
+  maps_url text not null default '',
+  hero_verse text not null default '',
+  mission text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.ministries (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null,
+  summary text not null default '',
+  meeting_time text not null default '',
+  contact text not null default '',
+  color text not null default '#0f766e',
+  sort_order int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.recurring_meetings (
+  id uuid primary key default gen_random_uuid(),
+  profile_id text not null default 'main' references public.church_profile(id) on delete cascade,
+  title text not null,
+  weekday smallint not null check (weekday between 0 and 6),
+  starts_at time not null,
+  ends_at time not null,
+  description text not null default '',
+  sort_order int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint recurring_meeting_time_order check (ends_at > starts_at)
+);
+
+insert into public.church_profile (
+  id, name, short_name, tagline, city, pastor_name, address, email, whatsapp,
+  instagram_url, youtube_url, maps_url, hero_verse, mission
+) values (
+  'main',
+  '4a Igreja Batista Independente Betel',
+  '4a Betel',
+  'Uma igreja para servir a cidade com Palavra, comunhao e cuidado.',
+  'Caruaru, PE',
+  'Pr. Samuel Costa',
+  '478 Rua Jose Victor de Albuquerque',
+  '4ibibetel@gmail.com',
+  '+55 81 98122-0651',
+  'https://www.instagram.com/4igrejabatista/',
+  'https://www.youtube.com/@4aibibetel864',
+  'https://maps.google.com/?q=Av.+Central,+420+-+Centro',
+  'Assim brilhe a luz de voces diante dos homens, para que vejam as suas boas obras e glorifiquem o Pai de voces que esta nos ceus. - Mateus 5.16',
+  'Cultivar discipulos de Jesus que servem com excelencia, oracao e acolhimento.'
+) on conflict (id) do nothing;
 
 
 -- =============================================================================
@@ -238,18 +318,31 @@ create index schedule_scheduled_starts_at_idx
   on public.schedule_items (starts_at)
   where status = 'scheduled';
 create index schedule_ministry_idx on public.schedule_items (ministry);
+create index schedule_series_id_idx on public.schedule_items (series_id);
 
 create index announcements_pinned_published_at_idx
   on public.announcements (published_at desc)
   where pinned = true;
+create index announcements_status_published_at_idx
+  on public.announcements (status, published_at desc);
 
 create unique index volunteers_name_unique on public.volunteers (lower(name));
 create index volunteers_sort_order_idx on public.volunteers (sort_order);
 
 create index prayer_requests_created_at_idx
   on public.prayer_requests (created_at desc);
+create index prayer_requests_assigned_to_idx
+  on public.prayer_requests (assigned_to)
+  where assigned_to is not null;
 create index prayer_rate_limits_ip_created_at_idx
   on public.prayer_request_rate_limits (ip_hash, created_at desc);
+
+create index ministries_sort_order_idx on public.ministries (sort_order);
+
+create index recurring_meetings_sort_order_idx
+  on public.recurring_meetings (sort_order);
+create index recurring_meetings_weekday_idx
+  on public.recurring_meetings (weekday);
 
 create index content_audit_log_changed_at_idx
   on public.content_audit_log (changed_at desc);
@@ -278,6 +371,18 @@ create trigger touch_volunteers_updated_at
 before update on public.volunteers
 for each row execute function public.touch_updated_at();
 
+create trigger touch_church_profile_updated_at
+before update on public.church_profile
+for each row execute function public.touch_updated_at();
+
+create trigger touch_ministries_updated_at
+before update on public.ministries
+for each row execute function public.touch_updated_at();
+
+create trigger touch_recurring_meetings_updated_at
+before update on public.recurring_meetings
+for each row execute function public.touch_updated_at();
+
 -- 7.2 Audit log -------------------------------------------------------------
 create trigger audit_announcements
 after insert or update or delete on public.announcements
@@ -295,6 +400,18 @@ create trigger audit_volunteers
 after insert or update or delete on public.volunteers
 for each row execute function public.log_content_audit();
 
+create trigger audit_church_profile
+after insert or update or delete on public.church_profile
+for each row execute function public.log_content_audit();
+
+create trigger audit_ministries
+after insert or update or delete on public.ministries
+for each row execute function public.log_content_audit();
+
+create trigger audit_recurring_meetings
+after insert or update or delete on public.recurring_meetings
+for each row execute function public.log_content_audit();
+
 
 -- =============================================================================
 -- 8. Row Level Security and policies
@@ -307,6 +424,9 @@ alter table public.volunteers enable row level security;
 alter table public.prayer_requests enable row level security;
 alter table public.prayer_request_rate_limits enable row level security;
 alter table public.content_audit_log enable row level security;
+alter table public.church_profile enable row level security;
+alter table public.ministries enable row level security;
+alter table public.recurring_meetings enable row level security;
 
 create policy "admins can read own admin row"
   on public.admin_users for select
@@ -362,6 +482,39 @@ create policy "admins can read audit log"
   on public.content_audit_log for select
   to authenticated
   using (public.is_admin());
+
+create policy "public can read church profile"
+  on public.church_profile for select
+  to anon, authenticated
+  using (true);
+
+create policy "admins can write church profile"
+  on public.church_profile for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create policy "public can read ministries"
+  on public.ministries for select
+  to anon, authenticated
+  using (true);
+
+create policy "admins can write ministries"
+  on public.ministries for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create policy "public can read recurring meetings"
+  on public.recurring_meetings for select
+  to anon, authenticated
+  using (true);
+
+create policy "admins can write recurring meetings"
+  on public.recurring_meetings for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 
 -- =============================================================================
