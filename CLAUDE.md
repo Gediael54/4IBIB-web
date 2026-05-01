@@ -89,6 +89,30 @@ Relatorio de gaps e roadmap completo do admin. Aprovado pelo usuario em 2026-05-
 - **Faltam telas para 6 dominios ja existentes no banco**: `church_profile`, `ministries`, `recurring_meetings`, `content_audit_log`, `admin_users` (multi-admin), e nenhuma op em massa no `schedule_items`.
 - Cenario alvo "adicionar 1 pregador novo e modificar agenda do ano" hoje exige edicao item por item.
 
+## Status (atualizado 2026-05-01)
+
+- **Fase 1**: ✅ COMPLETA — schema, core types, supabase adapter, 152 testes verdes, 100% cobertura.
+- **Smoke test**: ✅ `npm run smoke` valida build + serve + GET das rotas.
+- **Fase 2** (4 views novas): ✅ COMPLETA — Profile, Ministries, AuditLog, Team.
+- **Fase 3** (4 views turbinadas): ✅ COMPLETA — Schedule (bulk + duplicar + date range), Announcements (status + expires + preview), Volunteers (campos novos + rename cascade + participation count), Prayers (WhatsApp + notas + assigned + seen).
+- **Fase 4**: ⏳ PARCIAL.
+  - ✅ Dashboard com alertas acionaveis.
+  - ✅ Site le do banco com fallback hardcoded.
+  - ⏸ **Escala anual** (grid datas × papeis com auto-distribuir) — pendente, sozinho meia sessao.
+  - ⏸ **Serie recorrente** (tabela `schedule_series` + criador) — pendente, exige schema novo.
+- **Fase 5**: ⏳ PARCIAL.
+  - ✅ Botao "Ver no site" em ScheduleView e AnnouncementsView.
+  - ✅ Autosave de rascunho em localStorage (form de novo evento/aviso).
+  - ✅ Export CSV de pedidos de oracao.
+  - ⏸ **Cmd-K busca global** — pendente.
+  - ⏸ **Notificacao ao chegar pedido novo** — pendente, depende de canal (email/WhatsApp).
+
+### Phase 1 stubs no adapter (carregar depois)
+
+- `inviteAdmin` → throw `"inviteAdmin requer service_role; sera completado na Fase 4"`. UI da TeamView mostra esse erro inline.
+- `revertAuditEntry` → throw `"Reverter sera implementado na Fase 4 via funcao Postgres"`. UI da AuditLogView mostra inline.
+- `listAdmins` retorna rows com `email: ""` e `displayName: ""` (admin_users so tem user_id+role; enrichment via auth.users precisa de funcao Postgres ou edge function).
+
 ## Fase 1 — Fundacoes (sequencial, BLOQUEIA fases seguintes)
 
 Schema + tipos do core + adapter Supabase.
