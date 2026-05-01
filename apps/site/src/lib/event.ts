@@ -5,6 +5,7 @@ import { formatMonthShort, getMonthKey } from "./date";
 export interface DisplayLocation {
   primary: string;
   secondary?: string;
+  isHome: boolean;
 }
 
 const HOME_LOCATIONS = new Set(["", "templo principal"]);
@@ -14,10 +15,11 @@ export function displayLocation(item: ScheduleItem): DisplayLocation {
   if (HOME_LOCATIONS.has(raw.toLowerCase())) {
     return {
       primary: CHURCH.shortName,
-      secondary: CHURCH.name
+      secondary: CHURCH.name,
+      isHome: true
     };
   }
-  return { primary: raw };
+  return { primary: raw, isHome: false };
 }
 
 export interface OccasionStyle {
