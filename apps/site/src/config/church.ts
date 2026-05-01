@@ -24,8 +24,8 @@ export const CHURCH = {
   address: "478 Rua Jose Victor de Albuquerque",
   email: "contato@4abetel.org",
   whatsapp: "+55 81 98122-0651",
-  instagramUrl: "https://www.instagram.com/4abetel",
-  youtubeUrl: "https://www.youtube.com/@4abetel",
+  instagramUrl: "https://www.instagram.com/4igrejabatista/",
+  youtubeUrl: "https://www.youtube.com/@4aibibetel864",
   mapsUrl: "https://maps.google.com/?q=Av.+Central,+420+-+Centro",
   heroVerse:
     "Assim brilhe a luz de voces diante dos homens, para que vejam as suas boas obras e glorifiquem o Pai de voces que esta nos ceus. - Mateus 5.16",
