@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   LogOut,
   Megaphone,
+  Search,
   ShieldCheck,
   Sparkles,
   Users
@@ -17,6 +18,9 @@ import {
 import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { CommandPalette } from "./components/CommandPalette";
+import { MobileTopbar } from "./components/MobileTopbar";
+import { ThemeToggle } from "./components/ThemeToggle";
+import { ToastProvider } from "./components/Toast";
 import { backend, usePrayers, useSnapshot } from "./hooks";
 import { initMonitoring } from "./monitoring";
 import "./styles.css";
@@ -64,6 +68,19 @@ type AdminView =
   | "audit"
   | "team";
 
+const VIEW_TITLES: Record<AdminView, string> = {
+  dashboard: "Resumo",
+  announcements: "Avisos",
+  schedule: "Programacao",
+  annual: "Escala anual",
+  volunteers: "Voluntarios",
+  prayers: "Oracao",
+  profile: "Perfil",
+  ministries: "Ministerios",
+  audit: "Auditoria",
+  team: "Equipe"
+};
+
 export function App() {
   const [session, setSession] = useState<AdminSession | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -73,6 +90,12 @@ export function App() {
   const [prayerStatusFilter, setPrayerStatusFilter] = useState<PrayerRequest["status"] | "all">("all");
   const [volunteerRoleFilter, setVolunteerRoleFilter] = useState<VolunteerRoleFilter>("all");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  function navigateTo(next: AdminView) {
+    setView(next);
+    setDrawerOpen(false);
+  }
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -197,8 +220,24 @@ export function App() {
   const prayers = prayersQuery.data;
 
   return (
-    <main className="admin-shell">
-      <aside className="sidebar">
+    <main className={`admin-shell${drawerOpen ? " drawer-open" : ""}`}>
+      <MobileTopbar
+        title={VIEW_TITLES[view]}
+        drawerOpen={drawerOpen}
+        onToggleDrawer={() => setDrawerOpen((value) => !value)}
+        action={
+          <button
+            type="button"
+            className="cmdk-trigger cmdk-trigger-mobile"
+            aria-label="Buscar"
+            onClick={() => setPaletteOpen(true)}
+          >
+            <Search size={18} />
+          </button>
+        }
+      />
+      <div className="sidebar-backdrop" aria-hidden={!drawerOpen} onClick={() => setDrawerOpen(false)} />
+      <aside id="admin-sidebar" className="sidebar" aria-hidden={false}>
         <div className="sidebar-brand">
           <img src="/logo.png" alt="" className="sidebar-logo" />
           <div>
@@ -212,60 +251,93 @@ export function App() {
             target="dashboard"
             icon={<ClipboardList />}
             label="Resumo"
-            onClick={setView}
+            onClick={navigateTo}
           />
           <NavButton
             current={view}
             target="announcements"
             icon={<Megaphone />}
             label="Avisos"
-            onClick={setView}
+            onClick={navigateTo}
           />
           <NavButton
             current={view}
             target="volunteers"
             icon={<Users />}
             label="Voluntarios"
-            onClick={setView}
+            onClick={navigateTo}
           />
           <NavButton
             current={view}
             target="schedule"
             icon={<CalendarDays />}
             label="Programacao"
-            onClick={setView}
+            onClick={navigateTo}
           />
           <NavButton
             current={view}
             target="annual"
             icon={<LayoutGrid />}
             label="Escala anual"
-            onClick={setView}
+            onClick={navigateTo}
           />
           <NavButton
             current={view}
             target="prayers"
             icon={<HeartHandshake />}
             label="Oracao"
-            onClick={setView}
+            onClick={navigateTo}
           />
           <NavButton
             current={view}
             target="ministries"
             icon={<Sparkles />}
             label="Ministerios"
-            onClick={setView}
+            onClick={navigateTo}
           />
-          <NavButton current={view} target="profile" icon={<Building2 />} label="Perfil" onClick={setView} />
-          <NavButton current={view} target="audit" icon={<History />} label="Auditoria" onClick={setView} />
-          <NavButton current={view} target="team" icon={<ShieldCheck />} label="Equipe" onClick={setView} />
+          <NavButton
+            current={view}
+            target="profile"
+            icon={<Building2 />}
+            label="Perfil"
+            onClick={navigateTo}
+          />
+          <NavButton
+            current={view}
+            target="audit"
+            icon={<History />}
+            label="Auditoria"
+            onClick={navigateTo}
+          />
+          <NavButton
+            current={view}
+            target="team"
+            icon={<ShieldCheck />}
+            label="Equipe"
+            onClick={navigateTo}
+          />
         </nav>
-        <button className="sidebar-logout" onClick={handleLogout} type="button">
-          <LogOut size={18} /> Sair
-        </button>
+        <div className="sidebar-footer">
+          <ThemeToggle />
+          <button className="sidebar-logout" onClick={handleLogout} type="button">
+            <LogOut size={18} /> Sair
+          </button>
+        </div>
       </aside>
 
       <section className="workspace">
+        <div className="workspace-toolbar">
+          <button
+            type="button"
+            className="cmdk-trigger cmdk-trigger-desktop"
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Abrir busca rapida"
+          >
+            <Search size={16} />
+            <span>Buscar</span>
+            <kbd>{"⌘K"}</kbd>
+          </button>
+        </div>
         <Suspense
           fallback={
             <div className="loading">
@@ -274,7 +346,7 @@ export function App() {
           }
         >
           {view === "dashboard" && (
-            <DashboardView snapshot={snapshot} prayers={prayers} onNavigate={setView} />
+            <DashboardView snapshot={snapshot} prayers={prayers} onNavigate={navigateTo} />
           )}
           {view === "announcements" && (
             <AnnouncementsView
@@ -335,7 +407,7 @@ export function App() {
         snapshot={snapshot}
         prayers={prayers}
         onNavigate={(nextView) => {
-          setView(nextView);
+          navigateTo(nextView);
           setPaletteOpen(false);
         }}
       />
@@ -366,6 +438,8 @@ function NavButton(props: {
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
-    <App />
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </QueryClientProvider>
 );
