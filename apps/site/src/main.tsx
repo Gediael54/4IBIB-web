@@ -18,6 +18,7 @@ import { createRoot } from "react-dom/client";
 import { backend } from "./backend";
 import Gallery from "./components/Gallery";
 import SchedulePage from "./components/SchedulePage";
+import TurnstileWidget from "./components/TurnstileWidget";
 import UpcomingEvents from "./components/UpcomingEvents";
 import { CHURCH } from "./config/church";
 import { ChurchProvider, useChurchProfile, useMinistries, useRegularMeetings } from "./lib/church-context";
@@ -272,14 +273,7 @@ function SiteHome({ pinnedAnnouncements, schedule, prayerMutation, onPrayerReque
               placeholder="Como podemos orar?"
             />
           </label>
-          {TURNSTILE_SITE_KEY && (
-            <div
-              className="cf-turnstile"
-              data-sitekey={TURNSTILE_SITE_KEY}
-              data-theme="light"
-              data-language="pt-BR"
-            />
-          )}
+          {TURNSTILE_SITE_KEY && <TurnstileWidget siteKey={TURNSTILE_SITE_KEY} />}
           <button className="button primary" type="submit" disabled={prayerMutation.isPending}>
             <HeartHandshake size={18} />
             {prayerMutation.isPending
