@@ -1,8 +1,10 @@
 import { formatDateTime, type AdminRole, type AdminUser } from "@4ibib/core";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Save, Trash2 } from "lucide-react";
+import { Save, Trash2, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { EmptyState } from "../components/EmptyState";
+import { ListView } from "../components/ListView";
 import { Field, ListToolbar, Pagination, SelectField } from "../components/ui";
 import { ADMIN_ROLE_LABELS } from "../lib/labels";
 import {
@@ -105,16 +107,10 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
   }
 
   const saving = isSubmitting || inviteMutation.isPending;
+  const queryError = adminsQuery.error;
 
   return (
     <section>
-      <header className="workspace-heading">
-        <div>
-          <p className="eyebrow">Equipe</p>
-          <h1>Administradores</h1>
-        </div>
-      </header>
-
       <div className="editor-panel">
         <form className="editor-form" onSubmit={handleSubmit(onSubmit)} noValidate>
           <Field
@@ -142,51 +138,68 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
         </form>
       </div>
 
-      <div className="list-panel">
-        <ListToolbar
-          search={state.search}
-          searchLabel="Email ou nome"
-          sort={state.sort}
-          sortOptions={TEAM_SORT_OPTIONS}
-          total={list.total}
-          onSearch={(search) => onStateChange({ search, page: 1 })}
-          onSort={(sort) => onStateChange({ sort, page: 1 })}
-        />
-        {adminsQuery.isLoading && <p className="empty-note">Carregando admins...</p>}
-        {!adminsQuery.isLoading &&
-          list.items.map((admin) => (
-            <article className="prayer-row" key={admin.userId}>
-              <div>
-                <strong>{getEmailLabel(admin)}</strong>
-                <span>{ADMIN_ROLE_LABELS[admin.role]}</span>
-                <span>{formatDateTime(admin.createdAt)}</span>
-                {admin.displayName && admin.email && <span>{admin.displayName}</span>}
-              </div>
-              <SelectField
-                label="Funcao"
-                value={admin.role}
-                onChange={(event) => handleRoleChange(admin, event.currentTarget.value as AdminRole)}
+      <ListView
+        title="Administradores"
+        count={list.total}
+        toolbar={
+          <ListToolbar
+            search={state.search}
+            searchLabel="Email ou nome"
+            sort={state.sort}
+            sortOptions={TEAM_SORT_OPTIONS}
+            total={list.total}
+            onSearch={(search) => onStateChange({ search, page: 1 })}
+            onSort={(sort) => onStateChange({ sort, page: 1 })}
+          />
+        }
+        items={list.items}
+        loading={adminsQuery.isLoading}
+        error={
+          queryError
+            ? {
+                message:
+                  queryError instanceof Error ? queryError.message : "Nao foi possivel carregar a equipe."
+              }
+            : null
+        }
+        getId={(admin) => admin.userId}
+        emptyState={
+          <EmptyState
+            icon={<UserPlus size={32} />}
+            title="Nenhum admin cadastrado."
+            description="Convide alguem usando o formulario acima."
+          />
+        }
+        footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
+        renderItem={(admin) => (
+          <article className="prayer-row">
+            <div>
+              <strong>{getEmailLabel(admin)}</strong>
+              <span>{ADMIN_ROLE_LABELS[admin.role]}</span>
+              <span>{formatDateTime(admin.createdAt)}</span>
+              {admin.displayName && admin.email && <span>{admin.displayName}</span>}
+            </div>
+            <SelectField
+              label="Funcao"
+              value={admin.role}
+              onChange={(event) => handleRoleChange(admin, event.currentTarget.value as AdminRole)}
+            >
+              <option value="editor">{ADMIN_ROLE_LABELS.editor}</option>
+              <option value="owner">{ADMIN_ROLE_LABELS.owner}</option>
+            </SelectField>
+            <div className="row-actions">
+              <button
+                type="button"
+                onClick={() => handleRemove(admin)}
+                aria-label={`Remover ${getEmailLabel(admin)}`}
+                title="Remover"
               >
-                <option value="editor">{ADMIN_ROLE_LABELS.editor}</option>
-                <option value="owner">{ADMIN_ROLE_LABELS.owner}</option>
-              </SelectField>
-              <div className="row-actions">
-                <button
-                  type="button"
-                  onClick={() => handleRemove(admin)}
-                  aria-label={`Remover ${getEmailLabel(admin)}`}
-                  title="Remover"
-                >
-                  <Trash2 size={16} /> Remover
-                </button>
-              </div>
-            </article>
-          ))}
-        {!adminsQuery.isLoading && list.items.length === 0 && (
-          <p className="empty-note">Nenhum admin cadastrado.</p>
+                <Trash2 size={16} /> Remover
+              </button>
+            </div>
+          </article>
         )}
-        <Pagination list={list} onPageChange={(page) => onStateChange({ page })} />
-      </div>
+      />
     </section>
   );
 }
