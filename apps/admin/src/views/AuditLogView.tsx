@@ -1,5 +1,8 @@
 import { formatDateTime, type AuditAction, type AuditLogEntry, type AuditLogFilter } from "@4ibib/core";
+import { History } from "lucide-react";
 import { useMemo, useState } from "react";
+import { EmptyState } from "../components/EmptyState";
+import { ListView } from "../components/ListView";
 import { Field, ListToolbar, Pagination, SelectField } from "../components/ui";
 import { useAuditLog, useRevertAuditEntry } from "../hooks";
 import { AUDIT_ACTION_LABELS, AUDIT_ACTION_OPTIONS, AUDIT_TABLE_OPTIONS } from "../lib/labels";
@@ -124,14 +127,10 @@ export default function AuditLogView({ state, onStateChange }: AuditLogViewProps
   }
 
   return (
-    <section>
-      <header className="workspace-heading">
-        <div>
-          <p className="eyebrow">Historico</p>
-          <h1>Auditoria de mudancas</h1>
-        </div>
-      </header>
-      <div className="list-panel">
+    <ListView
+      title="Auditoria de mudancas"
+      count={list.total}
+      toolbar={
         <ListToolbar
           search={state.search}
           searchLabel="Tabela, registro, acao ou conteudo"
@@ -188,66 +187,73 @@ export default function AuditLogView({ state, onStateChange }: AuditLogViewProps
             }}
           />
         </ListToolbar>
-        {auditQuery.isPending && <p className="empty-note">Carregando...</p>}
-        {auditQuery.isError && (
-          <div className="form-error" role="alert">
-            {auditQuery.error instanceof Error
-              ? auditQuery.error.message
-              : "Nao foi possivel carregar a auditoria."}
+      }
+      items={list.items}
+      loading={auditQuery.isPending}
+      error={
+        auditQuery.isError
+          ? {
+              message:
+                auditQuery.error instanceof Error
+                  ? auditQuery.error.message
+                  : "Nao foi possivel carregar a auditoria."
+            }
+          : null
+      }
+      getId={(entry) => entry.id}
+      emptyState={
+        <EmptyState
+          icon={<History size={32} />}
+          title="Nenhuma mudanca encontrada para os filtros."
+          description="Ajuste os filtros acima ou aguarde novas alteracoes."
+        />
+      }
+      footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
+      renderItem={(entry) => (
+        <article className="audit-row">
+          <div>
+            <strong>
+              {entry.tableName} - {AUDIT_ACTION_LABELS[entry.action]}
+            </strong>
+            <span>{formatDateTime(entry.changedAt)}</span>
+            <span>Row {entry.rowId}</span>
+            <span>By: {entry.changedBy ?? "sistema"}</span>
+            <details>
+              <summary>Mudancas</summary>
+              {entry.oldRow && (
+                <div>
+                  <p className="field-label">Antes:</p>
+                  <pre>{JSON.stringify(entry.oldRow, null, 2)}</pre>
+                </div>
+              )}
+              {entry.newRow && (
+                <div>
+                  <p className="field-label">Depois:</p>
+                  <pre>{JSON.stringify(entry.newRow, null, 2)}</pre>
+                </div>
+              )}
+            </details>
           </div>
-        )}
-        {!auditQuery.isPending &&
-          !auditQuery.isError &&
-          list.items.map((entry) => (
-            <article className="audit-row" key={entry.id}>
-              <div>
-                <strong>
-                  {entry.tableName} - {AUDIT_ACTION_LABELS[entry.action]}
-                </strong>
-                <span>{formatDateTime(entry.changedAt)}</span>
-                <span>Row {entry.rowId}</span>
-                <span>By: {entry.changedBy ?? "sistema"}</span>
-                <details>
-                  <summary>Mudancas</summary>
-                  {entry.oldRow && (
-                    <div>
-                      <p className="field-label">Antes:</p>
-                      <pre>{JSON.stringify(entry.oldRow, null, 2)}</pre>
-                    </div>
-                  )}
-                  {entry.newRow && (
-                    <div>
-                      <p className="field-label">Depois:</p>
-                      <pre>{JSON.stringify(entry.newRow, null, 2)}</pre>
-                    </div>
-                  )}
-                </details>
-              </div>
-              <div className="row-actions">
-                <button
-                  className="button ghost"
-                  type="button"
-                  disabled={revertMutation.isPending}
-                  onClick={() => handleRevert(entry)}
-                >
-                  Reverter
-                </button>
-                {revertFeedback && revertFeedback.id === entry.id && (
-                  <small
-                    className={revertFeedback.type === "error" ? "form-error" : "form-success"}
-                    role={revertFeedback.type === "error" ? "alert" : "status"}
-                  >
-                    {revertFeedback.message}
-                  </small>
-                )}
-              </div>
-            </article>
-          ))}
-        {!auditQuery.isPending && !auditQuery.isError && list.items.length === 0 && (
-          <p className="empty-note">Nenhuma mudanca encontrada para os filtros.</p>
-        )}
-        <Pagination list={list} onPageChange={(page) => onStateChange({ page })} />
-      </div>
-    </section>
+          <div className="row-actions">
+            <button
+              className="button ghost"
+              type="button"
+              disabled={revertMutation.isPending}
+              onClick={() => handleRevert(entry)}
+            >
+              Reverter
+            </button>
+            {revertFeedback && revertFeedback.id === entry.id && (
+              <small
+                className={revertFeedback.type === "error" ? "form-error" : "form-success"}
+                role={revertFeedback.type === "error" ? "alert" : "status"}
+              >
+                {revertFeedback.message}
+              </small>
+            )}
+          </div>
+        </article>
+      )}
+    />
   );
 }
