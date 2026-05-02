@@ -5,9 +5,11 @@ import {
   type SiteSnapshot
 } from "@4ibib/core";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Trash2 } from "lucide-react";
+import { CalendarClock, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { EmptyState } from "../components/EmptyState";
+import { FieldGroup } from "../components/FieldGroup";
 import { Field, FormActions, SelectField, TextAreaField } from "../components/ui";
 import { useDeleteRecurringMeeting, useSaveProfile, useSaveRecurringMeeting } from "../hooks";
 import {
@@ -176,6 +178,124 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
   const profileSaving = profileForm.formState.isSubmitting || profileSaveMutation.isPending;
   const recurringSaving = recurringForm.formState.isSubmitting || recurringSaveMutation.isPending;
 
+  const identidadePanel = (
+    <>
+      <div className="form-grid">
+        <Field
+          label="Nome"
+          placeholder="Nome completo"
+          maxLength={TEXT_MAX}
+          error={profileForm.formState.errors.name?.message}
+          {...profileForm.register("name")}
+        />
+        <Field
+          label="Sigla"
+          placeholder="Sigla curta"
+          maxLength={TEXT_MAX}
+          error={profileForm.formState.errors.shortName?.message}
+          {...profileForm.register("shortName")}
+        />
+      </div>
+      <TextAreaField
+        label="Tagline"
+        placeholder="Subtitulo curto"
+        maxLength={TEXTAREA_MAX}
+        error={profileForm.formState.errors.tagline?.message}
+        {...profileForm.register("tagline")}
+      />
+      <div className="form-grid">
+        <Field
+          label="Cidade"
+          placeholder="Cidade, UF"
+          maxLength={TEXT_MAX}
+          error={profileForm.formState.errors.city?.message}
+          {...profileForm.register("city")}
+        />
+        <Field
+          label="Pastor"
+          placeholder="Nome do pastor"
+          maxLength={TEXT_MAX}
+          error={profileForm.formState.errors.pastorName?.message}
+          {...profileForm.register("pastorName")}
+        />
+      </div>
+    </>
+  );
+
+  const contatoPanel = (
+    <>
+      <Field
+        label="Endereco"
+        placeholder="Rua, numero, bairro"
+        maxLength={TEXT_MAX}
+        error={profileForm.formState.errors.address?.message}
+        {...profileForm.register("address")}
+      />
+      <div className="form-grid">
+        <Field
+          label="Email"
+          type="email"
+          placeholder="contato@exemplo.com"
+          maxLength={TEXT_MAX}
+          error={profileForm.formState.errors.email?.message}
+          {...profileForm.register("email")}
+        />
+        <Field
+          label="WhatsApp"
+          placeholder="+55 81 90000-0000"
+          maxLength={TEXT_MAX}
+          error={profileForm.formState.errors.whatsapp?.message}
+          {...profileForm.register("whatsapp")}
+        />
+      </div>
+      <div className="form-grid">
+        <Field
+          label="Instagram"
+          type="url"
+          placeholder="https://instagram.com/..."
+          maxLength={URL_MAX}
+          error={profileForm.formState.errors.instagramUrl?.message}
+          {...profileForm.register("instagramUrl")}
+        />
+        <Field
+          label="YouTube"
+          type="url"
+          placeholder="https://youtube.com/..."
+          maxLength={URL_MAX}
+          error={profileForm.formState.errors.youtubeUrl?.message}
+          {...profileForm.register("youtubeUrl")}
+        />
+      </div>
+      <Field
+        label="Google Maps"
+        type="url"
+        placeholder="https://maps.google.com/..."
+        maxLength={URL_MAX}
+        error={profileForm.formState.errors.mapsUrl?.message}
+        {...profileForm.register("mapsUrl")}
+      />
+    </>
+  );
+
+  const conteudoPanel = (
+    <>
+      <TextAreaField
+        label="Versiculo do hero"
+        placeholder="Texto biblico exibido no banner"
+        maxLength={TEXTAREA_MAX}
+        error={profileForm.formState.errors.heroVerse?.message}
+        {...profileForm.register("heroVerse")}
+      />
+      <TextAreaField
+        label="Missao"
+        placeholder="Declaracao de missao"
+        maxLength={TEXTAREA_MAX}
+        error={profileForm.formState.errors.mission?.message}
+        {...profileForm.register("mission")}
+      />
+    </>
+  );
+
   return (
     <section>
       <header className="workspace-heading">
@@ -192,108 +312,12 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
           onSubmit={profileForm.handleSubmit(onProfileSubmit)}
           noValidate
         >
-          <div className="form-grid">
-            <Field
-              label="Nome"
-              placeholder="Nome completo"
-              maxLength={TEXT_MAX}
-              error={profileForm.formState.errors.name?.message}
-              {...profileForm.register("name")}
-            />
-            <Field
-              label="Sigla"
-              placeholder="Sigla curta"
-              maxLength={TEXT_MAX}
-              error={profileForm.formState.errors.shortName?.message}
-              {...profileForm.register("shortName")}
-            />
-          </div>
-          <TextAreaField
-            label="Tagline"
-            placeholder="Subtitulo curto"
-            maxLength={TEXTAREA_MAX}
-            error={profileForm.formState.errors.tagline?.message}
-            {...profileForm.register("tagline")}
-          />
-          <div className="form-grid">
-            <Field
-              label="Cidade"
-              placeholder="Cidade, UF"
-              maxLength={TEXT_MAX}
-              error={profileForm.formState.errors.city?.message}
-              {...profileForm.register("city")}
-            />
-            <Field
-              label="Pastor"
-              placeholder="Nome do pastor"
-              maxLength={TEXT_MAX}
-              error={profileForm.formState.errors.pastorName?.message}
-              {...profileForm.register("pastorName")}
-            />
-          </div>
-          <Field
-            label="Endereco"
-            placeholder="Rua, numero, bairro"
-            maxLength={TEXT_MAX}
-            error={profileForm.formState.errors.address?.message}
-            {...profileForm.register("address")}
-          />
-          <div className="form-grid">
-            <Field
-              label="Email"
-              type="email"
-              placeholder="contato@exemplo.com"
-              maxLength={TEXT_MAX}
-              error={profileForm.formState.errors.email?.message}
-              {...profileForm.register("email")}
-            />
-            <Field
-              label="WhatsApp"
-              placeholder="+55 81 90000-0000"
-              maxLength={TEXT_MAX}
-              error={profileForm.formState.errors.whatsapp?.message}
-              {...profileForm.register("whatsapp")}
-            />
-          </div>
-          <div className="form-grid">
-            <Field
-              label="Instagram"
-              type="url"
-              placeholder="https://instagram.com/..."
-              maxLength={URL_MAX}
-              error={profileForm.formState.errors.instagramUrl?.message}
-              {...profileForm.register("instagramUrl")}
-            />
-            <Field
-              label="YouTube"
-              type="url"
-              placeholder="https://youtube.com/..."
-              maxLength={URL_MAX}
-              error={profileForm.formState.errors.youtubeUrl?.message}
-              {...profileForm.register("youtubeUrl")}
-            />
-          </div>
-          <Field
-            label="Google Maps"
-            type="url"
-            placeholder="https://maps.google.com/..."
-            maxLength={URL_MAX}
-            error={profileForm.formState.errors.mapsUrl?.message}
-            {...profileForm.register("mapsUrl")}
-          />
-          <TextAreaField
-            label="Versiculo do hero"
-            placeholder="Texto biblico exibido no banner"
-            maxLength={TEXTAREA_MAX}
-            error={profileForm.formState.errors.heroVerse?.message}
-            {...profileForm.register("heroVerse")}
-          />
-          <TextAreaField
-            label="Missao"
-            placeholder="Declaracao de missao"
-            maxLength={TEXTAREA_MAX}
-            error={profileForm.formState.errors.mission?.message}
-            {...profileForm.register("mission")}
+          <FieldGroup
+            groups={[
+              { id: "identidade", label: "Identidade", content: identidadePanel },
+              { id: "contato", label: "Contato", content: contatoPanel },
+              { id: "conteudo", label: "Conteudo", content: conteudoPanel }
+            ]}
           />
           {profileSaveMutation.error && (
             <p className="form-error">
@@ -309,36 +333,43 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
       <header className="workspace-heading" style={{ marginTop: "2rem" }}>
         <div>
           <p className="eyebrow">Programacao semanal fixa</p>
-          <h2>Encontros regulares</h2>
+          <h2>Encontros recorrentes</h2>
         </div>
       </header>
 
       <div className="crud-layout">
         <div className="list-panel">
-          {sortedMeetings.map((item) => (
-            <article key={item.id} className="item-row">
-              <div>
-                <strong>{item.title}</strong>
-                <span>
-                  {WEEKDAY_LABELS[item.weekday]} - {formatTimeRange(item.startsAt, item.endsAt)}
-                </span>
-              </div>
-              <div className="row-actions">
-                <button onClick={() => startEditMeeting(item)} type="button">
-                  Editar
-                </button>
-                <button
-                  onClick={() => handleDeleteMeeting(item)}
-                  type="button"
-                  aria-label={`Excluir encontro ${item.title}`}
-                  title="Excluir"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </article>
-          ))}
-          {sortedMeetings.length === 0 && <p className="empty-note">Nenhum encontro regular cadastrado.</p>}
+          {sortedMeetings.length === 0 ? (
+            <EmptyState
+              icon={<CalendarClock size={32} />}
+              title="Nenhum encontro regular cadastrado."
+              description="Use o formulario ao lado para registrar encontros semanais."
+            />
+          ) : (
+            sortedMeetings.map((item) => (
+              <article key={item.id} className="item-row">
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>
+                    {WEEKDAY_LABELS[item.weekday]} - {formatTimeRange(item.startsAt, item.endsAt)}
+                  </span>
+                </div>
+                <div className="row-actions">
+                  <button onClick={() => startEditMeeting(item)} type="button">
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleDeleteMeeting(item)}
+                    type="button"
+                    aria-label={`Excluir encontro ${item.title}`}
+                    title="Excluir"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
         </div>
         <div className="editor-panel">
           <form
