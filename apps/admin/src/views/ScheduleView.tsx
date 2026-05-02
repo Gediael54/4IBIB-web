@@ -7,11 +7,12 @@ import {
   type SiteSnapshot
 } from "@4ibib/core";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Copy, ExternalLink, Trash2 } from "lucide-react";
+import { CalendarDays, Copy, ExternalLink, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { EmptyState } from "../components/EmptyState";
+import { ListView } from "../components/ListView";
 import {
-  CrudPanel,
   Field,
   FormActions,
   ItemRow,
@@ -556,211 +557,222 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
   const bulkPending = bulkMutation.isPending || deleteMutation.isPending;
 
   return (
-    <CrudPanel
-      title="Programacao"
-      items={list.items}
-      toolbar={
-        <>
-          <ListToolbar
-            search={state.search}
-            searchLabel="Titulo, ministerio, local ou status"
-            sort={state.sort}
-            sortOptions={SCHEDULE_SORT_OPTIONS}
-            total={list.total}
-            onSearch={(search) => onStateChange({ search, page: 1 })}
-            onSort={(sort) => onStateChange({ sort, page: 1 })}
-          >
-            <Field
-              label="De"
-              type="datetime-local"
-              value={fromDate}
-              onChange={(event) => {
-                setFromDate(event.currentTarget.value);
-                onStateChange({ page: 1 });
-              }}
-            />
-            <Field
-              label="Ate"
-              type="datetime-local"
-              value={toDate}
-              onChange={(event) => {
-                setToDate(event.currentTarget.value);
-                onStateChange({ page: 1 });
-              }}
-            />
-          </ListToolbar>
-          {visibleIds.length > 0 && (
-            <div className="bulk-select-row">
-              <button type="button" className="button ghost" onClick={togglePageSelection}>
-                {allVisibleSelected ? "Limpar pagina" : "Selecionar pagina"}
-              </button>
-            </div>
-          )}
-          {selectionCount > 0 && (
-            <div className="bulk-action-bar" role="region" aria-label="Acoes em massa">
-              <span className="bulk-action-bar-count">{selectionCount} selecionados</span>
-              <div className="bulk-action-bar-buttons">
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={() => openBulkPanel("preacher")}
-                  disabled={bulkPending}
-                >
-                  Mudar pregador
-                </button>
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={() => openBulkPanel("director")}
-                  disabled={bulkPending}
-                >
-                  Mudar dirigente
-                </button>
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={() => openBulkPanel("status")}
-                  disabled={bulkPending}
-                >
-                  Mudar status
-                </button>
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={() => openBulkPanel("featured")}
-                  disabled={bulkPending}
-                >
-                  Marcar destacado
-                </button>
-                <button
-                  type="button"
-                  className="button ghost danger"
-                  onClick={handleBulkDelete}
-                  disabled={bulkPending}
-                >
-                  Excluir selecionados
-                </button>
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={clearSelection}
-                  disabled={bulkPending}
-                >
-                  Limpar selecao
+    <div className="crud-layout">
+      <ListView
+        title="Programacao"
+        count={list.total}
+        toolbar={
+          <>
+            <ListToolbar
+              search={state.search}
+              searchLabel="Titulo, ministerio, local ou status"
+              sort={state.sort}
+              sortOptions={SCHEDULE_SORT_OPTIONS}
+              total={list.total}
+              onSearch={(search) => onStateChange({ search, page: 1 })}
+              onSort={(sort) => onStateChange({ sort, page: 1 })}
+            >
+              <Field
+                label="De"
+                type="datetime-local"
+                value={fromDate}
+                onChange={(event) => {
+                  setFromDate(event.currentTarget.value);
+                  onStateChange({ page: 1 });
+                }}
+              />
+              <Field
+                label="Ate"
+                type="datetime-local"
+                value={toDate}
+                onChange={(event) => {
+                  setToDate(event.currentTarget.value);
+                  onStateChange({ page: 1 });
+                }}
+              />
+            </ListToolbar>
+            {visibleIds.length > 0 && (
+              <div className="bulk-select-row">
+                <button type="button" className="button ghost" onClick={togglePageSelection}>
+                  {allVisibleSelected ? "Limpar pagina" : "Selecionar pagina"}
                 </button>
               </div>
-              {bulkMode !== null && (
-                <div className="bulk-action-form">
-                  {bulkMode === "preacher" && (
-                    <Field
-                      label={`Novo pregador para ${selectionCount} itens`}
-                      placeholder="Nome do pregador"
-                      maxLength={TEXT_MAX}
-                      value={bulkText}
-                      onChange={(event) => setBulkText(event.currentTarget.value)}
-                    />
-                  )}
-                  {bulkMode === "director" && (
-                    <Field
-                      label={`Novo dirigente para ${selectionCount} itens`}
-                      placeholder="Nome do dirigente"
-                      maxLength={TEXT_MAX}
-                      value={bulkText}
-                      onChange={(event) => setBulkText(event.currentTarget.value)}
-                    />
-                  )}
-                  {bulkMode === "status" && (
-                    <SelectField
-                      label={`Novo status para ${selectionCount} itens`}
-                      value={bulkStatus}
-                      onChange={(event) => setBulkStatus(event.currentTarget.value as ScheduleStatus)}
-                    >
-                      <option value="scheduled">Agendado</option>
-                      <option value="suspended">Suspenso</option>
-                      <option value="free">Livre</option>
-                    </SelectField>
-                  )}
-                  {bulkMode === "featured" && (
-                    <p className="bulk-action-info">
-                      Marcar {selectionCount} itens como destacados na agenda?
-                    </p>
-                  )}
-                  {bulkError && <p className="form-error">{bulkError}</p>}
-                  <div className="form-actions">
-                    <button
-                      type="button"
-                      className="button primary"
-                      onClick={handleBulkSubmit}
-                      disabled={bulkPending}
-                    >
-                      Aplicar
-                    </button>
-                    <button
-                      type="button"
-                      className="button ghost"
-                      onClick={closeBulkPanel}
-                      disabled={bulkPending}
-                    >
-                      Cancelar
-                    </button>
-                  </div>
+            )}
+            {selectionCount > 0 && (
+              <div className="bulk-action-bar" role="region" aria-label="Acoes em massa">
+                <span className="bulk-action-bar-count">{selectionCount} selecionados</span>
+                <div className="bulk-action-bar-buttons">
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={() => openBulkPanel("preacher")}
+                    disabled={bulkPending}
+                  >
+                    Mudar pregador
+                  </button>
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={() => openBulkPanel("director")}
+                    disabled={bulkPending}
+                  >
+                    Mudar dirigente
+                  </button>
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={() => openBulkPanel("status")}
+                    disabled={bulkPending}
+                  >
+                    Mudar status
+                  </button>
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={() => openBulkPanel("featured")}
+                    disabled={bulkPending}
+                  >
+                    Marcar destacado
+                  </button>
+                  <button
+                    type="button"
+                    className="button ghost danger"
+                    onClick={handleBulkDelete}
+                    disabled={bulkPending}
+                  >
+                    Excluir selecionados
+                  </button>
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={clearSelection}
+                    disabled={bulkPending}
+                  >
+                    Limpar selecao
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
-        </>
-      }
-      footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
-      emptyLabel="Nenhum item de programacao encontrado."
-      renderItem={(item) => {
-        const checked = selectedIds.has(item.id);
-        return (
-          <ItemRow key={item.id} title={item.title} detail={formatScheduleDetail(item)}>
-            <label className="row-checkbox" aria-label={`Selecionar ${item.title}`}>
-              <input type="checkbox" checked={checked} onChange={() => toggleSelected(item.id)} />
-            </label>
-            <button onClick={() => startEdit(item)} type="button">
-              Editar
-            </button>
-            <button
-              onClick={() => handleDuplicate(item)}
-              type="button"
-              aria-label={`Duplicar ${item.title}`}
-              title="Duplicar"
-              disabled={duplicateMutation.isPending}
-            >
-              <Copy size={16} />
-            </button>
-            <a
-              href="/#agenda"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="row-action-link"
-              aria-label={`Ver ${item.title} no site`}
-              title="Ver no site"
-            >
-              <ExternalLink size={16} />
-            </a>
-            <button
-              onClick={() => handleDelete(item)}
-              type="button"
-              aria-label={`Excluir ${item.title}`}
-              title="Excluir"
-            >
-              <Trash2 size={16} />
-            </button>
-          </ItemRow>
-        );
-      }}
-    >
-      <ScheduleForm
-        snapshot={snapshot}
-        editingId={editingId}
-        initialValues={initialValues}
-        resetSignal={resetSignal}
-        onSaved={cancelEdit}
-        onCancel={cancelEdit}
+                {bulkMode !== null && (
+                  <div className="bulk-action-form">
+                    {bulkMode === "preacher" && (
+                      <Field
+                        label={`Novo pregador para ${selectionCount} itens`}
+                        placeholder="Nome do pregador"
+                        maxLength={TEXT_MAX}
+                        value={bulkText}
+                        onChange={(event) => setBulkText(event.currentTarget.value)}
+                      />
+                    )}
+                    {bulkMode === "director" && (
+                      <Field
+                        label={`Novo dirigente para ${selectionCount} itens`}
+                        placeholder="Nome do dirigente"
+                        maxLength={TEXT_MAX}
+                        value={bulkText}
+                        onChange={(event) => setBulkText(event.currentTarget.value)}
+                      />
+                    )}
+                    {bulkMode === "status" && (
+                      <SelectField
+                        label={`Novo status para ${selectionCount} itens`}
+                        value={bulkStatus}
+                        onChange={(event) => setBulkStatus(event.currentTarget.value as ScheduleStatus)}
+                      >
+                        <option value="scheduled">Agendado</option>
+                        <option value="suspended">Suspenso</option>
+                        <option value="free">Livre</option>
+                      </SelectField>
+                    )}
+                    {bulkMode === "featured" && (
+                      <p className="bulk-action-info">
+                        Marcar {selectionCount} itens como destacados na agenda?
+                      </p>
+                    )}
+                    {bulkError && <p className="form-error">{bulkError}</p>}
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        className="button primary"
+                        onClick={handleBulkSubmit}
+                        disabled={bulkPending}
+                      >
+                        Aplicar
+                      </button>
+                      <button
+                        type="button"
+                        className="button ghost"
+                        onClick={closeBulkPanel}
+                        disabled={bulkPending}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        }
+        items={list.items}
+        getId={(item) => item.id}
+        emptyState={
+          <EmptyState
+            icon={<CalendarDays size={32} />}
+            title="Nenhum item de programacao encontrado."
+            description="Cadastre um item no formulario ao lado para comecar a montar a agenda."
+          />
+        }
+        footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
+        renderItem={(item) => {
+          const checked = selectedIds.has(item.id);
+          return (
+            <ItemRow key={item.id} title={item.title} detail={formatScheduleDetail(item)}>
+              <label className="row-checkbox" aria-label={`Selecionar ${item.title}`}>
+                <input type="checkbox" checked={checked} onChange={() => toggleSelected(item.id)} />
+              </label>
+              <button onClick={() => startEdit(item)} type="button">
+                Editar
+              </button>
+              <button
+                onClick={() => handleDuplicate(item)}
+                type="button"
+                aria-label={`Duplicar ${item.title}`}
+                title="Duplicar"
+                disabled={duplicateMutation.isPending}
+              >
+                <Copy size={16} />
+              </button>
+              <a
+                href="/#agenda"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="row-action-link"
+                aria-label={`Ver ${item.title} no site`}
+                title="Ver no site"
+              >
+                <ExternalLink size={16} />
+              </a>
+              <button
+                onClick={() => handleDelete(item)}
+                type="button"
+                aria-label={`Excluir ${item.title}`}
+                title="Excluir"
+              >
+                <Trash2 size={16} />
+              </button>
+            </ItemRow>
+          );
+        }}
       />
-    </CrudPanel>
+      <div className="editor-panel">
+        <ScheduleForm
+          snapshot={snapshot}
+          editingId={editingId}
+          initialValues={initialValues}
+          resetSignal={resetSignal}
+          onSaved={cancelEdit}
+          onCancel={cancelEdit}
+        />
+      </div>
+    </div>
   );
 }
