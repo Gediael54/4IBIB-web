@@ -1,0 +1,94 @@
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { Modal } from "./Modal";
+
+function ControlledModal({ onClose }: { onClose?: () => void }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <Modal
+      open={open}
+      onClose={() => {
+        setOpen(false);
+        onClose?.();
+      }}
+      title="Titulo"
+    >
+      <button type="button">primeiro</button>
+      <button type="button">segundo</button>
+    </Modal>
+  );
+}
+
+describe("Modal", () => {
+  afterEach(() => cleanup());
+
+  it("does not render when closed", () => {
+    render(
+      <Modal open={false} onClose={() => {}} title="Hidden">
+        conteudo
+      </Modal>
+    );
+    expect(screen.queryByText("Hidden")).not.toBeInTheDocument();
+  });
+
+  it("renders title and content when open", () => {
+    render(
+      <Modal open={true} onClose={() => {}} title="Aberto">
+        conteudo
+      </Modal>
+    );
+    expect(screen.getByText("Aberto")).toBeInTheDocument();
+    expect(screen.getByText("conteudo")).toBeInTheDocument();
+  });
+
+  it("calls onClose when ESC pressed", () => {
+    const close = vi.fn();
+    render(<ControlledModal onClose={close} />);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(close).toHaveBeenCalled();
+  });
+
+  it("calls onClose when close button clicked", () => {
+    const close = vi.fn();
+    render(<ControlledModal onClose={close} />);
+    fireEvent.click(screen.getByLabelText("Fechar"));
+    expect(close).toHaveBeenCalled();
+  });
+
+  it("focuses the first focusable element on open", async () => {
+    render(<ControlledModal />);
+    await Promise.resolve();
+    expect(document.activeElement).toBe(screen.getByLabelText("Fechar"));
+  });
+
+  it("traps focus by cycling from last back to first", async () => {
+    render(<ControlledModal />);
+    await Promise.resolve();
+    const closeBtn = screen.getByLabelText("Fechar");
+    const last = screen.getByText("segundo");
+    last.focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(document.activeElement).toBe(closeBtn);
+  });
+
+  it("cycles backwards from first to last on shift+Tab", async () => {
+    render(<ControlledModal />);
+    await Promise.resolve();
+    const closeBtn = screen.getByLabelText("Fechar");
+    const last = screen.getByText("segundo");
+    closeBtn.focus();
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
+
+  it("renders footer when provided", () => {
+    render(
+      <Modal open onClose={() => {}} title="t" footer={<button>ok</button>}>
+        x
+      </Modal>
+    );
+    expect(screen.getByText("ok")).toBeInTheDocument();
+  });
+});
