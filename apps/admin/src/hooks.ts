@@ -15,6 +15,7 @@ import type {
 } from "@4ibib/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { backend } from "./backend";
+import { addMutationBreadcrumb } from "./monitoring";
 
 export { backend };
 
@@ -42,6 +43,9 @@ export function useSaveAnnouncement() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: AnnouncementInput) => backend.content.saveAnnouncement(input),
+    onMutate: (input) => {
+      addMutationBreadcrumb("save-announcement", { id: input.id ?? null });
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });
 }
@@ -50,6 +54,9 @@ export function useDeleteAnnouncement() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => backend.content.deleteAnnouncement(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("delete-announcement", { id });
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });
 }
@@ -58,6 +65,9 @@ export function useSaveScheduleItem() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: ScheduleItemInput) => backend.content.saveScheduleItem(input),
+    onMutate: (input) => {
+      addMutationBreadcrumb("save-schedule-item", { id: input.id ?? null });
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });
 }
@@ -66,6 +76,9 @@ export function useDeleteScheduleItem() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => backend.content.deleteScheduleItem(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("delete-schedule-item", { id });
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });
 }
@@ -101,6 +114,9 @@ export function useUpdatePrayer() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: PrayerRequestPatch }) =>
       backend.content.updatePrayerRequest(id, patch),
+    onMutate: ({ id }) => {
+      addMutationBreadcrumb("update-prayer", { id });
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: PRAYERS_KEY })
   });
 }
@@ -116,6 +132,9 @@ export function useSaveVolunteer() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: VolunteerInput) => backend.content.saveVolunteer(input),
+    onMutate: (input) => {
+      addMutationBreadcrumb("save-volunteer", { id: input.id ?? null });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: VOLUNTEERS_KEY });
       queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY });
@@ -127,6 +146,9 @@ export function useDeleteVolunteer() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => backend.content.deleteVolunteer(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("delete-volunteer", { id });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: VOLUNTEERS_KEY });
       queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY });
@@ -157,6 +179,9 @@ export function useSaveMinistry() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: MinistryInput) => backend.content.saveMinistry(input),
+    onMutate: (input) => {
+      addMutationBreadcrumb("save-ministry", { id: input.id ?? null });
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });
 }
@@ -165,6 +190,9 @@ export function useDeleteMinistry() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => backend.content.deleteMinistry(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("delete-ministry", { id });
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });
 }
