@@ -61,7 +61,7 @@ export function AnnualGrid({ yearItems, pending, volunteers, setPendingForCell, 
     const display = isEmpty ? "(vazio)" : role === "soundTeam" ? renderSoundTeam(value) : value;
 
     return (
-      <td key={role} className={cellClasses.join(" ")}>
+      <td key={role} className={cellClasses.join(" ")} data-label={ROLE_LABELS[role]}>
         {!isActive ? (
           <button
             type="button"
@@ -147,11 +147,11 @@ export function AnnualGrid({ yearItems, pending, volunteers, setPendingForCell, 
           const startDate = new Date(item.startsAt);
           return (
             <tr key={item.id}>
-              <td>
+              <td data-label="Data" className="annual-cell-date">
                 <strong>{DATE_FORMATTER.format(startDate)}</strong>
                 <small>{TIME_FORMATTER.format(startDate)}</small>
               </td>
-              <td>
+              <td data-label="Evento" className="annual-cell-event">
                 <strong>{item.title}</strong>
                 <small>{item.ministry}</small>
               </td>
