@@ -1,10 +1,12 @@
 import { splitNames, type ScheduleItem, type SiteSnapshot, type Volunteer } from "@4ibib/core";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Trash2, X } from "lucide-react";
+import { Trash2, Users, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { EmptyState } from "../components/EmptyState";
+import { FieldGroup } from "../components/FieldGroup";
+import { ListView } from "../components/ListView";
 import {
-  CrudPanel,
   Field,
   FormActions,
   ItemRow,
@@ -219,154 +221,189 @@ export default function VolunteersView({
   const saving = isSubmitting || saveMutation.isPending || renameMutation.isPending;
   const dates = unavailableDates ?? [];
 
+  const identidadePanel = (
+    <>
+      <Field
+        label="Nome"
+        placeholder="Nome do voluntario"
+        maxLength={TEXT_MAX}
+        error={errors.name?.message}
+        {...register("name")}
+      />
+      <div className="form-grid">
+        <SelectField label="Funcao" error={errors.role?.message} {...register("role")}>
+          <option value="geral">Geral</option>
+          <option value="som">Som</option>
+        </SelectField>
+        <Field
+          label="Ordem"
+          type="number"
+          min={0}
+          placeholder="0"
+          error={errors.sortOrder?.message}
+          {...register("sortOrder", { valueAsNumber: true })}
+        />
+      </div>
+    </>
+  );
+
+  const contatoPanel = (
+    <>
+      <Field
+        label="Contato"
+        placeholder="Telefone ou email"
+        maxLength={TEXT_MAX}
+        error={errors.contact?.message}
+        {...register("contact")}
+      />
+      <Field
+        label="Foto (URL)"
+        type="url"
+        placeholder="https://..."
+        maxLength={URL_MAX}
+        error={errors.photoUrl?.message}
+        {...register("photoUrl")}
+      />
+      <Field
+        label="Ministerios (separe com virgula)"
+        placeholder="Louvor, Diaconia"
+        maxLength={TEXT_MAX}
+        value={ministriesText}
+        onChange={(event) => handleMinistriesChange(event.currentTarget.value)}
+        error={errors.ministries?.message}
+      />
+    </>
+  );
+
+  const disponibilidadePanel = (
+    <div className="date-chip-section">
+      <span className="field-label">Indisponivel em</span>
+      {dates.length > 0 && (
+        <ul className="date-chip-list">
+          {dates.map((date) => (
+            <li key={date} className="date-chip">
+              <span>{date}</span>
+              <button
+                type="button"
+                className="date-chip-remove"
+                aria-label={`Remover data ${date}`}
+                onClick={() => handleRemoveDate(date)}
+              >
+                <X size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="date-chip-add">
+        <input
+          type="date"
+          value={newDate}
+          onChange={(event) => setNewDate(event.currentTarget.value)}
+          aria-label="Nova data indisponivel"
+        />
+        <button type="button" className="button ghost" onClick={handleAddDate} disabled={!newDate}>
+          Adicionar data
+        </button>
+      </div>
+      {errors.unavailableDates?.message && (
+        <small className="form-error">{errors.unavailableDates.message}</small>
+      )}
+    </div>
+  );
+
+  const notasPanel = (
+    <TextAreaField
+      label="Notas"
+      placeholder="Observacoes pastorais, restricoes, etc."
+      maxLength={TEXTAREA_MAX}
+      error={errors.notes?.message}
+      {...register("notes")}
+    />
+  );
+
   return (
-    <CrudPanel
-      title="Voluntarios"
-      items={list.items}
-      toolbar={
-        <ListToolbar
-          search={state.search}
-          searchLabel="Nome ou funcao"
-          sort={state.sort}
-          sortOptions={VOLUNTEER_SORT_OPTIONS}
-          total={list.total}
-          onSearch={(search) => onStateChange({ search, page: 1 })}
-          onSort={(sort) => onStateChange({ sort, page: 1 })}
-        >
-          <SelectField
-            label="Funcao"
-            value={roleFilter}
-            onChange={(event) => {
-              onRoleFilterChange(event.currentTarget.value as VolunteerRoleFilter);
-              onStateChange({ page: 1 });
-            }}
+    <div className="crud-layout">
+      <ListView
+        title="Voluntarios"
+        count={list.total}
+        toolbar={
+          <ListToolbar
+            search={state.search}
+            searchLabel="Nome ou funcao"
+            sort={state.sort}
+            sortOptions={VOLUNTEER_SORT_OPTIONS}
+            total={list.total}
+            onSearch={(search) => onStateChange({ search, page: 1 })}
+            onSort={(sort) => onStateChange({ sort, page: 1 })}
           >
-            {VOLUNTEER_ROLE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </SelectField>
-        </ListToolbar>
-      }
-      footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
-      emptyLabel="Nenhum voluntario encontrado."
-      renderItem={(item) => {
-        const count = countParticipation(item, snapshot.schedule);
-        const detail = `${VOLUNTEER_ROLE_LABELS[item.role]} - ${count} proximos`;
-        return (
-          <ItemRow key={item.id} title={item.name} detail={detail}>
-            <button onClick={() => startEdit(item)} type="button">
-              Editar
-            </button>
-            <button
-              onClick={() => handleDelete(item)}
-              type="button"
-              aria-label={`Excluir voluntario ${item.name}`}
-              title="Excluir"
+            <SelectField
+              label="Funcao"
+              value={roleFilter}
+              onChange={(event) => {
+                onRoleFilterChange(event.currentTarget.value as VolunteerRoleFilter);
+                onStateChange({ page: 1 });
+              }}
             >
-              <Trash2 size={16} />
-            </button>
-          </ItemRow>
-        );
-      }}
-    >
-      <form key={editingId ?? "new"} className="editor-form" onSubmit={handleSubmit(onSubmit)} noValidate>
-        <Field
-          label="Nome"
-          placeholder="Nome do voluntario"
-          maxLength={TEXT_MAX}
-          error={errors.name?.message}
-          {...register("name")}
-        />
-        <div className="form-grid">
-          <SelectField label="Funcao" error={errors.role?.message} {...register("role")}>
-            <option value="geral">Geral</option>
-            <option value="som">Som</option>
-          </SelectField>
-          <Field
-            label="Ordem"
-            type="number"
-            min={0}
-            placeholder="0"
-            error={errors.sortOrder?.message}
-            {...register("sortOrder", { valueAsNumber: true })}
-          />
-        </div>
-        <Field
-          label="Contato"
-          placeholder="Telefone ou email"
-          maxLength={TEXT_MAX}
-          error={errors.contact?.message}
-          {...register("contact")}
-        />
-        <Field
-          label="Foto (URL)"
-          type="url"
-          placeholder="https://..."
-          maxLength={URL_MAX}
-          error={errors.photoUrl?.message}
-          {...register("photoUrl")}
-        />
-        <Field
-          label="Ministerios (separe com virgula)"
-          placeholder="Louvor, Diaconia"
-          maxLength={TEXT_MAX}
-          value={ministriesText}
-          onChange={(event) => handleMinistriesChange(event.currentTarget.value)}
-          error={errors.ministries?.message}
-        />
-        <div className="date-chip-section">
-          <span className="field-label">Indisponivel em</span>
-          {dates.length > 0 && (
-            <ul className="date-chip-list">
-              {dates.map((date) => (
-                <li key={date} className="date-chip">
-                  <span>{date}</span>
-                  <button
-                    type="button"
-                    className="date-chip-remove"
-                    aria-label={`Remover data ${date}`}
-                    onClick={() => handleRemoveDate(date)}
-                  >
-                    <X size={14} />
-                  </button>
-                </li>
+              {VOLUNTEER_ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))}
-            </ul>
+            </SelectField>
+          </ListToolbar>
+        }
+        items={list.items}
+        getId={(item) => item.id}
+        emptyState={
+          <EmptyState
+            icon={<Users size={32} />}
+            title="Nenhum voluntario encontrado."
+            description="Cadastre um voluntario no formulario ao lado."
+          />
+        }
+        footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
+        renderItem={(item) => {
+          const count = countParticipation(item, snapshot.schedule);
+          const detail = `${VOLUNTEER_ROLE_LABELS[item.role]} - ${count} proximos`;
+          return (
+            <ItemRow key={item.id} title={item.name} detail={detail}>
+              <button onClick={() => startEdit(item)} type="button">
+                Editar
+              </button>
+              <button
+                onClick={() => handleDelete(item)}
+                type="button"
+                aria-label={`Excluir voluntario ${item.name}`}
+                title="Excluir"
+              >
+                <Trash2 size={16} />
+              </button>
+            </ItemRow>
+          );
+        }}
+      />
+      <div className="editor-panel">
+        <form key={editingId ?? "new"} className="editor-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+          <FieldGroup
+            groups={[
+              { id: "identidade", label: "Identidade", content: identidadePanel },
+              { id: "contato", label: "Contato e Foto", content: contatoPanel },
+              { id: "disponibilidade", label: "Disponibilidade", content: disponibilidadePanel },
+              { id: "notas", label: "Notas", content: notasPanel }
+            ]}
+          />
+          {(saveMutation.error || renameMutation.error) && (
+            <p className="form-error">
+              {(saveMutation.error ?? renameMutation.error) instanceof Error
+                ? (saveMutation.error ?? renameMutation.error)!.message
+                : "Falha ao salvar."}
+            </p>
           )}
-          <div className="date-chip-add">
-            <input
-              type="date"
-              value={newDate}
-              onChange={(event) => setNewDate(event.currentTarget.value)}
-              aria-label="Nova data indisponivel"
-            />
-            <button type="button" className="button ghost" onClick={handleAddDate} disabled={!newDate}>
-              Adicionar data
-            </button>
-          </div>
-          {errors.unavailableDates?.message && (
-            <small className="form-error">{errors.unavailableDates.message}</small>
-          )}
-        </div>
-        <TextAreaField
-          label="Notas"
-          placeholder="Observacoes pastorais, restricoes, etc."
-          maxLength={TEXTAREA_MAX}
-          error={errors.notes?.message}
-          {...register("notes")}
-        />
-        {(saveMutation.error || renameMutation.error) && (
-          <p className="form-error">
-            {(saveMutation.error ?? renameMutation.error) instanceof Error
-              ? (saveMutation.error ?? renameMutation.error)!.message
-              : "Falha ao salvar."}
-          </p>
-        )}
-        <FormActions saving={saving} onCancel={cancelEdit} />
-      </form>
-    </CrudPanel>
+          <FormActions saving={saving} onCancel={cancelEdit} />
+        </form>
+      </div>
+    </div>
   );
 }
 
