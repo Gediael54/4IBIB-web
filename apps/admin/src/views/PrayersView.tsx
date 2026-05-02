@@ -1,5 +1,8 @@
 import { buildWhatsAppForContact, formatDateTime, type AdminUser, type PrayerRequest } from "@4ibib/core";
+import { HeartHandshake } from "lucide-react";
 import { useMemo } from "react";
+import { EmptyState } from "../components/EmptyState";
+import { ListView } from "../components/ListView";
 import { ListToolbar, Pagination, SelectField, TextAreaField } from "../components/ui";
 import { useAdmins, useUpdatePrayer, useUpdatePrayerStatus } from "../hooks";
 import { PRAYER_STATUS_OPTIONS } from "../lib/labels";
@@ -118,14 +121,10 @@ export default function PrayersView({
   }
 
   return (
-    <section>
-      <header className="workspace-heading">
-        <div>
-          <p className="eyebrow">Cuidado</p>
-          <h1>Pedidos de oracao</h1>
-        </div>
-      </header>
-      <div className="list-panel">
+    <ListView
+      title="Pedidos de oracao"
+      count={list.total}
+      toolbar={
         <ListToolbar
           search={state.search}
           searchLabel="Nome, contato, pedido ou status"
@@ -158,102 +157,110 @@ export default function PrayersView({
             Exportar CSV
           </button>
         </ListToolbar>
-        {list.items.map((request) => {
-          const whatsappUrl = request.contact
-            ? buildWhatsAppForContact(request.contact, WHATSAPP_DEFAULT_MESSAGE)
-            : null;
-          return (
-            <article className="prayer-row" key={request.id}>
-              <div className="prayer-main">
-                <strong>{request.name}</strong>
-                <span>{formatDateTime(request.createdAt)}</span>
-                <span>{request.contact || "Sem contato"}</span>
-                <p>{request.message}</p>
-                <div className="prayer-meta">
-                  {request.seenAt ? (
-                    <span className="prayer-seen">Visto em {formatDateTime(request.seenAt)}</span>
-                  ) : (
-                    <button
-                      className="button ghost"
-                      type="button"
-                      onClick={() =>
-                        updatePrayerMutation.mutate({
-                          id: request.id,
-                          patch: { seenAt: new Date().toISOString() }
-                        })
-                      }
-                    >
-                      Marcar como visto
-                    </button>
-                  )}
-                  {whatsappUrl ? (
-                    <a className="button ghost" href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-                      Enviar mensagem
-                    </a>
-                  ) : (
-                    <button className="button ghost" type="button" disabled title="Contato sem telefone">
-                      Enviar mensagem
-                    </button>
-                  )}
-                </div>
-                <details className="prayer-notes">
-                  <summary>Notas pastorais (admin)</summary>
-                  <TextAreaField
-                    label="Notas pastorais"
-                    defaultValue={request.pastoralNotes}
-                    maxLength={TEXTAREA_MAX}
-                    key={request.pastoralNotes}
-                    onBlur={(event) => {
-                      const value = event.currentTarget.value;
-                      if (value !== request.pastoralNotes) {
-                        updatePrayerMutation.mutate({
-                          id: request.id,
-                          patch: { pastoralNotes: value }
-                        });
-                      }
-                    }}
-                  />
-                </details>
+      }
+      items={list.items}
+      getId={(item) => item.id}
+      emptyState={
+        <EmptyState
+          icon={<HeartHandshake size={32} />}
+          title="Nenhum pedido encontrado."
+          description="Quando alguem enviar um pedido de oracao, ele aparece aqui."
+        />
+      }
+      footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
+      renderItem={(request) => {
+        const whatsappUrl = request.contact
+          ? buildWhatsAppForContact(request.contact, WHATSAPP_DEFAULT_MESSAGE)
+          : null;
+        return (
+          <article className="prayer-row">
+            <div className="prayer-main">
+              <strong>{request.name}</strong>
+              <span>{formatDateTime(request.createdAt)}</span>
+              <span>{request.contact || "Sem contato"}</span>
+              <p>{request.message}</p>
+              <div className="prayer-meta">
+                {request.seenAt ? (
+                  <span className="prayer-seen">Visto em {formatDateTime(request.seenAt)}</span>
+                ) : (
+                  <button
+                    className="button ghost"
+                    type="button"
+                    onClick={() =>
+                      updatePrayerMutation.mutate({
+                        id: request.id,
+                        patch: { seenAt: new Date().toISOString() }
+                      })
+                    }
+                  >
+                    Marcar como visto
+                  </button>
+                )}
+                {whatsappUrl ? (
+                  <a className="button ghost" href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                    Enviar mensagem
+                  </a>
+                ) : (
+                  <button className="button ghost" type="button" disabled title="Contato sem telefone">
+                    Enviar mensagem
+                  </button>
+                )}
               </div>
-              <div className="prayer-controls">
-                <SelectField
-                  label="Status"
-                  value={request.status}
-                  onChange={(event) =>
-                    updateStatusMutation.mutate({
-                      id: request.id,
-                      status: event.currentTarget.value as PrayerRequest["status"]
-                    })
-                  }
-                >
-                  <option value="novo">Novo</option>
-                  <option value="em_oracao">Em oracao</option>
-                  <option value="concluido">Concluido</option>
-                </SelectField>
-                <SelectField
-                  label="Atribuido"
-                  value={request.assignedTo ?? ""}
-                  onChange={(event) =>
-                    updatePrayerMutation.mutate({
-                      id: request.id,
-                      patch: { assignedTo: event.currentTarget.value || null }
-                    })
-                  }
-                >
-                  <option value="">(nao atribuido)</option>
-                  {admins.map((admin) => (
-                    <option key={admin.userId} value={admin.userId}>
-                      {formatAdminLabel(admin)}
-                    </option>
-                  ))}
-                </SelectField>
-              </div>
-            </article>
-          );
-        })}
-        {list.items.length === 0 && <p className="empty-note">Nenhum pedido encontrado.</p>}
-        <Pagination list={list} onPageChange={(page) => onStateChange({ page })} />
-      </div>
-    </section>
+              <details className="prayer-notes">
+                <summary>Notas pastorais (admin)</summary>
+                <TextAreaField
+                  label="Notas pastorais"
+                  defaultValue={request.pastoralNotes}
+                  maxLength={TEXTAREA_MAX}
+                  key={request.pastoralNotes}
+                  onBlur={(event) => {
+                    const value = event.currentTarget.value;
+                    if (value !== request.pastoralNotes) {
+                      updatePrayerMutation.mutate({
+                        id: request.id,
+                        patch: { pastoralNotes: value }
+                      });
+                    }
+                  }}
+                />
+              </details>
+            </div>
+            <div className="prayer-controls">
+              <SelectField
+                label="Status"
+                value={request.status}
+                onChange={(event) =>
+                  updateStatusMutation.mutate({
+                    id: request.id,
+                    status: event.currentTarget.value as PrayerRequest["status"]
+                  })
+                }
+              >
+                <option value="novo">Novo</option>
+                <option value="em_oracao">Em oracao</option>
+                <option value="concluido">Concluido</option>
+              </SelectField>
+              <SelectField
+                label="Atribuido"
+                value={request.assignedTo ?? ""}
+                onChange={(event) =>
+                  updatePrayerMutation.mutate({
+                    id: request.id,
+                    patch: { assignedTo: event.currentTarget.value || null }
+                  })
+                }
+              >
+                <option value="">(nao atribuido)</option>
+                {admins.map((admin) => (
+                  <option key={admin.userId} value={admin.userId}>
+                    {formatAdminLabel(admin)}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+          </article>
+        );
+      }}
+    />
   );
 }
