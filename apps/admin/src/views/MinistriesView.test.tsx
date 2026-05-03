@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import type { MinistryRecord, SiteSnapshot } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -19,6 +19,7 @@ vi.mock("../backend", () => ({
   }
 }));
 
+import { ConfirmProvider } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/Toast";
 import MinistriesView from "./MinistriesView";
 
@@ -55,11 +56,13 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   const utils = render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <MinistriesView
-          snapshot={snapshot}
-          state={{ search: "", sort: "orderAsc", page: 1 }}
-          onStateChange={onStateChange}
-        />
+        <ConfirmProvider>
+          <MinistriesView
+            snapshot={snapshot}
+            state={{ search: "", sort: "orderAsc", page: 1 }}
+            onStateChange={onStateChange}
+          />
+        </ConfirmProvider>
       </ToastProvider>
     </QueryClientProvider>
   );
@@ -139,11 +142,16 @@ describe("MinistriesView", () => {
     expect(slugField.readOnly).toBe(true);
   });
 
-  it("deletes a ministry after confirmation", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("opens the confirm dialog and deletes a ministry after confirmation", async () => {
     renderView(buildSnapshot([makeMinistry({ name: "Diaconia" })]));
 
     fireEvent.click(screen.getByRole("button", { name: /Excluir ministerio Diaconia/i }));
+
+    expect(screen.getByText('Excluir o ministerio "Diaconia"?')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+    });
 
     await waitFor(() => {
       expect(mocks.deleteMinistry).toHaveBeenCalledTimes(1);
@@ -151,17 +159,18 @@ describe("MinistriesView", () => {
     await waitFor(() => {
       expect(screen.getByText('Ministerio "Diaconia" removido.')).toBeInTheDocument();
     });
-    confirmSpy.mockRestore();
   });
 
-  it("does not delete when confirmation is denied", () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+  it("does not delete when the confirm dialog is cancelled", async () => {
     renderView(buildSnapshot([makeMinistry({ name: "Diaconia" })]));
 
     fireEvent.click(screen.getByRole("button", { name: /Excluir ministerio Diaconia/i }));
 
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    });
+
     expect(mocks.deleteMinistry).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it("disables the up button on the first ministry", () => {
