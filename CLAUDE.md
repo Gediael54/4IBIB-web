@@ -88,11 +88,11 @@ Detalhes completos vivem em `docs/plans/`. CLAUDE.md so resume status.
 | Fase 16 — UI redesign                       | [`docs/plans/ui-redesign.md`](docs/plans/ui-redesign.md)             | Waves 1-5 ✅. Pendente: AnnualGrid table-as-cards mobile, AuditLog filter drawer mobile.                                            |
 | Feature membros + LGPD + hardening (5/2026) | [`docs/plans/members-feature.md`](docs/plans/members-feature.md)     | Sessoes 1-3 ✅. Pendente: adapter archive-first (desbloqueia undo banner), LGPD anonymize UI, schedule-member binding edge cases.   |
 
-Estado atual: **407 tests verdes**, 100% cobertura em `core` e `supabase`, typecheck/build limpos. Ver `docs/plans/members-feature.md` se 1 para snapshot completo do que ja foi entregue.
+Estado atual: **407 tests verdes**, 100% cobertura em `core` e `supabase`, typecheck/build limpos. Ver `docs/plans/members-feature.md` para snapshot completo do que ja foi entregue.
 
 ## Pendencias prioritarias (ordem de ROI)
 
-1. **Adapter archive-first** — `packages/supabase` ainda usa `.delete()` direto em announcements/schedule*items/ministries. Schema ja tem RPCs `archive*_`/`restore\__`(Sessao 1). Migrar adapter + criar`useArchive*`/`useRestore*` paralelos. Ativa undo banner ja wireado no Toast.
+1. **Adapter archive-first** — `packages/supabase` ainda usa hard delete direto em announcements, schedule_items e ministries. Schema ja tem RPCs `archive_X` e `restore_X` da Sessao 1. Migrar adapter + criar hooks `useArchive` e `useRestore` paralelos. Ativa undo banner ja wireado no Toast.
 2. **LGPD finalizar** — ativar pg_cron rodando `supabase/cron.sql` no painel. Wirear botao "Anonimizar dados" em MembersView. Funcao `purge_old_audit()` mensal.
 3. **ScheduleView dropdown de membros** — pregador/dirigente/som como select de members (`is_volunteer=true`) ao inves de input string + datalist.
 4. **Hardening manual** — #23 rotacionar service_role JWT, habilitar 2FA Supabase Auth, integrar provider email (Resend) em `login-alert.js`.
