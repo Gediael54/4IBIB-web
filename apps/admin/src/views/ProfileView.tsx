@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarClock, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { FieldGroup } from "../components/FieldGroup";
 import { useToast } from "../components/Toast";
@@ -101,6 +102,7 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
   const recurringSaveMutation = useSaveRecurringMeeting();
   const recurringDeleteMutation = useDeleteRecurringMeeting();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
 
@@ -180,7 +182,13 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
   }
 
   async function handleDeleteMeeting(item: RecurringMeetingRecord) {
-    if (!window.confirm(`Excluir encontro "${item.title}"?`)) {
+    const ok = await confirm({
+      title: "Excluir encontro?",
+      message: `"${item.title}" sai da programacao semanal fixa.`,
+      confirmText: "Excluir",
+      destructive: true
+    });
+    if (!ok) {
       return;
     }
     try {
