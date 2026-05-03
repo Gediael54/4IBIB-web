@@ -23,6 +23,7 @@ vi.mock("../backend", () => ({
   }
 }));
 
+import { ConfirmProvider } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/Toast";
 import TeamView from "./TeamView";
 
@@ -39,13 +40,15 @@ function makeAdmin(overrides: Partial<AdminUser> = {}): AdminUser {
 
 function renderView() {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } }
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } }
   });
   const onStateChange = vi.fn();
   const utils = render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <TeamView state={{ search: "", sort: "roleAsc", page: 1 }} onStateChange={onStateChange} />
+        <ConfirmProvider>
+          <TeamView state={{ search: "", sort: "roleAsc", page: 1 }} onStateChange={onStateChange} />
+        </ConfirmProvider>
       </ToastProvider>
     </QueryClientProvider>
   );
@@ -122,7 +125,6 @@ describe("TeamView", () => {
   });
 
   it("removes admin after confirmation", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     mocks.listAdmins.mockResolvedValue([makeAdmin({ userId: "u1", email: "remover@igreja.org" })]);
     renderView();
 
@@ -132,17 +134,19 @@ describe("TeamView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Remover remover@igreja.org/i }));
 
+    const requireInput = await screen.findByLabelText("Digite EXCLUIR para confirmar");
+    fireEvent.change(requireInput, { target: { value: "EXCLUIR" } });
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+
     await waitFor(() => {
       expect(mocks.removeAdmin).toHaveBeenCalledWith("u1");
     });
     await waitFor(() => {
       expect(screen.getByText("Acesso de remover@igreja.org removido.")).toBeInTheDocument();
     });
-    confirmSpy.mockRestore();
   });
 
   it("does not remove admin when confirmation is denied", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     mocks.listAdmins.mockResolvedValue([makeAdmin({ userId: "u1", email: "manter@igreja.org" })]);
     renderView();
 
@@ -152,8 +156,10 @@ describe("TeamView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Remover manter@igreja.org/i }));
 
+    await screen.findByTestId("confirm-dialog-confirm");
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
     expect(mocks.removeAdmin).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it("renders error UI when admins query fails", async () => {
