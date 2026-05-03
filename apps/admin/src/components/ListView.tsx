@@ -58,7 +58,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   }
 
   return (
-    <section className="listview">
+    <section className="listview" aria-busy={loading ? true : undefined}>
       <header className="listview-header">
         <div className="listview-heading">
           <h1 className="listview-title">{title}</h1>
