@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { EmptyState } from "../components/EmptyState";
 import { ListView } from "../components/ListView";
+import { useToast } from "../components/Toast";
 import {
   Field,
   FormActions,
@@ -103,6 +104,7 @@ export function ScheduleForm(props: {
   resetSignal: number;
 }) {
   const saveMutation = useSaveScheduleItem();
+  const { toast } = useToast();
 
   const {
     register,
@@ -187,23 +189,29 @@ export function ScheduleForm(props: {
   }
 
   async function onSubmit(values: ScheduleFormValues) {
-    await saveMutation.mutateAsync({
-      id: props.editingId ?? undefined,
-      title: values.title,
-      ministry: values.ministry,
-      startsAt: inputDateTimeToIso(values.startsAt),
-      endsAt: inputDateTimeToIso(values.endsAt),
-      location: values.location,
-      summary: values.summary,
-      preacher: values.preacher,
-      director: values.director,
-      soundTeam: values.soundTeam,
-      passage: values.passage,
-      occasionLabel: values.occasionLabel,
-      status: values.status,
-      featured: values.featured
-    });
-    props.onSaved();
+    try {
+      await saveMutation.mutateAsync({
+        id: props.editingId ?? undefined,
+        title: values.title,
+        ministry: values.ministry,
+        startsAt: inputDateTimeToIso(values.startsAt),
+        endsAt: inputDateTimeToIso(values.endsAt),
+        location: values.location,
+        summary: values.summary,
+        preacher: values.preacher,
+        director: values.director,
+        soundTeam: values.soundTeam,
+        passage: values.passage,
+        occasionLabel: values.occasionLabel,
+        status: values.status,
+        featured: values.featured
+      });
+      toast(props.editingId ? "Programacao atualizada." : "Programacao criada.", { variant: "success" });
+      props.onSaved();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
   }
 
   const saving = isSubmitting || saveMutation.isPending;
@@ -353,11 +361,6 @@ export function ScheduleForm(props: {
         <input type="checkbox" {...register("featured")} />
         Destacar na agenda
       </label>
-      {saveMutation.error && (
-        <p className="form-error">
-          {saveMutation.error instanceof Error ? saveMutation.error.message : "Falha ao salvar."}
-        </p>
-      )}
       <FormActions saving={saving} onCancel={props.onCancel} />
     </form>
   );
@@ -373,11 +376,11 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
   const [bulkMode, setBulkMode] = useState<BulkMode>(null);
   const [bulkText, setBulkText] = useState("");
   const [bulkStatus, setBulkStatus] = useState<ScheduleStatus>("scheduled");
-  const [bulkError, setBulkError] = useState<string | null>(null);
 
   const deleteMutation = useDeleteScheduleItem();
   const duplicateMutation = useDuplicateScheduleItem();
   const bulkMutation = useBulkUpdateScheduleItems();
+  const { toast } = useToast();
 
   const list = useMemo(() => {
     const query = normalizeSearch(state.search);
@@ -465,13 +468,11 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
     setBulkMode(mode);
     setBulkText("");
     setBulkStatus("scheduled");
-    setBulkError(null);
   }
 
   function closeBulkPanel() {
     setBulkMode(null);
     setBulkText("");
-    setBulkError(null);
   }
 
   function startEdit(item: ScheduleItem) {
@@ -493,20 +494,32 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
     if (!window.confirm(`Excluir "${item.title}" da programacao?`)) {
       return;
     }
-    await deleteMutation.mutateAsync(item.id);
-    setSelectedIds((prev) => {
-      if (!prev.has(item.id)) return prev;
-      const next = new Set(prev);
-      next.delete(item.id);
-      return next;
-    });
-    if (editingId === item.id) {
-      cancelEdit();
+    try {
+      await deleteMutation.mutateAsync(item.id);
+      toast(`"${item.title}" removido da programacao.`, { variant: "success" });
+      setSelectedIds((prev) => {
+        if (!prev.has(item.id)) return prev;
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+      if (editingId === item.id) {
+        cancelEdit();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui excluir — tenta de novo?";
+      toast(message, { variant: "danger" });
     }
   }
 
   async function handleDuplicate(item: ScheduleItem) {
-    await duplicateMutation.mutateAsync(item.id);
+    try {
+      await duplicateMutation.mutateAsync(item.id);
+      toast(`"${item.title}" duplicado.`, { variant: "success" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui duplicar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
   }
 
   async function applyBulkPatch(patch: ScheduleBulkPatch) {
@@ -517,7 +530,6 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
   }
 
   async function handleBulkSubmit() {
-    setBulkError(null);
     const ids = Array.from(selectedIds);
     if (ids.length === 0) {
       closeBulkPanel();
@@ -533,8 +545,10 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
       } else if (bulkMode === "featured") {
         await applyBulkPatch({ featured: true });
       }
+      toast(`${ids.length} itens atualizados.`, { variant: "success" });
     } catch (error) {
-      setBulkError(error instanceof Error ? error.message : "Falha ao aplicar alteracao.");
+      const message = error instanceof Error ? error.message : "Nao consegui aplicar — tenta de novo?";
+      toast(message, { variant: "danger" });
     }
   }
 
@@ -544,13 +558,19 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
     if (!window.confirm(`Excluir ${ids.length} itens da programacao?`)) {
       return;
     }
-    for (const id of ids) {
-      await deleteMutation.mutateAsync(id);
+    try {
+      for (const id of ids) {
+        await deleteMutation.mutateAsync(id);
+      }
+      toast(`${ids.length} itens removidos.`, { variant: "success" });
+      if (editingId && ids.includes(editingId)) {
+        cancelEdit();
+      }
+      clearSelection();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui excluir tudo — tenta de novo?";
+      toast(message, { variant: "danger" });
     }
-    if (editingId && ids.includes(editingId)) {
-      cancelEdit();
-    }
-    clearSelection();
   }
 
   const selectionCount = selectedIds.size;
@@ -687,7 +707,6 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
                         Marcar {selectionCount} itens como destacados na agenda?
                       </p>
                     )}
-                    {bulkError && <p className="form-error">{bulkError}</p>}
                     <div className="form-actions">
                       <button
                         type="button"
@@ -717,8 +736,8 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
         emptyState={
           <EmptyState
             icon={<CalendarDays size={32} />}
-            title="Nenhum item de programacao encontrado."
-            description="Cadastre um item no formulario ao lado para comecar a montar a agenda."
+            title="Agenda vazia."
+            description="Cadastre um culto, encontro ou evento no formulario ao lado pra comecar."
           />
         }
         footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
