@@ -1265,6 +1265,50 @@ where m.is_volunteer = true and m.deleted_at is null;
 -- below. Do not edit by hand: changes will be overwritten.
 
 -- BEGIN SEED ------------------------------------------------------------------
+with member_seed (id, full_name, ministry) as (
+  values
+    ('ee3d3fd0-1c94-4c3a-92b8-4d5617d0351d'::uuid, 'Pr. Augusto Lopes', 'geral'),
+    ('91d7a816-fb0c-4ee1-ba5a-39c0ac33c06c', 'Pb. George Alves', 'geral'),
+    ('c6e79461-c9c9-4ce2-b60b-36aca2366584', 'Sem. Gediael Kallebe', 'geral'),
+    ('3a250ac2-5972-4a86-9513-4a3b36b86c3a', 'Sem. Ruth Alves', 'geral'),
+    ('449dcf57-e4c8-4d1e-b12b-552b668dbe41', 'Diac. Adeildo Natalicio', 'geral'),
+    ('280c4ab1-9e23-42e0-b923-106b8f569aa5', 'Diac. Aparecido Regino', 'geral'),
+    ('c7669f2d-d24d-4cb9-8675-6cc54c8d8fe7', 'Diac. Graca Lira', 'geral'),
+    ('d2db0c80-331e-4e36-8cef-abeaa7844e5a', 'Diac. Juliana Goberto', 'geral'),
+    ('2b086766-8bfa-4340-b485-58366a1ecf52', 'Diac. Luciano', 'geral'),
+    ('df44726f-e4f2-4b41-94c7-9232705e0409', 'Diac. Salete de Kassia', 'geral'),
+    ('56c03512-7fb7-4d44-b9ee-a093c92e9b66', 'Diac. Simone Oliveira', 'geral'),
+    ('21a0e581-e365-4ac0-9ad5-37f05fb5a2db', 'Ir. Ana Amelia', 'geral'),
+    ('08b8f74f-23bd-48b6-991c-e991ac961d69', 'Ir. Ana Claudia', 'geral'),
+    ('026e5625-7d72-45ef-b340-28e1e1a36041', 'Ir. Ana Dupont', 'geral'),
+    ('2166af37-787a-4f7f-a1f9-a4404c852054', 'Ir. Brainer', 'som'),
+    ('2f75b8f0-3c6d-44d7-8cae-d247ae8cb904', 'Ir. Dilma Martins', 'geral'),
+    ('7cee5c53-26bc-41b5-ad65-fc6bcdde651c', 'Ir. Edjane', 'geral'),
+    ('2c1ac7aa-89c9-4630-be27-ec12cbf49347', 'Ir. Fabiana', 'geral'),
+    ('e2af722a-0ff1-43f8-970c-c2114dad4315', 'Ir. Fernando', 'som'),
+    ('44e21402-da69-491a-85ab-c522f4584fe5', 'Ir. Gilmar Fonseca', 'geral'),
+    ('8f1bfa80-bc00-4618-b1c6-23bc8dfb7860', 'Ir. Leandro', 'som'),
+    ('339a77f2-c25f-441f-9075-b8c2af21a0bc', 'Ir. Lisiane Flavia Lopes', 'geral'),
+    ('393c8f9e-9320-4070-91da-f786a27c2999', 'Ir. Miguel', 'som'),
+    ('eda63f8f-26fd-4066-8631-b82e430b1410', 'Ir. Naim', 'geral'),
+    ('340c185b-a57d-4abe-8533-b723db05c562', 'ADOLESCENTES', 'geral'),
+    ('e89aeee0-103b-493e-a6b1-ee8e7e0d342e', 'Convidado', 'geral'),
+    ('fe3156c5-d652-44d6-b19d-82b437353a53', 'DEPARTAMENTO INFANTIL', 'geral'),
+    ('5b35e199-2260-4fc8-a18c-97821658a1af', 'GRUPO DE LOUVOR', 'geral'),
+    ('94f1c1b1-c25c-4bce-a100-0069d2d10ea3', 'UFBB', 'geral'),
+    ('de7012b5-be82-4a86-b4ad-53c881113f5b', 'VAROES', 'geral')
+)
+insert into public.members as m (id, full_name, is_volunteer, volunteer_ministries)
+select ms.id, ms.full_name, true, array[ms.ministry]
+from member_seed ms
+on conflict (id) do update set
+  full_name = excluded.full_name,
+  is_volunteer = true,
+  volunteer_ministries = excluded.volunteer_ministries
+where m.full_name is distinct from excluded.full_name
+   or m.is_volunteer is distinct from true
+   or m.volunteer_ministries is distinct from excluded.volunteer_ministries;
+
 with schedule_seed (
   id, title, ministry, starts_at, ends_at, location, summary,
   preacher, director, sound_team, passage, occasion_label, status
@@ -1485,7 +1529,8 @@ with schedule_seed (
 )
 insert into public.schedule_items as si
   (id, title, ministry, starts_at, ends_at, location, summary,
-   preacher, director, sound_team, passage, occasion_label, status, featured)
+   preacher, director, sound_team, passage, occasion_label, status, featured,
+   preacher_member_id, director_member_id, sound_member_id)
 select
   ss.id,
   ss.title,
@@ -1500,7 +1545,10 @@ select
   ss.passage,
   ss.occasion_label,
   ss.status,
-  false
+  false,
+  (select id from public.members where full_name = ss.preacher and is_volunteer = true and deleted_at is null limit 1),
+  (select id from public.members where full_name = ss.director and is_volunteer = true and deleted_at is null limit 1),
+  (select id from public.members where full_name = ss.sound_team and is_volunteer = true and deleted_at is null limit 1)
 from schedule_seed ss
 on conflict (starts_at, title) do update set
   ministry = excluded.ministry,
@@ -1512,7 +1560,10 @@ on conflict (starts_at, title) do update set
   sound_team = excluded.sound_team,
   passage = excluded.passage,
   occasion_label = excluded.occasion_label,
-  status = excluded.status
+  status = excluded.status,
+  preacher_member_id = excluded.preacher_member_id,
+  director_member_id = excluded.director_member_id,
+  sound_member_id = excluded.sound_member_id
 where si.ministry is distinct from excluded.ministry
    or si.ends_at is distinct from excluded.ends_at
    or si.location is distinct from excluded.location
@@ -1522,49 +1573,10 @@ where si.ministry is distinct from excluded.ministry
    or si.sound_team is distinct from excluded.sound_team
    or si.passage is distinct from excluded.passage
    or si.occasion_label is distinct from excluded.occasion_label
-   or si.status is distinct from excluded.status;
-
-with volunteer_seed (id, name, role, sort_order) as (
-  values
-    ('ee3d3fd0-1c94-4c3a-92b8-4d5617d0351d'::uuid, 'Pr. Augusto Lopes', 'geral', 10),
-    ('91d7a816-fb0c-4ee1-ba5a-39c0ac33c06c'::uuid, 'Pb. George Alves', 'geral', 20),
-    ('c6e79461-c9c9-4ce2-b60b-36aca2366584'::uuid, 'Sem. Gediael Kallebe', 'geral', 30),
-    ('3a250ac2-5972-4a86-9513-4a3b36b86c3a'::uuid, 'Sem. Ruth Alves', 'geral', 40),
-    ('449dcf57-e4c8-4d1e-b12b-552b668dbe41'::uuid, 'Diac. Adeildo Natalicio', 'geral', 50),
-    ('280c4ab1-9e23-42e0-b923-106b8f569aa5'::uuid, 'Diac. Aparecido Regino', 'geral', 60),
-    ('c7669f2d-d24d-4cb9-8675-6cc54c8d8fe7'::uuid, 'Diac. Graca Lira', 'geral', 70),
-    ('d2db0c80-331e-4e36-8cef-abeaa7844e5a'::uuid, 'Diac. Juliana Goberto', 'geral', 80),
-    ('2b086766-8bfa-4340-b485-58366a1ecf52'::uuid, 'Diac. Luciano', 'geral', 90),
-    ('df44726f-e4f2-4b41-94c7-9232705e0409'::uuid, 'Diac. Salete de Kassia', 'geral', 100),
-    ('56c03512-7fb7-4d44-b9ee-a093c92e9b66'::uuid, 'Diac. Simone Oliveira', 'geral', 110),
-    ('21a0e581-e365-4ac0-9ad5-37f05fb5a2db'::uuid, 'Ir. Ana Amelia', 'geral', 120),
-    ('08b8f74f-23bd-48b6-991c-e991ac961d69'::uuid, 'Ir. Ana Claudia', 'geral', 130),
-    ('026e5625-7d72-45ef-b340-28e1e1a36041'::uuid, 'Ir. Ana Dupont', 'geral', 140),
-    ('2166af37-787a-4f7f-a1f9-a4404c852054'::uuid, 'Ir. Brainer', 'som', 150),
-    ('2f75b8f0-3c6d-44d7-8cae-d247ae8cb904'::uuid, 'Ir. Dilma Martins', 'geral', 160),
-    ('7cee5c53-26bc-41b5-ad65-fc6bcdde651c'::uuid, 'Ir. Edjane', 'geral', 170),
-    ('2c1ac7aa-89c9-4630-be27-ec12cbf49347'::uuid, 'Ir. Fabiana', 'geral', 180),
-    ('e2af722a-0ff1-43f8-970c-c2114dad4315'::uuid, 'Ir. Fernando', 'som', 190),
-    ('44e21402-da69-491a-85ab-c522f4584fe5'::uuid, 'Ir. Gilmar Fonseca', 'geral', 200),
-    ('8f1bfa80-bc00-4618-b1c6-23bc8dfb7860'::uuid, 'Ir. Leandro', 'som', 210),
-    ('339a77f2-c25f-441f-9075-b8c2af21a0bc'::uuid, 'Ir. Lisiane Flavia Lopes', 'geral', 220),
-    ('393c8f9e-9320-4070-91da-f786a27c2999'::uuid, 'Ir. Miguel', 'som', 230),
-    ('eda63f8f-26fd-4066-8631-b82e430b1410'::uuid, 'Ir. Naim', 'geral', 240),
-    ('340c185b-a57d-4abe-8533-b723db05c562'::uuid, 'ADOLESCENTES', 'geral', 250),
-    ('e89aeee0-103b-493e-a6b1-ee8e7e0d342e'::uuid, 'Convidado', 'geral', 260),
-    ('fe3156c5-d652-44d6-b19d-82b437353a53'::uuid, 'DEPARTAMENTO INFANTIL', 'geral', 270),
-    ('5b35e199-2260-4fc8-a18c-97821658a1af'::uuid, 'GRUPO DE LOUVOR', 'geral', 280),
-    ('94f1c1b1-c25c-4bce-a100-0069d2d10ea3'::uuid, 'UFBB', 'geral', 290),
-    ('de7012b5-be82-4a86-b4ad-53c881113f5b'::uuid, 'VAROES', 'geral', 300)
-)
-insert into public.volunteers as v (id, name, role, sort_order)
-select vs.id, vs.name, vs.role, vs.sort_order
-from volunteer_seed vs
-on conflict ((lower(name))) do update set
-  role = excluded.role,
-  sort_order = excluded.sort_order
-where v.role is distinct from excluded.role
-   or v.sort_order is distinct from excluded.sort_order;
+   or si.status is distinct from excluded.status
+   or si.preacher_member_id is distinct from excluded.preacher_member_id
+   or si.director_member_id is distinct from excluded.director_member_id
+   or si.sound_member_id is distinct from excluded.sound_member_id;
 -- END SEED --------------------------------------------------------------------
 
 commit;
