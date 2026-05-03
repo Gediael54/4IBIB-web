@@ -19,6 +19,7 @@ vi.mock("../backend", () => ({
   }
 }));
 
+import { ToastProvider } from "../components/Toast";
 import ScheduleView from "./ScheduleView";
 
 function buildSnapshot(volunteers: Volunteer[] = []): SiteSnapshot {
@@ -53,11 +54,13 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ScheduleView
-        snapshot={snapshot}
-        state={{ search: "", sort: "startsAsc", page: 1 }}
-        onStateChange={vi.fn()}
-      />
+      <ToastProvider>
+        <ScheduleView
+          snapshot={snapshot}
+          state={{ search: "", sort: "startsAsc", page: 1 }}
+          onStateChange={vi.fn()}
+        />
+      </ToastProvider>
     </QueryClientProvider>
   );
 }
@@ -113,6 +116,28 @@ describe("ScheduleView form", () => {
     expect(payload.status).toBe("scheduled");
     expect(typeof payload.startsAt).toBe("string");
     expect(payload.soundTeam).toBe("Miguel, Brainer");
+
+    await waitFor(() => {
+      expect(screen.getByText("Programacao criada.")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a danger toast when save fails", async () => {
+    mocks.saveScheduleItem.mockRejectedValueOnce(new Error("Conflito de horario"));
+    renderView();
+
+    fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Outro culto" } });
+    fireEvent.change(screen.getByLabelText("Ministerio"), { target: { value: "Louvor" } });
+
+    const form = screen.getByRole("button", { name: /salvar/i }).closest("form");
+    if (!form) {
+      throw new Error("form not found");
+    }
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(screen.getByText("Conflito de horario")).toBeInTheDocument();
+    });
   });
 
   it("renders sound team field with datalist suggestions from volunteers", () => {
