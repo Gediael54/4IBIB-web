@@ -22,6 +22,8 @@ function makeQuery(result: Result) {
     delete: vi.fn(() => builder),
     eq: vi.fn(() => builder),
     in: vi.fn(() => builder),
+    is: vi.fn(() => builder),
+    or: vi.fn(() => builder),
     gte: vi.fn(() => builder),
     lte: vi.fn(() => builder),
     limit: vi.fn(() => builder),
@@ -213,6 +215,90 @@ const auditRow = {
   changed_at: "2030-01-01T10:00:00.000Z",
   old_row: { title: "old" },
   new_row: { title: "new" }
+};
+
+const memberRow = {
+  id: "mem-1",
+  full_name: "Joao Silva",
+  preferred_name: "Joao",
+  birth_date: "1990-05-12",
+  marital_status: "casado",
+  gender: "masculino",
+  photo_url: "https://photo",
+  email: "joao@ex.com",
+  phone: "5581999990000",
+  whatsapp: "5581999990000",
+  cpf: "12345678901",
+  rg: "1234567",
+  rg_issuer: "SDS-PE",
+  profession: "Engenheiro",
+  address_zip: "55000-000",
+  address_street: "Rua A",
+  address_number: "100",
+  address_complement: "Apt 1",
+  address_neighborhood: "Centro",
+  address_city: "Caruaru",
+  address_state: "PE",
+  household_id: "house-1",
+  church_role: "diacono",
+  membership_status: "ativo",
+  joined_at: "2020-01-01",
+  baptism_date: "2010-04-04",
+  baptism_location: "4a Betel",
+  transferred_from: "",
+  emergency_contact_name: "Maria Silva",
+  emergency_contact_phone: "5581988880000",
+  prayer_topics: ["familia"],
+  spiritual_gifts: ["ensino"],
+  allergies: "",
+  medical_notes: "",
+  consent_medical_data_at: "2024-01-01T00:00:00.000Z",
+  is_volunteer: true,
+  volunteer_ministries: ["som"],
+  volunteer_unavailable_dates: ["2030-12-25"],
+  volunteer_notes: "",
+  notes: "",
+  consent_given_at: "2024-01-01T00:00:00.000Z",
+  consent_version: "v1",
+  public_directory: true,
+  data_retention_until: "2030-01-01",
+  created_at: "2024-01-01T00:00:00.000Z",
+  updated_at: "2024-01-01T00:00:00.000Z",
+  deleted_at: null
+};
+
+const householdRow = {
+  id: "house-1",
+  name: "Familia Silva",
+  head_member_id: "mem-1",
+  address_zip: "55000-000",
+  address_street: "Rua A",
+  address_number: "100",
+  address_complement: "",
+  address_neighborhood: "Centro",
+  address_city: "Caruaru",
+  address_state: "PE",
+  notes: "",
+  created_at: "2024-01-01T00:00:00.000Z",
+  updated_at: "2024-01-01T00:00:00.000Z",
+  deleted_at: null
+};
+
+const relationshipRow = {
+  id: "rel-1",
+  from_member_id: "mem-1",
+  to_member_id: "mem-2",
+  type: "conjuge",
+  start_date: "2010-06-01",
+  end_date: null,
+  created_at: "2024-01-01T00:00:00.000Z"
+};
+
+const duplicateMatchRow = {
+  member_id: "mem-9",
+  full_name: "Joao da Silva",
+  score: 0.95,
+  match_reason: "cpf_match"
 };
 
 beforeEach(() => {
@@ -420,7 +506,10 @@ describe("SupabaseContentRepository", () => {
       occasionLabel: "PASCOA",
       status: "suspended",
       featured: true,
-      seriesId: "ser-1"
+      seriesId: "ser-1",
+      preacherMemberId: null,
+      directorMemberId: null,
+      soundMemberId: null
     });
   });
 
@@ -1354,6 +1443,684 @@ describe("SupabaseContentRepository", () => {
   it("propagates rpc error on revertAuditEntry", async () => {
     client.setNextRpc({ data: null, error: { message: "revert-fail" } });
     await expect(backend().content.revertAuditEntry("log-1")).rejects.toThrow("revert-fail");
+  });
+
+  it("maps schedule with member ids when present", async () => {
+    client.setNext({
+      data: [
+        {
+          ...scheduleRow,
+          preacher_member_id: "mem-1",
+          director_member_id: "mem-2",
+          sound_member_id: "mem-3"
+        }
+      ],
+      error: null
+    });
+    const [item] = await backend().content.listSchedule();
+    expect(item?.preacherMemberId).toBe("mem-1");
+    expect(item?.directorMemberId).toBe("mem-2");
+    expect(item?.soundMemberId).toBe("mem-3");
+  });
+
+  it("saves schedule item carrying member ids in payload", async () => {
+    client.setNext({ data: scheduleRow, error: null });
+    await backend().content.saveScheduleItem({
+      id: "s1",
+      title: "Reuniao",
+      ministry: "louvor",
+      startsAt: "2030-01-01T10:00:00.000Z",
+      endsAt: "2030-01-01T12:00:00.000Z",
+      location: "Salao",
+      summary: "Resumo",
+      preacher: "Lider",
+      director: "",
+      soundTeam: "",
+      passage: "",
+      occasionLabel: "",
+      status: "scheduled",
+      featured: false
+    });
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preacher_member_id: null,
+        director_member_id: null,
+        sound_member_id: null
+      })
+    );
+  });
+
+  it("updates schedule item members through dedicated method", async () => {
+    client.setNext({ data: null, error: null });
+    await backend().content.updateScheduleItemMembers("s1", {
+      preacherMemberId: "mem-1",
+      directorMemberId: null,
+      soundMemberId: "mem-3"
+    });
+    expect(client.queries[0]?.update).toHaveBeenCalledWith({
+      preacher_member_id: "mem-1",
+      director_member_id: null,
+      sound_member_id: "mem-3"
+    });
+    expect(client.queries[0]?.eq).toHaveBeenCalledWith("id", "s1");
+  });
+
+  it("propagates supabase error on updateScheduleItemMembers", async () => {
+    client.setNext({ data: null, error: { message: "ups-fail" } });
+    await expect(
+      backend().content.updateScheduleItemMembers("s1", {
+        preacherMemberId: null,
+        directorMemberId: null,
+        soundMemberId: null
+      })
+    ).rejects.toThrow("ups-fail");
+  });
+
+  it("creates a member with full payload mapping every column", async () => {
+    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue("mem-uuid-1-2-3");
+    client.setNext({ data: { ...memberRow, id: "mem-uuid-1-2-3" }, error: null });
+
+    const result = await backend().content.createMember({
+      fullName: "Joao Silva",
+      preferredName: "Joao",
+      birthDate: "1990-05-12",
+      maritalStatus: "casado",
+      gender: "masculino",
+      photoUrl: "https://photo",
+      email: "joao@ex.com",
+      phone: "5581999990000",
+      whatsapp: "5581999990000",
+      cpf: "12345678901",
+      rg: "1234567",
+      rgIssuer: "SDS-PE",
+      profession: "Engenheiro",
+      address: {
+        zip: "55000-000",
+        street: "Rua A",
+        number: "100",
+        complement: "Apt 1",
+        neighborhood: "Centro",
+        city: "Caruaru",
+        state: "PE"
+      },
+      householdId: "house-1",
+      churchRole: "diacono",
+      membershipStatus: "ativo",
+      joinedAt: "2020-01-01",
+      baptismDate: "2010-04-04",
+      baptismLocation: "4a Betel",
+      transferredFrom: "",
+      emergencyContactName: "Maria Silva",
+      emergencyContactPhone: "5581988880000",
+      prayerTopics: ["familia"],
+      spiritualGifts: ["ensino"],
+      allergies: "",
+      medicalNotes: "",
+      consentMedicalDataAt: "2024-01-01T00:00:00.000Z",
+      isVolunteer: true,
+      volunteerMinistries: ["som"],
+      volunteerUnavailableDates: ["2030-12-25"],
+      volunteerNotes: "",
+      notes: "",
+      consentGivenAt: "2024-01-01T00:00:00.000Z",
+      consentVersion: "v1",
+      publicDirectory: true,
+      dataRetentionUntil: "2030-01-01"
+    });
+
+    expect(result.id).toBe("mem-uuid-1-2-3");
+    expect(result.fullName).toBe("Joao Silva");
+    expect(result.address.city).toBe("Caruaru");
+    expect(result.churchRole).toBe("diacono");
+    expect(result.publicDirectory).toBe(true);
+    expect(client.queries[0]?.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "mem-uuid-1-2-3",
+        full_name: "Joao Silva",
+        cpf: "12345678901",
+        address_city: "Caruaru",
+        is_volunteer: true,
+        public_directory: true
+      })
+    );
+    uuid.mockRestore();
+  });
+
+  it("maps member nullable columns to defaults", async () => {
+    client.setNext({
+      data: {
+        id: "mem-2",
+        full_name: "Sem Dados",
+        created_at: "2024-01-01T00:00:00.000Z",
+        updated_at: "2024-01-01T00:00:00.000Z"
+      },
+      error: null
+    });
+
+    const result = await backend().content.getMember("mem-2");
+    expect(result?.preferredName).toBe("");
+    expect(result?.birthDate).toBeNull();
+    expect(result?.maritalStatus).toBeNull();
+    expect(result?.gender).toBeNull();
+    expect(result?.cpf).toBeNull();
+    expect(result?.householdId).toBeNull();
+    expect(result?.joinedAt).toBeNull();
+    expect(result?.baptismDate).toBeNull();
+    expect(result?.consentMedicalDataAt).toBeNull();
+    expect(result?.consentGivenAt).toBeNull();
+    expect(result?.dataRetentionUntil).toBeNull();
+    expect(result?.deletedAt).toBeNull();
+    expect(result?.churchRole).toBe("membro_comum");
+    expect(result?.membershipStatus).toBe("ativo");
+    expect(result?.isVolunteer).toBe(false);
+    expect(result?.publicDirectory).toBe(false);
+    expect(result?.address.zip).toBe("");
+    expect(result?.prayerTopics).toEqual([]);
+    expect(result?.spiritualGifts).toEqual([]);
+    expect(result?.volunteerMinistries).toEqual([]);
+    expect(result?.volunteerUnavailableDates).toEqual([]);
+  });
+
+  it("propagates supabase error on createMember", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("mem-uuid-x-y-z");
+    client.setNext({ data: null, error: { message: "mem-create" } });
+    await expect(
+      backend().content.createMember({
+        fullName: "X",
+        preferredName: "",
+        birthDate: null,
+        maritalStatus: null,
+        gender: null,
+        photoUrl: "",
+        email: "",
+        phone: "",
+        whatsapp: "",
+        cpf: null,
+        rg: "",
+        rgIssuer: "",
+        profession: "",
+        address: {
+          zip: "",
+          street: "",
+          number: "",
+          complement: "",
+          neighborhood: "",
+          city: "",
+          state: ""
+        },
+        householdId: null,
+        churchRole: "membro_comum",
+        membershipStatus: "ativo",
+        joinedAt: null,
+        baptismDate: null,
+        baptismLocation: "",
+        transferredFrom: "",
+        emergencyContactName: "",
+        emergencyContactPhone: "",
+        prayerTopics: [],
+        spiritualGifts: [],
+        allergies: "",
+        medicalNotes: "",
+        consentMedicalDataAt: null,
+        isVolunteer: false,
+        volunteerMinistries: [],
+        volunteerUnavailableDates: [],
+        volunteerNotes: "",
+        notes: "",
+        consentGivenAt: null,
+        consentVersion: "",
+        publicDirectory: false,
+        dataRetentionUntil: null
+      })
+    ).rejects.toThrow("mem-create");
+  });
+
+  it("updates member with patch covering all fields", async () => {
+    client.setNext({ data: memberRow, error: null });
+    await backend().content.updateMember("mem-1", {
+      fullName: "Joao",
+      preferredName: "Jo",
+      birthDate: "1990-05-12",
+      maritalStatus: "casado",
+      gender: "masculino",
+      photoUrl: "https://p",
+      email: "j@x",
+      phone: "111",
+      whatsapp: "222",
+      cpf: "12345678901",
+      rg: "rg",
+      rgIssuer: "SDS",
+      profession: "Eng",
+      address: {
+        zip: "0",
+        street: "S",
+        number: "1",
+        complement: "C",
+        neighborhood: "N",
+        city: "C",
+        state: "PE"
+      },
+      householdId: "h",
+      churchRole: "diacono",
+      membershipStatus: "ativo",
+      joinedAt: "2020-01-01",
+      baptismDate: "2010-01-01",
+      baptismLocation: "B",
+      transferredFrom: "T",
+      emergencyContactName: "EC",
+      emergencyContactPhone: "ECP",
+      prayerTopics: ["a"],
+      spiritualGifts: ["b"],
+      allergies: "",
+      medicalNotes: "",
+      consentMedicalDataAt: "2024-01-01T00:00:00.000Z",
+      isVolunteer: true,
+      volunteerMinistries: ["som"],
+      volunteerUnavailableDates: ["2030-12-25"],
+      volunteerNotes: "vn",
+      notes: "n",
+      consentGivenAt: "2024-01-01T00:00:00.000Z",
+      consentVersion: "v1",
+      publicDirectory: true,
+      dataRetentionUntil: "2030-01-01"
+    });
+    expect(client.queries[0]?.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        full_name: "Joao",
+        preferred_name: "Jo",
+        marital_status: "casado",
+        address_city: "C",
+        is_volunteer: true,
+        public_directory: true,
+        data_retention_until: "2030-01-01"
+      })
+    );
+    expect(client.queries[0]?.eq).toHaveBeenCalledWith("id", "mem-1");
+  });
+
+  it("updates member with empty patch produces empty payload", async () => {
+    client.setNext({ data: memberRow, error: null });
+    await backend().content.updateMember("mem-1", {});
+    expect(client.queries[0]?.update).toHaveBeenCalledWith({});
+  });
+
+  it("propagates supabase error on updateMember", async () => {
+    client.setNext({ data: null, error: { message: "mem-update" } });
+    await expect(backend().content.updateMember("mem-1", { fullName: "X" })).rejects.toThrow("mem-update");
+  });
+
+  it("archives member through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.archiveMember("mem-1");
+    expect(client.rpc).toHaveBeenCalledWith("archive_member", { p_id: "mem-1" });
+  });
+
+  it("propagates rpc error on archiveMember", async () => {
+    client.setNextRpc({ data: null, error: { message: "arc-fail" } });
+    await expect(backend().content.archiveMember("mem-1")).rejects.toThrow("arc-fail");
+  });
+
+  it("restores member through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.restoreMember("mem-1");
+    expect(client.rpc).toHaveBeenCalledWith("restore_member", { p_id: "mem-1" });
+  });
+
+  it("propagates rpc error on restoreMember", async () => {
+    client.setNextRpc({ data: null, error: { message: "res-fail" } });
+    await expect(backend().content.restoreMember("mem-1")).rejects.toThrow("res-fail");
+  });
+
+  it("anonymizes member through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.anonymizeMember("mem-1");
+    expect(client.rpc).toHaveBeenCalledWith("anonymize_member", { p_id: "mem-1" });
+  });
+
+  it("propagates rpc error on anonymizeMember", async () => {
+    client.setNextRpc({ data: null, error: { message: "anon-fail" } });
+    await expect(backend().content.anonymizeMember("mem-1")).rejects.toThrow("anon-fail");
+  });
+
+  it("getMember returns null when no row found", async () => {
+    client.setNext({ data: null, error: null });
+    expect(await backend().content.getMember("mem-x")).toBeNull();
+  });
+
+  it("propagates supabase error on getMember", async () => {
+    client.setNext({ data: null, error: { message: "mem-get" } });
+    await expect(backend().content.getMember("mem-x")).rejects.toThrow("mem-get");
+  });
+
+  it("getMember returns mapped record when present", async () => {
+    client.setNext({ data: memberRow, error: null });
+    const member = await backend().content.getMember("mem-1");
+    expect(member?.id).toBe("mem-1");
+    expect(member?.fullName).toBe("Joao Silva");
+  });
+
+  it("listMembers without options filters out deleted", async () => {
+    client.setNext({ data: [memberRow], error: null });
+    const items = await backend().content.listMembers();
+    expect(items).toHaveLength(1);
+    expect(client.queries[0]?.is).toHaveBeenCalledWith("deleted_at", null);
+  });
+
+  it("listMembers with includeDeleted skips deleted_at filter", async () => {
+    client.setNext({
+      data: [memberRow, { ...memberRow, id: "mem-2", deleted_at: "2024-06-01" }],
+      error: null
+    });
+    await backend().content.listMembers({ includeDeleted: true });
+    expect(client.queries[0]?.is).not.toHaveBeenCalled();
+  });
+
+  it("listMembers applies isVolunteer filter", async () => {
+    client.setNext({ data: [memberRow], error: null });
+    await backend().content.listMembers({ isVolunteer: true });
+    expect(client.queries[0]?.eq).toHaveBeenCalledWith("is_volunteer", true);
+  });
+
+  it("listMembers applies householdId filter", async () => {
+    client.setNext({ data: [memberRow], error: null });
+    await backend().content.listMembers({ householdId: "house-1" });
+    expect(client.queries[0]?.eq).toHaveBeenCalledWith("household_id", "house-1");
+  });
+
+  it("propagates supabase error on listMembers", async () => {
+    client.setNext({ data: null, error: { message: "mem-list" } });
+    await expect(backend().content.listMembers()).rejects.toThrow("mem-list");
+  });
+
+  it("findMemberDuplicates calls rpc and maps rows", async () => {
+    client.setNextRpc({ data: [duplicateMatchRow], error: null });
+    const matches = await backend().content.findMemberDuplicates({
+      fullName: "Joao",
+      cpf: "12345678901",
+      email: "j@x",
+      phone: "5599"
+    });
+    expect(matches[0]?.memberId).toBe("mem-9");
+    expect(matches[0]?.score).toBe(0.95);
+    expect(matches[0]?.matchReason).toBe("cpf_match");
+    expect(client.rpc).toHaveBeenCalledWith("find_member_duplicates", {
+      p_full_name: "Joao",
+      p_cpf: "12345678901",
+      p_email: "j@x",
+      p_phone: "5599"
+    });
+  });
+
+  it("findMemberDuplicates defaults score to zero when missing", async () => {
+    client.setNextRpc({
+      data: [{ member_id: "mem-x", full_name: "X", match_reason: "name_similar" }],
+      error: null
+    });
+    const matches = await backend().content.findMemberDuplicates({
+      fullName: "X",
+      cpf: null,
+      email: "",
+      phone: ""
+    });
+    expect(matches[0]?.score).toBe(0);
+  });
+
+  it("propagates rpc error on findMemberDuplicates", async () => {
+    client.setNextRpc({ data: null, error: { message: "dup-fail" } });
+    await expect(
+      backend().content.findMemberDuplicates({ fullName: "X", cpf: null, email: "", phone: "" })
+    ).rejects.toThrow("dup-fail");
+  });
+
+  it("creates household generating uuid", async () => {
+    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue("house-uuid-1-2-3");
+    client.setNext({ data: { ...householdRow, id: "house-uuid-1-2-3" }, error: null });
+    const result = await backend().content.createHousehold({
+      name: "Familia Silva",
+      headMemberId: "mem-1",
+      address: {
+        zip: "55000-000",
+        street: "Rua A",
+        number: "100",
+        complement: "",
+        neighborhood: "Centro",
+        city: "Caruaru",
+        state: "PE"
+      },
+      notes: ""
+    });
+    expect(result.id).toBe("house-uuid-1-2-3");
+    expect(client.queries[0]?.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "house-uuid-1-2-3",
+        name: "Familia Silva",
+        head_member_id: "mem-1",
+        address_city: "Caruaru"
+      })
+    );
+    uuid.mockRestore();
+  });
+
+  it("propagates supabase error on createHousehold", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("house-uuid-x-y-z");
+    client.setNext({ data: null, error: { message: "house-create" } });
+    await expect(
+      backend().content.createHousehold({
+        name: "X",
+        headMemberId: null,
+        address: {
+          zip: "",
+          street: "",
+          number: "",
+          complement: "",
+          neighborhood: "",
+          city: "",
+          state: ""
+        },
+        notes: ""
+      })
+    ).rejects.toThrow("house-create");
+  });
+
+  it("updates household with all fields", async () => {
+    client.setNext({ data: householdRow, error: null });
+    await backend().content.updateHousehold("house-1", {
+      name: "Familia Silva 2",
+      headMemberId: "mem-2",
+      notes: "obs",
+      address: {
+        zip: "z",
+        street: "s",
+        number: "n",
+        complement: "c",
+        neighborhood: "nb",
+        city: "ct",
+        state: "PE"
+      }
+    });
+    expect(client.queries[0]?.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Familia Silva 2",
+        head_member_id: "mem-2",
+        notes: "obs",
+        address_city: "ct"
+      })
+    );
+    expect(client.queries[0]?.eq).toHaveBeenCalledWith("id", "house-1");
+  });
+
+  it("updates household with empty patch", async () => {
+    client.setNext({ data: householdRow, error: null });
+    await backend().content.updateHousehold("house-1", {});
+    expect(client.queries[0]?.update).toHaveBeenCalledWith({});
+  });
+
+  it("propagates supabase error on updateHousehold", async () => {
+    client.setNext({ data: null, error: { message: "house-update" } });
+    await expect(backend().content.updateHousehold("house-1", {})).rejects.toThrow("house-update");
+  });
+
+  it("archives household setting deleted_at", async () => {
+    client.setNext({ data: null, error: null });
+    await backend().content.archiveHousehold("house-1");
+    const call = client.queries[0]?.update as ReturnType<typeof vi.fn>;
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(call.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ deleted_at: expect.any(String) }));
+    expect(client.queries[0]?.eq).toHaveBeenCalledWith("id", "house-1");
+  });
+
+  it("propagates supabase error on archiveHousehold", async () => {
+    client.setNext({ data: null, error: { message: "house-arc" } });
+    await expect(backend().content.archiveHousehold("house-1")).rejects.toThrow("house-arc");
+  });
+
+  it("lists households filtering deleted", async () => {
+    client.setNext({ data: [householdRow], error: null });
+    const items = await backend().content.listHouseholds();
+    expect(items[0]?.id).toBe("house-1");
+    expect(client.queries[0]?.is).toHaveBeenCalledWith("deleted_at", null);
+  });
+
+  it("maps household nullable head_member_id and addresses", async () => {
+    client.setNext({
+      data: [
+        {
+          id: "house-9",
+          name: "Vazio",
+          created_at: "2024-01-01T00:00:00.000Z",
+          updated_at: "2024-01-01T00:00:00.000Z"
+        }
+      ],
+      error: null
+    });
+    const [item] = await backend().content.listHouseholds();
+    expect(item?.headMemberId).toBeNull();
+    expect(item?.address.zip).toBe("");
+    expect(item?.notes).toBe("");
+    expect(item?.deletedAt).toBeNull();
+  });
+
+  it("propagates supabase error on listHouseholds", async () => {
+    client.setNext({ data: null, error: { message: "house-list" } });
+    await expect(backend().content.listHouseholds()).rejects.toThrow("house-list");
+  });
+
+  it("getHousehold returns null when not found", async () => {
+    client.setNext({ data: null, error: null });
+    expect(await backend().content.getHousehold("no")).toBeNull();
+  });
+
+  it("maps household deleted_at when set", async () => {
+    client.setNext({
+      data: { ...householdRow, deleted_at: "2024-06-01T00:00:00.000Z" },
+      error: null
+    });
+    const item = await backend().content.getHousehold("house-1");
+    expect(item?.deletedAt).toBe("2024-06-01T00:00:00.000Z");
+  });
+
+  it("getHousehold returns mapped row when present", async () => {
+    client.setNext({ data: householdRow, error: null });
+    const item = await backend().content.getHousehold("house-1");
+    expect(item?.id).toBe("house-1");
+  });
+
+  it("propagates supabase error on getHousehold", async () => {
+    client.setNext({ data: null, error: { message: "house-get" } });
+    await expect(backend().content.getHousehold("house-1")).rejects.toThrow("house-get");
+  });
+
+  it("creates relationship", async () => {
+    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue("rel-uuid-1-2-3");
+    client.setNext({ data: relationshipRow, error: null });
+    const result = await backend().content.createRelationship({
+      fromMemberId: "mem-1",
+      toMemberId: "mem-2",
+      type: "conjuge",
+      startDate: "2010-06-01",
+      endDate: null
+    });
+    expect(result.id).toBe("rel-1");
+    expect(result.type).toBe("conjuge");
+    expect(client.queries[0]?.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "rel-uuid-1-2-3",
+        from_member_id: "mem-1",
+        to_member_id: "mem-2",
+        type: "conjuge",
+        start_date: "2010-06-01",
+        end_date: null
+      })
+    );
+    uuid.mockRestore();
+  });
+
+  it("maps relationship with nullable dates", async () => {
+    client.setNext({
+      data: [
+        {
+          id: "rel-2",
+          from_member_id: "mem-1",
+          to_member_id: "mem-3",
+          type: "irmao",
+          start_date: null,
+          end_date: null,
+          created_at: "2024-01-01T00:00:00.000Z"
+        }
+      ],
+      error: null
+    });
+    const items = await backend().content.listRelationships("mem-1");
+    expect(items[0]?.startDate).toBeNull();
+    expect(items[0]?.endDate).toBeNull();
+  });
+
+  it("maps relationship with end_date set", async () => {
+    client.setNext({
+      data: [{ ...relationshipRow, start_date: "2010-01-01", end_date: "2020-01-01" }],
+      error: null
+    });
+    const items = await backend().content.listRelationships("mem-1");
+    expect(items[0]?.startDate).toBe("2010-01-01");
+    expect(items[0]?.endDate).toBe("2020-01-01");
+  });
+
+  it("propagates supabase error on createRelationship", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("rel-uuid-x-y-z");
+    client.setNext({ data: null, error: { message: "rel-create" } });
+    await expect(
+      backend().content.createRelationship({
+        fromMemberId: "mem-1",
+        toMemberId: "mem-2",
+        type: "conjuge",
+        startDate: null,
+        endDate: null
+      })
+    ).rejects.toThrow("rel-create");
+  });
+
+  it("deletes relationship", async () => {
+    client.setNext({ data: null, error: null });
+    await backend().content.deleteRelationship("rel-1");
+    expect(client.queries[0]?.delete).toHaveBeenCalled();
+    expect(client.queries[0]?.eq).toHaveBeenCalledWith("id", "rel-1");
+  });
+
+  it("propagates supabase error on deleteRelationship", async () => {
+    client.setNext({ data: null, error: { message: "rel-del" } });
+    await expect(backend().content.deleteRelationship("rel-1")).rejects.toThrow("rel-del");
+  });
+
+  it("lists relationships filtering by member id", async () => {
+    client.setNext({ data: [relationshipRow], error: null });
+    const items = await backend().content.listRelationships("mem-1");
+    expect(items).toHaveLength(1);
+    expect(client.queries[0]?.or).toHaveBeenCalledWith("from_member_id.eq.mem-1,to_member_id.eq.mem-1");
+  });
+
+  it("propagates supabase error on listRelationships", async () => {
+    client.setNext({ data: null, error: { message: "rel-list" } });
+    await expect(backend().content.listRelationships("mem-1")).rejects.toThrow("rel-list");
   });
 });
 
