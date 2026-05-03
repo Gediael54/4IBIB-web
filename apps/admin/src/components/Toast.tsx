@@ -31,12 +31,23 @@ interface ToastEntry {
   action?: ToastAction;
 }
 
+interface UndoToastOptions {
+  message: string;
+  onUndo: () => void;
+  duration?: number;
+  onTimeout?: () => void;
+  undoLabel?: string;
+}
+
 interface ToastContextValue {
-  toast: (message: string, options?: ToastOptions) => void;
+  toast: ((message: string, options?: ToastOptions) => void) & {
+    undo: (options: UndoToastOptions) => void;
+  };
 }
 
 const MAX_VISIBLE = 3;
 const DEFAULT_DURATION = 4000;
+const DEFAULT_UNDO_DURATION = 10000;
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
@@ -48,7 +59,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((current) => current.filter((entry) => entry.id !== id));
   }, []);
 
-  const toast = useCallback((message: string, options?: ToastOptions) => {
+  const baseToast = useCallback((message: string, options?: ToastOptions) => {
     idRef.current += 1;
     const entry: ToastEntry = {
       id: idRef.current,
@@ -65,6 +76,37 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
+
+  const undo = useCallback(
+    (options: UndoToastOptions) => {
+      let undone = false;
+      baseToast(options.message, {
+        duration: options.duration ?? DEFAULT_UNDO_DURATION,
+        action: {
+          label: options.undoLabel ?? "Desfazer",
+          onClick: () => {
+            undone = true;
+            options.onUndo();
+          }
+        }
+      });
+      if (options.onTimeout) {
+        const total = options.duration ?? DEFAULT_UNDO_DURATION;
+        window.setTimeout(() => {
+          if (!undone) options.onTimeout?.();
+        }, total);
+      }
+    },
+    [baseToast]
+  );
+
+  const toast = useMemo<ToastContextValue["toast"]>(() => {
+    const fn = ((message: string, options?: ToastOptions) =>
+      baseToast(message, options)) as ToastContextValue["toast"];
+    // eslint-disable-next-line react-hooks/immutability
+    fn.undo = undo;
+    return fn;
+  }, [baseToast, undo]);
 
   const value = useMemo<ToastContextValue>(() => ({ toast }), [toast]);
 
