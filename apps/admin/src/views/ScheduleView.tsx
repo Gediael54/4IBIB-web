@@ -10,6 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarDays, Copy, ExternalLink, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { ListView } from "../components/ListView";
 import { useToast } from "../components/Toast";
@@ -424,6 +425,7 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
   const duplicateMutation = useDuplicateScheduleItem();
   const bulkMutation = useBulkUpdateScheduleItems();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const list = useMemo(() => {
     const query = normalizeSearch(state.search);
@@ -534,7 +536,13 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
   }
 
   async function handleDelete(item: ScheduleItem) {
-    if (!window.confirm(`Excluir "${item.title}" da programacao?`)) {
+    const ok = await confirm({
+      title: `Excluir "${item.title}"?`,
+      message: "Este item sera removido da programacao e nao aparecera mais no site.",
+      confirmText: "Excluir",
+      destructive: true
+    });
+    if (!ok) {
       return;
     }
     try {
@@ -598,7 +606,14 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
   async function handleBulkDelete() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
-    if (!window.confirm(`Excluir ${ids.length} itens da programacao?`)) {
+    const ok = await confirm({
+      title: `Excluir ${ids.length} itens?`,
+      message: `Os ${ids.length} itens selecionados serao removidos da programacao. Esta acao nao pode ser desfeita.`,
+      confirmText: "Excluir tudo",
+      destructive: true,
+      requireText: "EXCLUIR"
+    });
+    if (!ok) {
       return;
     }
     try {
