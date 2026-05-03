@@ -1,5 +1,6 @@
 import { type ScheduleItem, type SiteSnapshot, type Volunteer } from "@4ibib/core";
 import { useState } from "react";
+import { useToast } from "../../components/Toast";
 import { SelectField } from "../../components/ui";
 import {
   FREQUENCY_LABELS,
@@ -31,7 +32,7 @@ export function AnnualGenerator({
 }: AnnualGeneratorProps) {
   const [generatorRules, setGeneratorRules] = useState<GeneratorRule[]>([]);
   const [generatorOverwrite, setGeneratorOverwrite] = useState(false);
-  const [generatorMessage, setGeneratorMessage] = useState<string | null>(null);
+  const { toast } = useToast();
 
   function addGeneratorRule() {
     setGeneratorRules((current) => [
@@ -44,7 +45,6 @@ export function AnnualGenerator({
         weekday: "any"
       }
     ]);
-    setGeneratorMessage(null);
   }
 
   function updateGeneratorRule(id: string, patch: Partial<Omit<GeneratorRule, "id">>) {
@@ -58,23 +58,20 @@ export function AnnualGenerator({
         return next;
       })
     );
-    setGeneratorMessage(null);
   }
 
   function removeGeneratorRule(id: string) {
     setGeneratorRules((current) => current.filter((rule) => rule.id !== id));
-    setGeneratorMessage(null);
   }
 
   function clearGeneratorRules() {
     setGeneratorRules([]);
-    setGeneratorMessage(null);
   }
 
   function handleGenerate() {
     const validRules = generatorRules.filter((rule) => rule.volunteerName.trim() !== "");
     if (validRules.length === 0) {
-      setGeneratorMessage("Adicione ao menos uma regra com voluntario selecionado.");
+      toast("Selecione um voluntario em pelo menos uma regra antes de gerar.", { variant: "warning" });
       return;
     }
     const { next, assignments } = generateAssignments(
@@ -86,10 +83,13 @@ export function AnnualGenerator({
     );
     applyPendingMap(next);
     if (assignments === 0) {
-      setGeneratorMessage("Nenhuma celula elegivel encontrada para as regras informadas.");
+      toast("Sem celulas elegiveis pra essas regras — tente outra cadencia ou dia.", {
+        variant: "warning"
+      });
     } else {
-      setGeneratorMessage(
-        `Geradas ${assignments} ${assignments === 1 ? "atribuicao" : "atribuicoes"}. Revise o grid antes de salvar.`
+      toast(
+        `Geradas ${assignments} ${assignments === 1 ? "atribuicao" : "atribuicoes"}. Confira o grid antes de salvar.`,
+        { variant: "success" }
       );
     }
   }
@@ -206,8 +206,6 @@ export function AnnualGenerator({
           Limpar regras
         </button>
       </div>
-
-      {generatorMessage && <p className="annual-generator-message">{generatorMessage}</p>}
     </details>
   );
 }
