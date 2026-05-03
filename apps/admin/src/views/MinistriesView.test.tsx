@@ -49,7 +49,7 @@ function buildSnapshot(ministries: MinistryRecord[] = []): SiteSnapshot {
 
 function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } }
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } }
   });
   const onStateChange = vi.fn();
   const utils = render(
@@ -69,8 +69,8 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
 describe("MinistriesView", () => {
   afterEach(() => {
     cleanup();
-    mocks.saveMinistry.mockClear();
-    mocks.deleteMinistry.mockClear();
+    mocks.saveMinistry.mockReset().mockResolvedValue({});
+    mocks.deleteMinistry.mockReset().mockResolvedValue(undefined);
   });
 
   it("renders empty state when there are no ministries", () => {
@@ -115,7 +115,7 @@ describe("MinistriesView", () => {
   });
 
   it("shows a danger toast when saving fails", async () => {
-    mocks.saveMinistry.mockRejectedValueOnce(new Error("Slug duplicado"));
+    mocks.saveMinistry.mockRejectedValue(new Error("Slug duplicado"));
     renderView();
 
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Repetido" } });
