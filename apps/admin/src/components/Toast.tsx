@@ -87,7 +87,7 @@ export function useToast(): ToastContextValue {
 function ToastViewport({ toasts, onDismiss }: { toasts: ToastEntry[]; onDismiss: (id: number) => void }) {
   if (toasts.length === 0) return null;
   return (
-    <div className="toast-viewport" role="region" aria-label="Notificacoes">
+    <div className="toast-viewport" role="region" aria-label="Notificacoes" aria-live="polite">
       {toasts.map((entry) => (
         <ToastItem key={entry.id} entry={entry} onDismiss={onDismiss} />
       ))}
