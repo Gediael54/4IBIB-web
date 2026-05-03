@@ -50,7 +50,7 @@ function makeVolunteer(overrides: Partial<Volunteer> = {}): Volunteer {
 
 function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } }
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } }
   });
   return render(
     <QueryClientProvider client={queryClient}>
@@ -123,7 +123,7 @@ describe("ScheduleView form", () => {
   });
 
   it("shows a danger toast when save fails", async () => {
-    mocks.saveScheduleItem.mockRejectedValueOnce(new Error("Conflito de horario"));
+    mocks.saveScheduleItem.mockRejectedValue(new Error("Conflito de horario"));
     renderView();
 
     fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Outro culto" } });
