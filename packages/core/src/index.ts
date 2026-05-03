@@ -624,11 +624,21 @@ export function inputDateTimeToIso(value: string): string {
   return new Date(value).toISOString();
 }
 
-export function buildWhatsAppUrl(phone: string, message: string): string {
-  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+const WHATSAPP_MIN_DIGITS = 10;
+const WHATSAPP_BR_COUNTRY_CODE = "55";
+
+function normalizeBrazilianPhone(raw: string): string {
+  const digits = raw.replace(/\D+/g, "");
+  if (digits.startsWith(WHATSAPP_BR_COUNTRY_CODE) && digits.length >= 12) {
+    return digits;
+  }
+  return `${WHATSAPP_BR_COUNTRY_CODE}${digits}`;
 }
 
-const WHATSAPP_MIN_DIGITS = 10;
+export function buildWhatsAppUrl(phone: string, message: string): string {
+  const normalized = normalizeBrazilianPhone(phone);
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+}
 
 export function buildWhatsAppForContact(contact: string, message: string): string | null {
   const digits = contact.replace(/\D+/g, "");
