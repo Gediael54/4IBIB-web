@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Save, Trash2, UserPlus } from "lucide-react";
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { ListView } from "../components/ListView";
 import { useToast } from "../components/Toast";
@@ -49,6 +50,7 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
   const updateRoleMutation = useUpdateAdminRole();
   const removeMutation = useRemoveAdmin();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const {
     register,
@@ -95,7 +97,14 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
 
   async function handleRemove(admin: AdminUser) {
     const label = getEmailLabel(admin);
-    if (!window.confirm(`Remover acesso de ${label}?`)) {
+    const ok = await confirm({
+      title: "Remover acesso?",
+      message: `${label} perde imediatamente o acesso ao painel.`,
+      confirmText: "Remover",
+      destructive: true,
+      requireText: "EXCLUIR"
+    });
+    if (!ok) {
       return;
     }
     try {
