@@ -82,4 +82,35 @@ describe("Toast", () => {
     expect(() => render(<Broken />)).toThrow();
     console.error = original;
   });
+
+  it("uses role=alert for danger variant and role=status for others", () => {
+    render(
+      <ToastProvider>
+        <TriggerButton message="Erro" opts={{ duration: 5000, variant: "danger" }} />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByText("fire"));
+    expect(screen.getByRole("alert")).toHaveTextContent("Erro");
+  });
+
+  it("uses role=status for success variant", () => {
+    render(
+      <ToastProvider>
+        <TriggerButton message="Salvo" opts={{ duration: 5000, variant: "success" }} />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByText("fire"));
+    expect(screen.getByRole("status")).toHaveTextContent("Salvo");
+  });
+
+  it("viewport region has aria-live polite", () => {
+    render(
+      <ToastProvider>
+        <TriggerButton message="ola" opts={{ duration: 5000 }} />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByText("fire"));
+    const region = screen.getByRole("region", { name: "Notificacoes" });
+    expect(region).toHaveAttribute("aria-live", "polite");
+  });
 });
