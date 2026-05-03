@@ -23,6 +23,7 @@ vi.mock("../backend", () => ({
   }
 }));
 
+import { ToastProvider } from "../components/Toast";
 import TeamView from "./TeamView";
 
 function makeAdmin(overrides: Partial<AdminUser> = {}): AdminUser {
@@ -43,7 +44,9 @@ function renderView() {
   const onStateChange = vi.fn();
   const utils = render(
     <QueryClientProvider client={queryClient}>
-      <TeamView state={{ search: "", sort: "roleAsc", page: 1 }} onStateChange={onStateChange} />
+      <ToastProvider>
+        <TeamView state={{ search: "", sort: "roleAsc", page: 1 }} onStateChange={onStateChange} />
+      </ToastProvider>
     </QueryClientProvider>
   );
   return { ...utils, onStateChange };
@@ -61,7 +64,7 @@ describe("TeamView", () => {
   it("renders empty state when no admins are loaded", async () => {
     renderView();
     await waitFor(() => {
-      expect(screen.getByText("Nenhum admin cadastrado.")).toBeInTheDocument();
+      expect(screen.getByText("Sem admins ainda.")).toBeInTheDocument();
     });
   });
 
@@ -97,9 +100,12 @@ describe("TeamView", () => {
       email: "novo@igreja.org",
       role: "editor"
     });
+    await waitFor(() => {
+      expect(screen.getByText("Convite enviado.")).toBeInTheDocument();
+    });
   });
 
-  it("renders inline error when invite fails", async () => {
+  it("shows a danger toast when invite fails", async () => {
     mocks.inviteAdmin.mockRejectedValueOnce(new Error("Email ja cadastrado"));
     renderView();
 
@@ -128,6 +134,9 @@ describe("TeamView", () => {
 
     await waitFor(() => {
       expect(mocks.removeAdmin).toHaveBeenCalledWith("u1");
+    });
+    await waitFor(() => {
+      expect(screen.getByText("Acesso de remover@igreja.org removido.")).toBeInTheDocument();
     });
     confirmSpy.mockRestore();
   });
