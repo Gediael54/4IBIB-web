@@ -374,12 +374,17 @@ it("converts date-time input values", () => {
   expect(formatInputDateTime(iso)).toMatch(/^2030-01-01T/);
 });
 
-it("builds whatsapp links with encoded messages", () => {
+it("preserves Brazil country code already present on whatsapp links", () => {
   expect(buildWhatsAppUrl("559599999999", "Ola igreja")).toBe("https://wa.me/559599999999?text=Ola%20igreja");
 });
 
-it("strips non-digits when building whatsapp from contact", () => {
-  expect(buildWhatsAppForContact("(81) 98122-0651", "msg")).toBe("https://wa.me/81981220651?text=msg");
+it("prefixes Brazilian country code when missing on whatsapp links", () => {
+  expect(buildWhatsAppUrl("81993260372", "Ola")).toBe("https://wa.me/5581993260372?text=Ola");
+  expect(buildWhatsAppUrl("+55 81 98122-0651", "x")).toBe("https://wa.me/5581981220651?text=x");
+});
+
+it("strips non-digits and forces Brazil country code from contact", () => {
+  expect(buildWhatsAppForContact("(81) 98122-0651", "msg")).toBe("https://wa.me/5581981220651?text=msg");
 });
 
 it("returns null when contact has fewer than 10 digits", () => {
