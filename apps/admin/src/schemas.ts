@@ -134,6 +134,93 @@ export const recurringMeetingSchema = z
 
 export type RecurringMeetingFormValues = z.infer<typeof recurringMeetingSchema>;
 
+const optionalDate = z
+  .string()
+  .max(40)
+  .refine((value) => value === "" || Number.isFinite(new Date(value).getTime()), "Data invalida.");
+
+export const memberSchema = z.object({
+  id: z.string().optional(),
+  fullName: requiredText(TEXT_MAX, "Nome completo"),
+  preferredName: z.string().max(TEXT_MAX),
+  birthDate: optionalDate,
+  maritalStatus: z.enum(["solteiro", "casado", "viuvo", "divorciado", "uniao_estavel", ""]),
+  gender: z.enum(["masculino", "feminino", "outro", ""]),
+  photoUrl: optionalHttpUrl,
+  cpf: z
+    .string()
+    .max(14)
+    .refine(
+      (value) => value === "" || /^\d{11}$/u.test(value.replace(/\D+/g, "")),
+      "CPF deve ter 11 digitos."
+    ),
+  rg: z.string().max(TEXT_MAX),
+  rgIssuer: z.string().max(TEXT_MAX),
+  email: z
+    .string()
+    .max(TEXT_MAX)
+    .refine((value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value), "Email invalido."),
+  phone: z.string().max(TEXT_MAX),
+  whatsapp: z.string().max(TEXT_MAX),
+  addressZip: z.string().max(20),
+  addressStreet: z.string().max(TEXT_MAX),
+  addressNumber: z.string().max(20),
+  addressComplement: z.string().max(TEXT_MAX),
+  addressNeighborhood: z.string().max(TEXT_MAX),
+  addressCity: z.string().max(TEXT_MAX),
+  addressState: z.string().max(2),
+  householdId: z.string().nullable(),
+  churchRole: z.enum([
+    "membro_comum",
+    "presbitero",
+    "diacono",
+    "conselho_fiscal",
+    "tesoureiro",
+    "secretario",
+    "pastor",
+    "pastor_auxiliar"
+  ]),
+  membershipStatus: z.enum(["ativo", "inativo", "transferido", "falecido"]),
+  joinedAt: optionalDate,
+  baptismDate: optionalDate,
+  baptismLocation: z.string().max(TEXT_MAX),
+  transferredFrom: z.string().max(TEXT_MAX),
+  notes: z.string().max(TEXTAREA_MAX),
+  isVolunteer: z.boolean(),
+  volunteerMinistries: z.array(z.string().trim().max(TEXT_MAX)),
+  volunteerUnavailableDates: z.array(z.string()),
+  volunteerNotes: z.string().max(TEXTAREA_MAX),
+  profession: z.string().max(TEXT_MAX),
+  emergencyContactName: z.string().max(TEXT_MAX),
+  emergencyContactPhone: z.string().max(TEXT_MAX),
+  prayerTopics: z.array(z.string().trim().max(TEXT_MAX)),
+  spiritualGifts: z.array(z.string().trim().max(TEXT_MAX)),
+  allergies: z.string().max(TEXTAREA_MAX),
+  medicalNotes: z.string().max(TEXTAREA_MAX),
+  consentMedicalDataChecked: z.boolean(),
+  consentVersion: z.string().max(40),
+  publicDirectory: z.boolean(),
+  dataRetentionUntil: optionalDate
+});
+
+export type MemberFormValues = z.infer<typeof memberSchema>;
+
+export const householdSchema = z.object({
+  id: z.string().optional(),
+  name: requiredText(TEXT_MAX, "Nome"),
+  headMemberId: z.string().nullable(),
+  addressZip: z.string().max(20),
+  addressStreet: z.string().max(TEXT_MAX),
+  addressNumber: z.string().max(20),
+  addressComplement: z.string().max(TEXT_MAX),
+  addressNeighborhood: z.string().max(TEXT_MAX),
+  addressCity: z.string().max(TEXT_MAX),
+  addressState: z.string().max(2),
+  notes: z.string().max(TEXTAREA_MAX)
+});
+
+export type HouseholdFormValues = z.infer<typeof householdSchema>;
+
 export const inviteAdminSchema = z.object({
   email: z
     .string()
