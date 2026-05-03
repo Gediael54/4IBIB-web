@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { EmptyState } from "../components/EmptyState";
 import { ListView } from "../components/ListView";
+import { useToast } from "../components/Toast";
 import { Field, FormActions, ListToolbar, Pagination, TextAreaField } from "../components/ui";
 import { useDeleteMinistry, useSaveMinistry } from "../hooks";
 import { ministrySchema, type MinistryFormValues } from "../schemas";
@@ -53,6 +54,7 @@ export default function MinistriesView({ snapshot, state, onStateChange }: Minis
   const [editingId, setEditingId] = useState<string | null>(null);
   const saveMutation = useSaveMinistry();
   const deleteMutation = useDeleteMinistry();
+  const { toast } = useToast();
 
   const nextSortOrder = useMemo(() => {
     if (snapshot.ministries.length === 0) {
@@ -104,26 +106,38 @@ export default function MinistriesView({ snapshot, state, onStateChange }: Minis
   }
 
   async function onSubmit(values: MinistryFormValues) {
-    await saveMutation.mutateAsync({
-      id: editingId ?? undefined,
-      slug: values.slug,
-      name: values.name,
-      summary: values.summary,
-      meetingTime: values.meetingTime,
-      contact: values.contact,
-      color: values.color,
-      sortOrder: values.sortOrder
-    });
-    cancelEdit();
+    try {
+      await saveMutation.mutateAsync({
+        id: editingId ?? undefined,
+        slug: values.slug,
+        name: values.name,
+        summary: values.summary,
+        meetingTime: values.meetingTime,
+        contact: values.contact,
+        color: values.color,
+        sortOrder: values.sortOrder
+      });
+      toast(editingId ? "Ministerio atualizado." : "Ministerio criado.", { variant: "success" });
+      cancelEdit();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
   }
 
   async function handleDelete(item: MinistryRecord) {
     if (!window.confirm(`Excluir o ministerio "${item.name}"?`)) {
       return;
     }
-    await deleteMutation.mutateAsync(item.id);
-    if (editingId === item.id) {
-      cancelEdit();
+    try {
+      await deleteMutation.mutateAsync(item.id);
+      toast(`Ministerio "${item.name}" removido.`, { variant: "success" });
+      if (editingId === item.id) {
+        cancelEdit();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui excluir — tenta de novo?";
+      toast(message, { variant: "danger" });
     }
   }
 
@@ -184,8 +198,8 @@ export default function MinistriesView({ snapshot, state, onStateChange }: Minis
         emptyState={
           <EmptyState
             icon={<LayoutGrid size={32} />}
-            title="Nenhum ministerio encontrado."
-            description="Cadastre um ministerio no formulario ao lado."
+            title="Sem ministerios ainda."
+            description="Crie o primeiro pra organizar voluntarios e horarios."
           />
         }
         footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
@@ -284,11 +298,6 @@ export default function MinistriesView({ snapshot, state, onStateChange }: Minis
               {...register("sortOrder", { valueAsNumber: true })}
             />
           </div>
-          {saveMutation.error && (
-            <p className="form-error">
-              {saveMutation.error instanceof Error ? saveMutation.error.message : "Falha ao salvar."}
-            </p>
-          )}
           <FormActions saving={saving} onCancel={cancelEdit} />
         </form>
       </div>
