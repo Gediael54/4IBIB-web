@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { EmptyState } from "../components/EmptyState";
 import { FieldGroup } from "../components/FieldGroup";
+import { useToast } from "../components/Toast";
 import { Field, FormActions, SelectField, TextAreaField } from "../components/ui";
 import { useDeleteRecurringMeeting, useSaveProfile, useSaveRecurringMeeting } from "../hooks";
 import {
@@ -99,6 +100,7 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
   const profileSaveMutation = useSaveProfile();
   const recurringSaveMutation = useSaveRecurringMeeting();
   const recurringDeleteMutation = useDeleteRecurringMeeting();
+  const { toast } = useToast();
 
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
 
@@ -120,22 +122,28 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
   const profileKey = snapshot.profile?.id ?? "new-profile";
 
   async function onProfileSubmit(values: ProfileFormValues) {
-    await profileSaveMutation.mutateAsync({
-      id: "main",
-      name: values.name,
-      shortName: values.shortName,
-      tagline: values.tagline,
-      city: values.city,
-      pastorName: values.pastorName,
-      address: values.address,
-      email: values.email,
-      whatsapp: values.whatsapp,
-      instagramUrl: values.instagramUrl,
-      youtubeUrl: values.youtubeUrl,
-      mapsUrl: values.mapsUrl,
-      heroVerse: values.heroVerse,
-      mission: values.mission
-    });
+    try {
+      await profileSaveMutation.mutateAsync({
+        id: "main",
+        name: values.name,
+        shortName: values.shortName,
+        tagline: values.tagline,
+        city: values.city,
+        pastorName: values.pastorName,
+        address: values.address,
+        email: values.email,
+        whatsapp: values.whatsapp,
+        instagramUrl: values.instagramUrl,
+        youtubeUrl: values.youtubeUrl,
+        mapsUrl: values.mapsUrl,
+        heroVerse: values.heroVerse,
+        mission: values.mission
+      });
+      toast("Perfil atualizado.", { variant: "success" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
   }
 
   function resetProfile() {
@@ -153,25 +161,37 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
   }
 
   async function onRecurringSubmit(values: RecurringMeetingFormValues) {
-    await recurringSaveMutation.mutateAsync({
-      id: editingMeetingId ?? undefined,
-      title: values.title,
-      weekday: values.weekday,
-      startsAt: values.startsAt,
-      endsAt: values.endsAt,
-      description: values.description,
-      sortOrder: values.sortOrder
-    });
-    cancelEditMeeting();
+    try {
+      await recurringSaveMutation.mutateAsync({
+        id: editingMeetingId ?? undefined,
+        title: values.title,
+        weekday: values.weekday,
+        startsAt: values.startsAt,
+        endsAt: values.endsAt,
+        description: values.description,
+        sortOrder: values.sortOrder
+      });
+      toast(editingMeetingId ? "Encontro atualizado." : "Encontro cadastrado.", { variant: "success" });
+      cancelEditMeeting();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
   }
 
   async function handleDeleteMeeting(item: RecurringMeetingRecord) {
     if (!window.confirm(`Excluir encontro "${item.title}"?`)) {
       return;
     }
-    await recurringDeleteMutation.mutateAsync(item.id);
-    if (editingMeetingId === item.id) {
-      cancelEditMeeting();
+    try {
+      await recurringDeleteMutation.mutateAsync(item.id);
+      toast(`Encontro "${item.title}" removido.`, { variant: "success" });
+      if (editingMeetingId === item.id) {
+        cancelEditMeeting();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui excluir — tenta de novo?";
+      toast(message, { variant: "danger" });
     }
   }
 
@@ -319,13 +339,6 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
               { id: "conteudo", label: "Conteudo", content: conteudoPanel }
             ]}
           />
-          {profileSaveMutation.error && (
-            <p className="form-error">
-              {profileSaveMutation.error instanceof Error
-                ? profileSaveMutation.error.message
-                : "Falha ao salvar."}
-            </p>
-          )}
           <FormActions saving={profileSaving} onCancel={resetProfile} />
         </form>
       </div>
@@ -342,8 +355,8 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
           {sortedMeetings.length === 0 ? (
             <EmptyState
               icon={<CalendarClock size={32} />}
-              title="Nenhum encontro regular cadastrado."
-              description="Use o formulario ao lado para registrar encontros semanais."
+              title="Sem encontros fixos cadastrados."
+              description="Cadastre culto, escola biblica ou estudo da semana ao lado pra aparecer no site."
             />
           ) : (
             sortedMeetings.map((item) => (
@@ -426,13 +439,6 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
               error={recurringForm.formState.errors.description?.message}
               {...recurringForm.register("description")}
             />
-            {recurringSaveMutation.error && (
-              <p className="form-error">
-                {recurringSaveMutation.error instanceof Error
-                  ? recurringSaveMutation.error.message
-                  : "Falha ao salvar."}
-              </p>
-            )}
             <FormActions saving={recurringSaving} onCancel={cancelEditMeeting} />
           </form>
         </div>
