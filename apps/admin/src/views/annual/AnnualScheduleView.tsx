@@ -1,5 +1,6 @@
 import { type SiteSnapshot } from "@4ibib/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useToast } from "../../components/Toast";
 import { SelectField } from "../../components/ui";
 import { AnnualAutoDistribute } from "./AnnualAutoDistribute";
 import { AnnualGenerator } from "./AnnualGenerator";
@@ -29,8 +30,24 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
     handleSave
   } = useAnnualSchedule(snapshot);
   const [autoOpen, setAutoOpen] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (saveError) {
+      toast(saveError, { variant: "danger" });
+    }
+  }, [saveError, toast]);
 
   const volunteers = snapshot.volunteers ?? [];
+
+  async function onSaveClick() {
+    const success = await handleSave();
+    if (success) {
+      toast(`${pendingCount} ${pendingCount === 1 ? "mudanca salva" : "mudancas salvas"}.`, {
+        variant: "success"
+      });
+    }
+  }
 
   return (
     <section>
@@ -71,7 +88,7 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
         <button
           type="button"
           className="button primary"
-          onClick={handleSave}
+          onClick={onSaveClick}
           disabled={pendingCount === 0 || isSaving}
         >
           {pendingCount === 0
@@ -84,8 +101,6 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
           </button>
         )}
       </div>
-
-      {saveError && <p className="form-error">{saveError}</p>}
 
       <AnnualAutoDistribute
         open={autoOpen}
