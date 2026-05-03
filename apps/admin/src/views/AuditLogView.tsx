@@ -119,7 +119,7 @@ export default function AuditLogView({ state, onStateChange }: AuditLogViewProps
   async function handleRevert(entry: AuditLogEntry) {
     try {
       await revertMutation.mutateAsync(entry.id);
-      toast("Mudanca revertida.", { variant: "success" });
+      toast("Mudanca revertida. O registro voltou ao estado anterior.", { variant: "success" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nao consegui reverter — tenta de novo?";
       toast(message, { variant: "danger" });
