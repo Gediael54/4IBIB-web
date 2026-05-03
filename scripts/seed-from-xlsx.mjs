@@ -160,20 +160,18 @@ for (const item of items) {
 }
 
 const allNames = new Set([...preacherDirectorNames, ...soundNames]);
-const volunteers = [...allNames]
+const seedMembers = [...allNames]
   .map((name) => ({
     id: deterministicUuid("volunteer", name),
     name,
-    role: preacherDirectorNames.has(name) ? "geral" : "som",
-    sortOrder: 0
+    ministry: preacherDirectorNames.has(name) ? "geral" : "som"
   }))
   .sort((left, right) => {
     const [lt, ln] = sortKey(left.name);
     const [rt, rn] = sortKey(right.name);
     if (lt !== rt) return lt - rt;
     return ln.localeCompare(rn, "pt-BR");
-  })
-  .map((volunteer, index) => ({ ...volunteer, sortOrder: (index + 1) * 10 }));
+  });
 
 function quote(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
@@ -200,17 +198,31 @@ const scheduleValueRows = items
   })
   .join(",\n");
 
-const volunteerValueRows = volunteers
-  .map((volunteer) => {
+const memberValueRows = seedMembers
+  .map((member, index) => {
     const cells = [
-      `${quote(volunteer.id)}::uuid`,
-      quote(volunteer.name),
-      quote(volunteer.role),
-      String(volunteer.sortOrder)
+      index === 0 ? `${quote(member.id)}::uuid` : quote(member.id),
+      quote(member.name),
+      quote(member.ministry)
     ].join(", ");
     return `    (${cells})`;
   })
   .join(",\n");
+
+const membersSeed = `with member_seed (id, full_name, ministry) as (
+  values
+${memberValueRows}
+)
+insert into public.members as m (id, full_name, is_volunteer, volunteer_ministries)
+select ms.id, ms.full_name, true, array[ms.ministry]
+from member_seed ms
+on conflict (id) do update set
+  full_name = excluded.full_name,
+  is_volunteer = true,
+  volunteer_ministries = excluded.volunteer_ministries
+where m.full_name is distinct from excluded.full_name
+   or m.is_volunteer is distinct from true
+   or m.volunteer_ministries is distinct from excluded.volunteer_ministries;`;
 
 const scheduleSeed = `with schedule_seed (
   id, title, ministry, starts_at, ends_at, location, summary,
@@ -221,7 +233,8 @@ ${scheduleValueRows}
 )
 insert into public.schedule_items as si
   (id, title, ministry, starts_at, ends_at, location, summary,
-   preacher, director, sound_team, passage, occasion_label, status, featured)
+   preacher, director, sound_team, passage, occasion_label, status, featured,
+   preacher_member_id, director_member_id, sound_member_id)
 select
   ss.id,
   ss.title,
@@ -236,7 +249,10 @@ select
   ss.passage,
   ss.occasion_label,
   ss.status,
-  false
+  false,
+  (select id from public.members where full_name = ss.preacher and is_volunteer = true and deleted_at is null limit 1),
+  (select id from public.members where full_name = ss.director and is_volunteer = true and deleted_at is null limit 1),
+  (select id from public.members where full_name = ss.sound_team and is_volunteer = true and deleted_at is null limit 1)
 from schedule_seed ss
 on conflict (starts_at, title) do update set
   ministry = excluded.ministry,
@@ -248,7 +264,10 @@ on conflict (starts_at, title) do update set
   sound_team = excluded.sound_team,
   passage = excluded.passage,
   occasion_label = excluded.occasion_label,
-  status = excluded.status
+  status = excluded.status,
+  preacher_member_id = excluded.preacher_member_id,
+  director_member_id = excluded.director_member_id,
+  sound_member_id = excluded.sound_member_id
 where si.ministry is distinct from excluded.ministry
    or si.ends_at is distinct from excluded.ends_at
    or si.location is distinct from excluded.location
@@ -258,22 +277,12 @@ where si.ministry is distinct from excluded.ministry
    or si.sound_team is distinct from excluded.sound_team
    or si.passage is distinct from excluded.passage
    or si.occasion_label is distinct from excluded.occasion_label
-   or si.status is distinct from excluded.status;`;
+   or si.status is distinct from excluded.status
+   or si.preacher_member_id is distinct from excluded.preacher_member_id
+   or si.director_member_id is distinct from excluded.director_member_id
+   or si.sound_member_id is distinct from excluded.sound_member_id;`;
 
-const volunteersSeed = `with volunteer_seed (id, name, role, sort_order) as (
-  values
-${volunteerValueRows}
-)
-insert into public.volunteers as v (id, name, role, sort_order)
-select vs.id, vs.name, vs.role, vs.sort_order
-from volunteer_seed vs
-on conflict ((lower(name))) do update set
-  role = excluded.role,
-  sort_order = excluded.sort_order
-where v.role is distinct from excluded.role
-   or v.sort_order is distinct from excluded.sort_order;`;
-
-const seed = `${scheduleSeed}\n\n${volunteersSeed}`;
+const seed = `${membersSeed}\n\n${scheduleSeed}`;
 const block = [BEGIN_MARKER, seed, END_MARKER].join("\n");
 
 const schema = await readFile(SCHEMA_PATH, "utf8");
@@ -287,5 +296,5 @@ if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
 const next = schema.slice(0, startIdx) + block + schema.slice(endIdx + END_MARKER.length);
 await writeFile(SCHEMA_PATH, next);
 console.log(
-  `Updated SEED block in ${SCHEMA_PATH}: ${items.length} schedule items, ${volunteers.length} volunteers`
+  `Updated SEED block in ${SCHEMA_PATH}: ${seedMembers.length} members, ${items.length} schedule items`
 );
