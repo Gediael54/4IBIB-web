@@ -8,6 +8,7 @@ import type {
   Volunteer
 } from "@4ibib/core";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { CommandPalette } from "./CommandPalette";
 
@@ -132,7 +133,7 @@ describe("CommandPalette", () => {
       <CommandPalette snapshot={snapshot()} prayers={[]} open onOpenChange={vi.fn()} onNavigate={vi.fn()} />
     );
     expect(screen.getByRole("dialog", { name: "Busca rapida" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Buscar" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Buscar" })).toBeInTheDocument();
   });
 
   it("filters results by search query", () => {
@@ -151,7 +152,7 @@ describe("CommandPalette", () => {
       />
     );
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Buscar" }), {
+    fireEvent.change(screen.getByRole("combobox", { name: "Buscar" }), {
       target: { value: "aniversario" }
     });
 
@@ -164,7 +165,7 @@ describe("CommandPalette", () => {
       <CommandPalette snapshot={snapshot()} prayers={[]} open onOpenChange={vi.fn()} onNavigate={vi.fn()} />
     );
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Buscar" }), {
+    fireEvent.change(screen.getByRole("combobox", { name: "Buscar" }), {
       target: { value: "zzzz-nada" }
     });
 
@@ -251,10 +252,92 @@ describe("CommandPalette", () => {
       />
     );
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Buscar" }), {
+    fireEvent.change(screen.getByRole("combobox", { name: "Buscar" }), {
       target: { value: "maria" }
     });
 
     expect(screen.getByText("Maria oracao")).toBeInTheDocument();
+  });
+
+  it("focuses the input when opened", async () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <CommandPalette snapshot={snapshot()} prayers={[]} open onOpenChange={vi.fn()} onNavigate={vi.fn()} />
+      );
+      vi.runAllTimers();
+      const input = screen.getByRole("combobox", { name: "Buscar" });
+      expect(document.activeElement).toBe(input);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restores focus to the previously focused trigger when closed", async () => {
+    vi.useFakeTimers();
+    try {
+      function Harness() {
+        const [open, setOpen] = useState(false);
+        return (
+          <>
+            <button type="button" data-testid="trigger" onClick={() => setOpen(true)}>
+              abrir
+            </button>
+            <CommandPalette
+              snapshot={snapshot()}
+              prayers={[]}
+              open={open}
+              onOpenChange={setOpen}
+              onNavigate={vi.fn()}
+            />
+          </>
+        );
+      }
+      render(<Harness />);
+      const trigger = screen.getByTestId("trigger");
+      trigger.focus();
+      expect(document.activeElement).toBe(trigger);
+      fireEvent.click(trigger);
+      vi.runAllTimers();
+      expect(document.activeElement).not.toBe(trigger);
+      const backdrop = document.querySelector(".command-palette-backdrop") as HTMLElement;
+      fireEvent.click(backdrop);
+      vi.runAllTimers();
+      expect(document.activeElement).toBe(trigger);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("sets aria-activedescendant on the input matching the active option", () => {
+    render(
+      <CommandPalette
+        snapshot={snapshot({
+          announcements: [makeAnnouncement({ title: "Aviso 1" })]
+        })}
+        prayers={[]}
+        open
+        onOpenChange={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    );
+    const input = screen.getByRole("combobox", { name: "Buscar" });
+    const activeId = input.getAttribute("aria-activedescendant");
+    expect(activeId).toBeTruthy();
+    const option = document.getElementById(activeId!);
+    expect(option).not.toBeNull();
+    expect(option).toHaveAttribute("role", "option");
+    expect(option).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("clears aria-activedescendant when no results match", () => {
+    render(
+      <CommandPalette snapshot={snapshot()} prayers={[]} open onOpenChange={vi.fn()} onNavigate={vi.fn()} />
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "Buscar" }), {
+      target: { value: "zzz-nada-mesmo" }
+    });
+    const input = screen.getByRole("combobox", { name: "Buscar" });
+    expect(input.getAttribute("aria-activedescendant")).toBeNull();
   });
 });
