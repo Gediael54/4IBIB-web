@@ -23,6 +23,26 @@
 begin;
 
 
+-- Preserve any admin currently registered before the destructive reset below.
+-- Stored as text so it survives the recreation of `public.admin_role`.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'admin_users'
+  ) then
+    execute 'create temp table _admin_users_backup as
+             select user_id, role::text as role_text, created_at from public.admin_users';
+  else
+    create temp table _admin_users_backup (
+      user_id uuid,
+      role_text text,
+      created_at timestamptz
+    );
+  end if;
+end $$;
+
+
 -- =============================================================================
 -- 1. Reset
 -- =============================================================================
@@ -116,6 +136,14 @@ create table public.admin_users (
   role public.admin_role not null,
   created_at timestamptz not null default now()
 );
+
+insert into public.admin_users (user_id, role, created_at)
+select b.user_id, b.role_text::public.admin_role, b.created_at
+from _admin_users_backup b
+where exists (select 1 from auth.users u where u.id = b.user_id)
+on conflict (user_id) do nothing;
+
+drop table if exists _admin_users_backup;
 
 create table public.announcements (
   id uuid primary key default gen_random_uuid(),
