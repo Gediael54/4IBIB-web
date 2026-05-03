@@ -123,6 +123,7 @@ export function CommandPalette({ snapshot, prayers, open, onOpenChange, onNaviga
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const results = useMemo(() => {
     const normalized = normalize(query);
@@ -164,8 +165,13 @@ export function CommandPalette({ snapshot, prayers, open, onOpenChange, onNaviga
 
   useEffect(() => {
     if (!open) return undefined;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const id = window.setTimeout(() => inputRef.current?.focus(), 0);
-    return () => window.clearTimeout(id);
+    return () => {
+      window.clearTimeout(id);
+      const previous = previousFocusRef.current;
+      if (previous && typeof previous.focus === "function") previous.focus();
+    };
   }, [open]);
 
   useEffect(() => {
@@ -224,8 +230,14 @@ export function CommandPalette({ snapshot, prayers, open, onOpenChange, onNaviga
             setActive(0);
           }}
           aria-label="Buscar"
+          role="combobox"
+          aria-expanded={results.length > 0}
+          aria-controls="command-palette-list"
+          aria-activedescendant={
+            results.length > 0 && results[active] ? `command-palette-option-${active}` : undefined
+          }
         />
-        <ul className="command-palette-list" ref={listRef} role="listbox">
+        <ul id="command-palette-list" className="command-palette-list" ref={listRef} role="listbox">
           {results.length === 0 && (
             <li className="command-palette-item" aria-disabled="true">
               <span className="command-palette-item-title">Nenhum resultado</span>
@@ -234,6 +246,7 @@ export function CommandPalette({ snapshot, prayers, open, onOpenChange, onNaviga
           {results.map((item, index) => (
             <li
               key={item.key}
+              id={`command-palette-option-${index}`}
               data-index={index}
               role="option"
               aria-selected={index === active}
