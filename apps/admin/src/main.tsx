@@ -20,6 +20,7 @@ import { createRoot } from "react-dom/client";
 import { CommandPalette } from "./components/CommandPalette";
 import { ErrorBoundary, ViewBoundary } from "./components/ErrorBoundary";
 import { MobileTopbar } from "./components/MobileTopbar";
+import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { ToastProvider } from "./components/Toast";
 import { backend, usePrayers, useSnapshot } from "./hooks";
@@ -92,6 +93,7 @@ export function App() {
   const [volunteerRoleFilter, setVolunteerRoleFilter] = useState<VolunteerRoleFilter>("all");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   function navigateTo(next: AdminView) {
     setView(next);
@@ -107,10 +109,18 @@ export function App() {
       if (event.key === "Escape" && paletteOpen) {
         setPaletteOpen(false);
       }
+      if (event.key === "?" && event.shiftKey && !paletteOpen && !helpOpen) {
+        const target = event.target as HTMLElement | null;
+        const tag = target?.tagName;
+        const editable = target?.isContentEditable;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || editable) return;
+        event.preventDefault();
+        setHelpOpen(true);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [paletteOpen]);
+  }, [paletteOpen, helpOpen]);
 
   useEffect(() => {
     return backend.auth.subscribe((nextSession) => {
@@ -226,6 +236,9 @@ export function App() {
 
   return (
     <ErrorBoundary>
+      <a className="skip-link" href="#workspace-main">
+        Pular para o conteudo
+      </a>
       <main className={`admin-shell${drawerOpen ? " drawer-open" : ""}`}>
         <MobileTopbar
           title={VIEW_TITLES[view]}
@@ -331,7 +344,7 @@ export function App() {
           </div>
         </aside>
 
-        <section className="workspace">
+        <section id="workspace-main" className="workspace" tabIndex={-1}>
           <div className="workspace-toolbar">
             <button
               type="button"
@@ -423,6 +436,7 @@ export function App() {
             setPaletteOpen(false);
           }}
         />
+        <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       </main>
     </ErrorBoundary>
   );
