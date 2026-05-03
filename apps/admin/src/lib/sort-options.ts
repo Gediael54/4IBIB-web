@@ -45,3 +45,15 @@ export const TEAM_SORT_OPTIONS = [
   { value: "emailAsc", label: "Email A-Z" },
   { value: "createdDesc", label: "Mais recentes" }
 ] as const;
+
+export const MEMBER_SORT_OPTIONS = [
+  { value: "nameAsc", label: "Nome A-Z" },
+  { value: "nameDesc", label: "Nome Z-A" },
+  { value: "joinedDesc", label: "Mais recentes" },
+  { value: "roleAsc", label: "Funcao A-Z" }
+] as const;
+
+export const HOUSEHOLD_SORT_OPTIONS = [
+  { value: "nameAsc", label: "Nome A-Z" },
+  { value: "nameDesc", label: "Nome Z-A" }
+] as const;
