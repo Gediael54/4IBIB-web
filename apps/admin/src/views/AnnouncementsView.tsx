@@ -12,6 +12,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { EmptyState } from "../components/EmptyState";
 import { FieldGroup } from "../components/FieldGroup";
 import { ListView } from "../components/ListView";
+import { useToast } from "../components/Toast";
 import { Field, FormActions, ListToolbar, Pagination, SelectField, TextAreaField } from "../components/ui";
 import { useDeleteAnnouncement, useSaveAnnouncement } from "../hooks";
 import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
@@ -81,6 +82,7 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const saveMutation = useSaveAnnouncement();
   const deleteMutation = useDeleteAnnouncement();
+  const { toast } = useToast();
 
   const {
     register,
@@ -139,29 +141,41 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
   }
 
   async function onSubmit(values: AnnouncementFormValues) {
-    await saveMutation.mutateAsync({
-      id: editingId ?? undefined,
-      title: values.title,
-      summary: values.summary,
-      category: values.category,
-      publishedAt: inputDateTimeToIso(values.publishedAt),
-      pinned: values.pinned,
-      ctaLabel: values.ctaLabel,
-      ctaUrl: values.ctaUrl,
-      status: values.status,
-      expiresAt: values.expiresAt ? inputDateTimeToIso(values.expiresAt) : null,
-      imageUrl: values.imageUrl
-    });
-    cancelEdit();
+    try {
+      await saveMutation.mutateAsync({
+        id: editingId ?? undefined,
+        title: values.title,
+        summary: values.summary,
+        category: values.category,
+        publishedAt: inputDateTimeToIso(values.publishedAt),
+        pinned: values.pinned,
+        ctaLabel: values.ctaLabel,
+        ctaUrl: values.ctaUrl,
+        status: values.status,
+        expiresAt: values.expiresAt ? inputDateTimeToIso(values.expiresAt) : null,
+        imageUrl: values.imageUrl
+      });
+      toast(editingId ? "Aviso atualizado." : "Aviso publicado.", { variant: "success" });
+      cancelEdit();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
   }
 
   async function handleDelete(item: Announcement) {
     if (!window.confirm(`Excluir o aviso "${item.title}"?`)) {
       return;
     }
-    await deleteMutation.mutateAsync(item.id);
-    if (editingId === item.id) {
-      cancelEdit();
+    try {
+      await deleteMutation.mutateAsync(item.id);
+      toast(`Aviso "${item.title}" removido.`, { variant: "success" });
+      if (editingId === item.id) {
+        cancelEdit();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui excluir — tenta de novo?";
+      toast(message, { variant: "danger" });
     }
   }
 
@@ -302,8 +316,8 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
         emptyState={
           <EmptyState
             icon={<Megaphone size={32} />}
-            title="Nenhum aviso encontrado."
-            description="Cadastre um aviso no formulario ao lado para divulgar."
+            title="Sem avisos por aqui."
+            description="Crie o primeiro pra anunciar evento, oracao ou recado da semana."
           />
         }
         footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
@@ -351,11 +365,6 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
                 { id: "imagem", label: "Imagem", content: imagemPanel }
               ]}
             />
-            {saveMutation.error && (
-              <p className="form-error">
-                {saveMutation.error instanceof Error ? saveMutation.error.message : "Falha ao salvar."}
-              </p>
-            )}
             <FormActions saving={saving} onCancel={cancelEdit} />
           </form>
           <aside className="announcement-preview" aria-label="Pre-visualizacao do aviso">
