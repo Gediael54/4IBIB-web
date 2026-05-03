@@ -131,4 +131,18 @@ describe("ListView", () => {
     expect(screen.getByText("Novo")).toBeInTheDocument();
     expect(screen.getByText("rodape")).toBeInTheDocument();
   });
+
+  it("marks the container aria-busy while loading", () => {
+    const { container } = render(<ListView title="x" items={[]} loading renderItem={() => null} />);
+    const section = container.querySelector("section.listview");
+    expect(section).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("does not set aria-busy when not loading", () => {
+    const { container } = render(
+      <ListView title="x" items={items} renderItem={(item) => <span>{item.label}</span>} />
+    );
+    const section = container.querySelector("section.listview");
+    expect(section).not.toHaveAttribute("aria-busy");
+  });
 });
