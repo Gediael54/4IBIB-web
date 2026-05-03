@@ -17,6 +17,7 @@ vi.mock("../backend", () => ({
   }
 }));
 
+import { ToastProvider } from "../components/Toast";
 import AnnualScheduleView from "./AnnualScheduleView";
 
 beforeAll(() => {
@@ -64,7 +65,9 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <AnnualScheduleView snapshot={snapshot} />
+      <ToastProvider>
+        <AnnualScheduleView snapshot={snapshot} />
+      </ToastProvider>
     </QueryClientProvider>
   );
 }
