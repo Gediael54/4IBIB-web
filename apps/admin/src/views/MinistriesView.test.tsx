@@ -19,6 +19,7 @@ vi.mock("../backend", () => ({
   }
 }));
 
+import { ToastProvider } from "../components/Toast";
 import MinistriesView from "./MinistriesView";
 
 function makeMinistry(overrides: Partial<MinistryRecord> = {}): MinistryRecord {
@@ -53,11 +54,13 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   const onStateChange = vi.fn();
   const utils = render(
     <QueryClientProvider client={queryClient}>
-      <MinistriesView
-        snapshot={snapshot}
-        state={{ search: "", sort: "orderAsc", page: 1 }}
-        onStateChange={onStateChange}
-      />
+      <ToastProvider>
+        <MinistriesView
+          snapshot={snapshot}
+          state={{ search: "", sort: "orderAsc", page: 1 }}
+          onStateChange={onStateChange}
+        />
+      </ToastProvider>
     </QueryClientProvider>
   );
   return { ...utils, onStateChange };
@@ -72,7 +75,7 @@ describe("MinistriesView", () => {
 
   it("renders empty state when there are no ministries", () => {
     renderView();
-    expect(screen.getByText("Nenhum ministerio encontrado.")).toBeInTheDocument();
+    expect(screen.getByText("Sem ministerios ainda.")).toBeInTheDocument();
   });
 
   it("renders ministry rows from the snapshot", () => {
@@ -106,6 +109,25 @@ describe("MinistriesView", () => {
       name: "Juventude",
       color: "#0f766e"
     });
+    await waitFor(() => {
+      expect(screen.getByText("Ministerio criado.")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a danger toast when saving fails", async () => {
+    mocks.saveMinistry.mockRejectedValueOnce(new Error("Slug duplicado"));
+    renderView();
+
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Repetido" } });
+    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "repetido" } });
+
+    const form = screen.getByRole("button", { name: /salvar/i }).closest("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(screen.getByText("Slug duplicado")).toBeInTheDocument();
+    });
   });
 
   it("starts editing when 'Editar' is clicked", () => {
@@ -125,6 +147,9 @@ describe("MinistriesView", () => {
 
     await waitFor(() => {
       expect(mocks.deleteMinistry).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Ministerio "Diaconia" removido.')).toBeInTheDocument();
     });
     confirmSpy.mockRestore();
   });
