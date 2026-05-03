@@ -113,4 +113,102 @@ describe("Toast", () => {
     const region = screen.getByRole("region", { name: "Notificacoes" });
     expect(region).toHaveAttribute("aria-live", "polite");
   });
+
+  it("undo() shows toast with Desfazer action and triggers onUndo", () => {
+    function UndoTrigger({ onUndo }: { onUndo: () => void }) {
+      const { toast } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() => toast.undo({ message: "Aviso arquivado.", onUndo, duration: 5000 })}
+        >
+          archive
+        </button>
+      );
+    }
+    const onUndo = vi.fn();
+    render(
+      <ToastProvider>
+        <UndoTrigger onUndo={onUndo} />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByText("archive"));
+    expect(screen.getByText("Aviso arquivado.")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Desfazer"));
+    expect(onUndo).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Aviso arquivado.")).not.toBeInTheDocument();
+  });
+
+  it("undo() calls onTimeout when duration expires without undoing", () => {
+    function UndoTrigger({ onTimeout }: { onTimeout: () => void }) {
+      const { toast } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() => toast.undo({ message: "Vai sumir.", onUndo: () => {}, duration: 1000, onTimeout })}
+        >
+          fire
+        </button>
+      );
+    }
+    const onTimeout = vi.fn();
+    render(
+      <ToastProvider>
+        <UndoTrigger onTimeout={onTimeout} />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByText("fire"));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it("undo() does NOT call onTimeout when user clicked Desfazer first", () => {
+    function UndoTrigger({ onTimeout, onUndo }: { onTimeout: () => void; onUndo: () => void }) {
+      const { toast } = useToast();
+      return (
+        <button type="button" onClick={() => toast.undo({ message: "x", onUndo, duration: 1000, onTimeout })}>
+          fire
+        </button>
+      );
+    }
+    const onTimeout = vi.fn();
+    const onUndo = vi.fn();
+    render(
+      <ToastProvider>
+        <UndoTrigger onTimeout={onTimeout} onUndo={onUndo} />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByText("fire"));
+    fireEvent.click(screen.getByText("Desfazer"));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(onUndo).toHaveBeenCalled();
+    expect(onTimeout).not.toHaveBeenCalled();
+  });
+
+  it("undo() supports a custom undoLabel", () => {
+    function UndoTrigger() {
+      const { toast } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            toast.undo({ message: "x", onUndo: () => {}, duration: 5000, undoLabel: "Reverter" })
+          }
+        >
+          fire
+        </button>
+      );
+    }
+    render(
+      <ToastProvider>
+        <UndoTrigger />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByText("fire"));
+    expect(screen.getByText("Reverter")).toBeInTheDocument();
+  });
 });
