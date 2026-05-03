@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowDown, ArrowUp, LayoutGrid, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { ListView } from "../components/ListView";
 import { useToast } from "../components/Toast";
@@ -55,6 +56,7 @@ export default function MinistriesView({ snapshot, state, onStateChange }: Minis
   const saveMutation = useSaveMinistry();
   const deleteMutation = useDeleteMinistry();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const nextSortOrder = useMemo(() => {
     if (snapshot.ministries.length === 0) {
@@ -126,7 +128,13 @@ export default function MinistriesView({ snapshot, state, onStateChange }: Minis
   }
 
   async function handleDelete(item: MinistryRecord) {
-    if (!window.confirm(`Excluir o ministerio "${item.name}"?`)) {
+    const ok = await confirm({
+      title: `Excluir o ministerio "${item.name}"?`,
+      message: "Esta acao remove o ministerio permanentemente do site.",
+      confirmText: "Excluir",
+      destructive: true
+    });
+    if (!ok) {
       return;
     }
     try {
