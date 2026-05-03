@@ -8,7 +8,9 @@ export type ListView =
   | "ministries"
   | "audit"
   | "team"
-  | "annual";
+  | "annual"
+  | "members"
+  | "households";
 
 export interface ListState {
   search: string;
@@ -33,7 +35,9 @@ export const INITIAL_LIST_STATE: Record<ListView, ListState> = {
   ministries: { search: "", sort: "sortOrderAsc", page: 1 },
   audit: { search: "", sort: "changedDesc", page: 1 },
   team: { search: "", sort: "roleAsc", page: 1 },
-  annual: { search: "", sort: "startsAsc", page: 1 }
+  annual: { search: "", sort: "startsAsc", page: 1 },
+  members: { search: "", sort: "nameAsc", page: 1 },
+  households: { search: "", sort: "nameAsc", page: 1 }
 };
 
 export function uniqueSorted(values: string[]): string[] {
