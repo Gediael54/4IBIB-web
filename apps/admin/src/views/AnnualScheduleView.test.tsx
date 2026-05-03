@@ -61,7 +61,7 @@ function buildSnapshot(overrides: Partial<SiteSnapshot> = {}): SiteSnapshot {
 
 function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } }
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } }
   });
   return render(
     <QueryClientProvider client={queryClient}>
