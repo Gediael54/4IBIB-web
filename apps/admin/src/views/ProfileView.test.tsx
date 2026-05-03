@@ -21,6 +21,7 @@ vi.mock("../backend", () => ({
   }
 }));
 
+import { ConfirmProvider } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/Toast";
 import ProfileView from "./ProfileView";
 
@@ -71,12 +72,14 @@ function buildSnapshot(overrides: Partial<SiteSnapshot> = {}): SiteSnapshot {
 
 function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } }
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } }
   });
   return render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <ProfileView snapshot={snapshot} />
+        <ConfirmProvider>
+          <ProfileView snapshot={snapshot} />
+        </ConfirmProvider>
       </ToastProvider>
     </QueryClientProvider>
   );
@@ -216,7 +219,6 @@ describe("ProfileView", () => {
   });
 
   it("deletes a recurring meeting after confirmation", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     renderView(
       buildSnapshot({
         recurringMeetings: [makeRecurring({ id: "r1", title: "Culto solene" })]
@@ -226,9 +228,13 @@ describe("ProfileView", () => {
     fireEvent.click(screen.getByRole("button", { name: /Excluir encontro Culto solene/i }));
 
     await waitFor(() => {
+      expect(screen.getByTestId("confirm-dialog-confirm")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+
+    await waitFor(() => {
       expect(mocks.deleteRecurringMeeting).toHaveBeenCalledWith("r1");
     });
-    confirmSpy.mockRestore();
   });
 
   it("populates form when editing a recurring meeting", () => {
