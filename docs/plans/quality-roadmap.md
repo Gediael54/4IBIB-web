@@ -99,13 +99,15 @@ Quebrado em 10 sub-interfaces: `AnnouncementRepo`, `ScheduleRepo`, `VolunteerRep
 
 - User context (uid + email + role) quando logado. Breadcrumbs em mutations. Regras de alerta + dashboards.
 
-### 8.3 Retry adaptativo
+### 8.3 Retry adaptativo ✅ 2026-05-03
 
-- Mutations criticas com retry 2x exponential backoff. Idempotency keys em mutations destrutivas.
+- Mutations criticas (`saveAnnouncement`, `saveScheduleItem`, `saveVolunteer`, `saveMinistry`, `saveMember`, `saveHousehold`) com retry 2x exponential backoff (1s → 2s, capped 5s). Erros 4xx nao retentam.
+- Idempotency keys: nao necessario por agora (mutations Supabase usam upsert/update unico). Documentado.
 
-### 8.4 Health check + structured logs
+### 8.4 Health check + structured logs ✅ 2026-05-03
 
-- `GET /api/health` (Cloudflare Function). Logs estruturados JSON.
+- `GET /api/health` (Cloudflare Function) checa env + Supabase REST. Retorna 200/503 com payload JSON.
+- Login alert estruturado em `/api/login-alert` (console.log + Resend opcional).
 
 ### 8.5 Offline support (PWA gradual) — backlog
 
@@ -177,9 +179,10 @@ Quebrado em 10 sub-interfaces: `AnnouncementRepo`, `ScheduleRepo`, `VolunteerRep
 
 - Form de oracao: checkbox obrigatorio + micro-copy.
 
-### 11.3 Retencao automatica em `prayer_requests`
+### 11.3 Retencao automatica em `prayer_requests` ✅ 2026-05-03
 
-- Function `purge_old_prayers()` arquiva/deleta apos 18 meses concluido. Schedule via pg_cron mensal.
+- Function `purge_old_prayers()` arquiva/deleta apos 18 meses concluido (entregue na Sessao 1).
+- Schedule via pg_cron documentado em `supabase/cron.sql` (rodar uma vez no SQL Editor).
 
 ### 11.4 Opt-in pra exposicao publica de voluntarios
 
@@ -219,9 +222,9 @@ Quebrado em 10 sub-interfaces: `AnnouncementRepo`, `ScheduleRepo`, `VolunteerRep
 
 - Context, Container, Component em PNG ou Mermaid.
 
-### 12.6 Onboarding guide
+### 12.6 Onboarding guide ✅ 2026-05-03
 
-- `docs/onboarding.md`.
+- `docs/onboarding.md` cobrindo pre-reqs, setup em 4 passos, troubleshooting comum, links.
 
 ## Fase 13 — Tooling & CI/CD (A → A+)
 
@@ -259,13 +262,13 @@ Quebrado em 10 sub-interfaces: `AnnouncementRepo`, `ScheduleRepo`, `VolunteerRep
 
 - Manual no painel Supabase. Documentar no README.
 
-### 14.2 Headers de seguranca complementares
+### 14.2 Headers de seguranca complementares ✅ 2026-05-03
 
-- `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, HSTS preload.
+- `_headers` (gerado por `scripts/compose-dist.mjs`) inclui: `X-Frame-Options: DENY`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()`, `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-site`, `X-XSS-Protection: 0`. `/admin/*` ganha `X-Robots-Tag: noindex, nofollow`.
 
-### 14.3 Audit log de logins
+### 14.3 Audit log de logins ✅ 2026-05-03 (parcial)
 
-- Trigger Supabase em `auth.users`. Detectar logins suspeitos.
+- `/api/login-alert` (Cloudflare Function) recebe evento de SIGNED_IN e logga estruturado. Resend opcional via `RESEND_API_KEY` + `LOGIN_ALERT_TO`. Trigger Supabase em `auth.users` ainda backlog.
 
 ### 14.4 2FA opcional pra admins
 
@@ -275,9 +278,9 @@ Quebrado em 10 sub-interfaces: `AnnouncementRepo`, `ScheduleRepo`, `VolunteerRep
 
 - Cloudflare Pages Function ou Supabase Edge Function.
 
-### 14.6 Rate limit no admin
+### 14.6 Rate limit no admin ✅ 2026-05-03 (parcial)
 
-- Mutations sensiveis com rate-limit.
+- Login admin protegido por Cloudflare Turnstile (`/api/admin-login-verify`). Rate limit nas demais mutations sensiveis: backlog.
 
 ### 14.7 CORS strict
 
