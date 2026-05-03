@@ -6,6 +6,7 @@ import {
   ClipboardList,
   HeartHandshake,
   History,
+  Home,
   LayoutGrid,
   LoaderCircle,
   LogOut,
@@ -13,26 +14,24 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  UserCheck,
   Users
 } from "lucide-react";
-import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { CommandPalette } from "./components/CommandPalette";
+import { ConfirmProvider } from "./components/ConfirmDialog";
 import { ErrorBoundary, ViewBoundary } from "./components/ErrorBoundary";
 import { MobileTopbar } from "./components/MobileTopbar";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { ToastProvider } from "./components/Toast";
+import TurnstileWidget from "./components/TurnstileWidget";
 import { backend, usePrayers, useSnapshot } from "./hooks";
 import { initMonitoring, setSentryUser } from "./monitoring";
 import "./styles.css";
 import { TEXT_MAX } from "./lib/limits";
-import {
-  INITIAL_LIST_STATE,
-  type ListState,
-  type ListView,
-  type VolunteerRoleFilter
-} from "./lib/list-state";
+import { INITIAL_LIST_STATE, type ListState, type ListView } from "./lib/list-state";
 
 initMonitoring();
 
@@ -40,7 +39,8 @@ const DashboardView = lazy(() => import("./views/DashboardView"));
 const AnnouncementsView = lazy(() => import("./views/AnnouncementsView"));
 const ScheduleView = lazy(() => import("./views/ScheduleView"));
 const AnnualScheduleView = lazy(() => import("./views/AnnualScheduleView"));
-const VolunteersView = lazy(() => import("./views/VolunteersView"));
+const MembersView = lazy(() => import("./views/MembersView"));
+const HouseholdsView = lazy(() => import("./views/HouseholdsView"));
 const PrayersView = lazy(() => import("./views/PrayersView"));
 const ProfileView = lazy(() => import("./views/ProfileView"));
 const MinistriesView = lazy(() => import("./views/MinistriesView"));
@@ -63,6 +63,8 @@ type AdminView =
   | "announcements"
   | "schedule"
   | "annual"
+  | "members"
+  | "households"
   | "volunteers"
   | "prayers"
   | "profile"
@@ -75,6 +77,8 @@ const VIEW_TITLES: Record<AdminView, string> = {
   announcements: "Avisos",
   schedule: "Programacao",
   annual: "Escala anual",
+  members: "Membros",
+  households: "Familias",
   volunteers: "Voluntarios",
   prayers: "Oracao",
   profile: "Perfil",
@@ -83,17 +87,59 @@ const VIEW_TITLES: Record<AdminView, string> = {
   team: "Equipe"
 };
 
+const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "").trim();
+
+async function verifyAdminTurnstile(token: string): Promise<{ ok: boolean; message?: string }> {
+  if (!TURNSTILE_SITE_KEY) {
+    return { ok: true };
+  }
+  try {
+    const response = await fetch("/api/admin-login-verify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ turnstileToken: token })
+    });
+    if (response.ok) {
+      return { ok: true };
+    }
+    const payload = await response.json().catch(() => null);
+    return { ok: false, message: payload?.error ?? "Falha na validacao anti-spam." };
+  } catch {
+    return { ok: false, message: "Sem conexao com o validador anti-spam." };
+  }
+}
+
+async function reportLoginAlert(session: AdminSession) {
+  try {
+    await fetch("/api/login-alert", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        user_id: session.uid,
+        email: session.email,
+        user_agent: typeof navigator !== "undefined" ? navigator.userAgent : ""
+      })
+    });
+  } catch {
+    /* alerta nao critico — falha silenciosa */
+  }
+}
+
 export function App() {
   const [session, setSession] = useState<AdminSession | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [view, setView] = useState<AdminView>("dashboard");
   const [listState, setListState] = useState<Record<ListView, ListState>>(INITIAL_LIST_STATE);
   const [prayerStatusFilter, setPrayerStatusFilter] = useState<PrayerRequest["status"] | "all">("all");
-  const [volunteerRoleFilter, setVolunteerRoleFilter] = useState<VolunteerRoleFilter>("all");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+
+  const handleTurnstileToken = useCallback((token: string) => {
+    setTurnstileToken(token);
+  }, []);
 
   function navigateTo(next: AdminView) {
     setView(next);
@@ -117,16 +163,29 @@ export function App() {
         event.preventDefault();
         setHelpOpen(true);
       }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "m") {
+        const target = event.target as HTMLElement | null;
+        const tag = target?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        event.preventDefault();
+        setView("members");
+        setDrawerOpen(false);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [paletteOpen, helpOpen]);
 
   useEffect(() => {
+    let previousUid: string | null = null;
     return backend.auth.subscribe((nextSession) => {
       setSession(nextSession);
       setAuthReady(true);
       setSentryUser(nextSession ? { id: nextSession.uid, email: nextSession.email } : null);
+      if (nextSession && nextSession.uid !== previousUid) {
+        reportLoginAlert(nextSession);
+      }
+      previousUid = nextSession?.uid ?? null;
     });
   }, []);
 
@@ -155,6 +214,14 @@ export function App() {
     event.preventDefault();
     setAuthError("");
     const formData = new FormData(event.currentTarget);
+
+    if (TURNSTILE_SITE_KEY) {
+      const verification = await verifyAdminTurnstile(turnstileToken);
+      if (!verification.ok) {
+        setAuthError(verification.message ?? "Confirme o desafio anti-spam.");
+        return;
+      }
+    }
 
     try {
       await backend.auth.signIn(String(formData.get("email") ?? ""), String(formData.get("password") ?? ""));
@@ -200,6 +267,9 @@ export function App() {
                   required
                 />
               </label>
+              {TURNSTILE_SITE_KEY && (
+                <TurnstileWidget siteKey={TURNSTILE_SITE_KEY} onToken={handleTurnstileToken} />
+              )}
               {authError && <p className="form-error">{authError}</p>}
               <button className="button primary" type="submit">
                 Entrar
@@ -281,8 +351,22 @@ export function App() {
             />
             <NavButton
               current={view}
-              target="volunteers"
+              target="members"
               icon={<Users />}
+              label="Membros"
+              onClick={navigateTo}
+            />
+            <NavButton
+              current={view}
+              target="households"
+              icon={<Home />}
+              label="Familias"
+              onClick={navigateTo}
+            />
+            <NavButton
+              current={view}
+              target="volunteers"
+              icon={<UserCheck />}
               label="Voluntarios"
               onClick={navigateTo}
             />
@@ -387,13 +471,25 @@ export function App() {
                 />
               )}
               {view === "annual" && <AnnualScheduleView snapshot={snapshot} />}
+              {view === "members" && (
+                <MembersView
+                  state={listState.members}
+                  onStateChange={(patch) => updateListState("members", patch)}
+                />
+              )}
+              {view === "households" && (
+                <HouseholdsView
+                  state={listState.households}
+                  onStateChange={(patch) => updateListState("households", patch)}
+                />
+              )}
               {view === "volunteers" && (
-                <VolunteersView
-                  snapshot={snapshot}
+                <MembersView
+                  title="Voluntarios"
+                  defaultFilter={{ isVolunteer: true }}
+                  defaultTab="voluntariado"
                   state={listState.volunteers}
                   onStateChange={(patch) => updateListState("volunteers", patch)}
-                  roleFilter={volunteerRoleFilter}
-                  onRoleFilterChange={setVolunteerRoleFilter}
                 />
               )}
               {view === "prayers" && (
@@ -467,7 +563,9 @@ createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <App />
+        <ConfirmProvider>
+          <App />
+        </ConfirmProvider>
       </ToastProvider>
     </QueryClientProvider>
   </ErrorBoundary>
