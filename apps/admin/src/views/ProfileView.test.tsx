@@ -21,6 +21,7 @@ vi.mock("../backend", () => ({
   }
 }));
 
+import { ToastProvider } from "../components/Toast";
 import ProfileView from "./ProfileView";
 
 function makeProfile(overrides: Partial<ChurchProfile> = {}): ChurchProfile {
@@ -74,7 +75,9 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ProfileView snapshot={snapshot} />
+      <ToastProvider>
+        <ProfileView snapshot={snapshot} />
+      </ToastProvider>
     </QueryClientProvider>
   );
 }
@@ -142,11 +145,31 @@ describe("ProfileView", () => {
       name: "Igreja",
       shortName: "IGR"
     });
+    await waitFor(() => {
+      expect(screen.getByText("Perfil atualizado.")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a danger toast when profile save fails", async () => {
+    mocks.saveProfile.mockRejectedValueOnce(new Error("Falha ao salvar perfil"));
+    renderView();
+
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Igreja" } });
+    fireEvent.change(screen.getByLabelText("Sigla"), { target: { value: "IGR" } });
+
+    const buttons = screen.getAllByRole("button", { name: /salvar/i });
+    const form = buttons[0].closest("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(screen.getByText("Falha ao salvar perfil")).toBeInTheDocument();
+    });
   });
 
   it("renders the recurring meetings empty state when there are none", () => {
     renderView();
-    expect(screen.getByText("Nenhum encontro regular cadastrado.")).toBeInTheDocument();
+    expect(screen.getByText("Sem encontros fixos cadastrados.")).toBeInTheDocument();
   });
 
   it("renders recurring meeting rows", () => {
