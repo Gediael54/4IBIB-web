@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ExternalLink, Megaphone, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { FieldGroup } from "../components/FieldGroup";
 import { ListView } from "../components/ListView";
@@ -83,6 +84,7 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
   const saveMutation = useSaveAnnouncement();
   const deleteMutation = useDeleteAnnouncement();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const {
     register,
@@ -155,7 +157,9 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
         expiresAt: values.expiresAt ? inputDateTimeToIso(values.expiresAt) : null,
         imageUrl: values.imageUrl
       });
-      toast(editingId ? "Aviso atualizado." : "Aviso publicado.", { variant: "success" });
+      toast(editingId ? "Aviso atualizado. Mudancas no site ja." : "Aviso publicado. Boa entrega!", {
+        variant: "success"
+      });
       cancelEdit();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?";
@@ -164,12 +168,18 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
   }
 
   async function handleDelete(item: Announcement) {
-    if (!window.confirm(`Excluir o aviso "${item.title}"?`)) {
+    const ok = await confirm({
+      title: "Excluir aviso?",
+      message: `"${item.title}" vai sumir do site. Voce ainda pode restaurar pela auditoria.`,
+      confirmText: "Excluir",
+      destructive: true
+    });
+    if (!ok) {
       return;
     }
     try {
       await deleteMutation.mutateAsync(item.id);
-      toast(`Aviso "${item.title}" removido.`, { variant: "success" });
+      toast(`"${item.title}" arquivado. Some do site, mas continua na auditoria.`, { variant: "success" });
       if (editingId === item.id) {
         cancelEdit();
       }
