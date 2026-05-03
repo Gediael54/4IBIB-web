@@ -30,9 +30,15 @@ begin;
 -- explicit (instead of `drop schema public cascade`) preserves Supabase's
 -- default schema-level grants and any extension that might live in public.
 
+drop view if exists public.volunteers cascade;
+
 drop table if exists public.content_audit_log cascade;
 drop table if exists public.prayer_request_rate_limits cascade;
 drop table if exists public.prayer_requests cascade;
+drop table if exists public.admin_rate_limit_buckets cascade;
+drop table if exists public.member_relationships cascade;
+drop table if exists public.members cascade;
+drop table if exists public.households cascade;
 drop table if exists public.volunteers cascade;
 drop table if exists public.schedule_items cascade;
 drop table if exists public.announcements cascade;
@@ -50,12 +56,31 @@ drop function if exists public.set_ministry_slug() cascade;
 drop function if exists public.ministry_slug(text) cascade;
 drop function if exists public.list_admins() cascade;
 drop function if exists public.revert_audit_entry(uuid) cascade;
+drop function if exists public.check_admin_rate_limit(text) cascade;
+drop function if exists public.archive_member(uuid) cascade;
+drop function if exists public.restore_member(uuid) cascade;
+drop function if exists public.archive_announcement(uuid) cascade;
+drop function if exists public.restore_announcement(uuid) cascade;
+drop function if exists public.archive_schedule_item(uuid) cascade;
+drop function if exists public.restore_schedule_item(uuid) cascade;
+drop function if exists public.archive_prayer_request(uuid) cascade;
+drop function if exists public.restore_prayer_request(uuid) cascade;
+drop function if exists public.archive_ministry(uuid) cascade;
+drop function if exists public.restore_ministry(uuid) cascade;
+drop function if exists public.find_member_duplicates(text, text, text, text) cascade;
+drop function if exists public.purge_old_prayers() cascade;
+drop function if exists public.anonymize_member(uuid) cascade;
 
 drop type if exists public.admin_role cascade;
 drop type if exists public.announcement_category cascade;
 drop type if exists public.announcement_status cascade;
 drop type if exists public.schedule_status cascade;
 drop type if exists public.prayer_status cascade;
+drop type if exists public.marital_status cascade;
+drop type if exists public.gender cascade;
+drop type if exists public.membership_status cascade;
+drop type if exists public.church_role cascade;
+drop type if exists public.relationship_type cascade;
 
 
 -- =============================================================================
@@ -63,6 +88,7 @@ drop type if exists public.prayer_status cascade;
 -- =============================================================================
 
 create extension if not exists pgcrypto;
+create extension if not exists pg_trgm;
 
 
 -- =============================================================================
@@ -74,6 +100,11 @@ create type public.announcement_category as enum ('geral', 'evento', 'juventude'
 create type public.announcement_status as enum ('draft', 'scheduled', 'published', 'archived');
 create type public.schedule_status as enum ('scheduled', 'suspended', 'free');
 create type public.prayer_status as enum ('novo', 'em_oracao', 'concluido');
+create type public.marital_status as enum ('solteiro', 'casado', 'viuvo', 'divorciado', 'uniao_estavel');
+create type public.gender as enum ('masculino', 'feminino', 'outro');
+create type public.membership_status as enum ('ativo', 'inativo', 'transferido', 'falecido');
+create type public.church_role as enum ('membro_comum', 'presbitero', 'diacono', 'conselho_fiscal', 'tesoureiro', 'secretario', 'pastor', 'pastor_auxiliar');
+create type public.relationship_type as enum ('conjuge', 'pai', 'mae', 'filho', 'irmao', 'avo', 'neto', 'tio', 'sobrinho', 'responsavel');
 
 
 -- =============================================================================
@@ -99,7 +130,92 @@ create table public.announcements (
   expires_at timestamptz null,
   image_url text not null default '',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz null
+);
+
+create table public.households (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  head_member_id uuid null,
+  address_zip text not null default '',
+  address_street text not null default '',
+  address_number text not null default '',
+  address_complement text not null default '',
+  address_neighborhood text not null default '',
+  address_city text not null default '',
+  address_state text not null default '',
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz null
+);
+
+create table public.members (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  preferred_name text not null default '',
+  birth_date date null,
+  marital_status public.marital_status null,
+  gender public.gender null,
+  photo_url text not null default '',
+  email text not null default '',
+  phone text not null default '',
+  whatsapp text not null default '',
+  cpf text null,
+  rg text not null default '',
+  rg_issuer text not null default '',
+  profession text not null default '',
+  address_zip text not null default '',
+  address_street text not null default '',
+  address_number text not null default '',
+  address_complement text not null default '',
+  address_neighborhood text not null default '',
+  address_city text not null default '',
+  address_state text not null default '',
+  household_id uuid null references public.households(id) on delete set null,
+  church_role public.church_role not null default 'membro_comum',
+  membership_status public.membership_status not null default 'ativo',
+  joined_at date null,
+  baptism_date date null,
+  baptism_location text not null default '',
+  transferred_from text not null default '',
+  emergency_contact_name text not null default '',
+  emergency_contact_phone text not null default '',
+  prayer_topics text[] not null default '{}',
+  spiritual_gifts text[] not null default '{}',
+  allergies text not null default '',
+  medical_notes text not null default '',
+  consent_medical_data_at timestamptz null,
+  is_volunteer boolean not null default false,
+  volunteer_ministries text[] not null default '{}',
+  volunteer_unavailable_dates date[] not null default '{}',
+  volunteer_notes text not null default '',
+  notes text not null default '',
+  consent_given_at timestamptz null,
+  consent_version text not null default '',
+  public_directory boolean not null default false,
+  data_retention_until date null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz null,
+  constraint members_cpf_format check (cpf ~ '^[0-9]{11}$' or cpf is null)
+);
+
+alter table public.households
+  add constraint households_head_member_fk
+  foreign key (head_member_id) references public.members(id) on delete set null;
+
+create table public.member_relationships (
+  id uuid primary key default gen_random_uuid(),
+  from_member_id uuid not null references public.members(id) on delete cascade,
+  to_member_id uuid not null references public.members(id) on delete cascade,
+  type public.relationship_type not null,
+  start_date date null,
+  end_date date null,
+  created_at timestamptz not null default now(),
+  constraint member_relationships_different_members check (from_member_id <> to_member_id),
+  constraint member_relationships_unique_active unique (from_member_id, to_member_id, type, start_date)
 );
 
 create table public.schedule_items (
@@ -118,24 +234,14 @@ create table public.schedule_items (
   status public.schedule_status not null default 'scheduled',
   featured boolean not null default false,
   series_id uuid null,
+  preacher_member_id uuid null references public.members(id) on delete set null,
+  director_member_id uuid null references public.members(id) on delete set null,
+  sound_member_id uuid null references public.members(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  deleted_at timestamptz null,
   constraint schedule_time_order check (ends_at > starts_at),
   constraint schedule_items_starts_at_title_unique unique (starts_at, title)
-);
-
-create table public.volunteers (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  role text not null default 'geral',
-  sort_order int not null default 0,
-  contact text not null default '',
-  photo_url text not null default '',
-  ministries text[] not null default '{}',
-  unavailable_dates date[] not null default '{}',
-  notes text not null default '',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
 );
 
 create table public.prayer_requests (
@@ -148,7 +254,15 @@ create table public.prayer_requests (
   assigned_to uuid null references public.admin_users(user_id) on delete set null,
   seen_at timestamptz null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz null
+);
+
+create table public.admin_rate_limit_buckets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  action text not null,
+  created_at timestamptz not null default now()
 );
 
 create table public.prayer_request_rate_limits (
@@ -197,7 +311,8 @@ create table public.ministries (
   color text not null default '#0f766e',
   sort_order int not null default 0,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz null
 );
 
 create table public.recurring_meetings (
@@ -351,11 +466,13 @@ declare
   allowed_tables text[] := array[
     'announcements',
     'schedule_items',
-    'volunteers',
     'prayer_requests',
     'church_profile',
     'ministries',
-    'recurring_meetings'
+    'recurring_meetings',
+    'members',
+    'households',
+    'member_relationships'
   ];
   cols text;
   vals text;
@@ -417,6 +534,339 @@ begin
 end;
 $$;
 
+create or replace function public.check_admin_rate_limit(p_action text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  recent_count int;
+begin
+  if auth.uid() is null then
+    return false;
+  end if;
+
+  select count(*) into recent_count
+  from public.admin_rate_limit_buckets
+  where user_id = auth.uid()
+    and action = p_action
+    and created_at > now() - interval '1 minute';
+
+  if recent_count >= 30 then
+    return false;
+  end if;
+
+  insert into public.admin_rate_limit_buckets (user_id, action)
+  values (auth.uid(), p_action);
+
+  return true;
+end;
+$$;
+
+create or replace function public.archive_member(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('archive_member') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+  update public.members set deleted_at = now() where id = p_id and deleted_at is null;
+end;
+$$;
+
+create or replace function public.restore_member(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('restore_member') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+  update public.members set deleted_at = null where id = p_id;
+end;
+$$;
+
+create or replace function public.archive_announcement(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('archive_announcement') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+  update public.announcements set deleted_at = now() where id = p_id and deleted_at is null;
+end;
+$$;
+
+create or replace function public.restore_announcement(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('restore_announcement') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+  update public.announcements set deleted_at = null where id = p_id;
+end;
+$$;
+
+create or replace function public.archive_schedule_item(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('archive_schedule_item') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+  update public.schedule_items set deleted_at = now() where id = p_id and deleted_at is null;
+end;
+$$;
+
+create or replace function public.restore_schedule_item(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('restore_schedule_item') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+  update public.schedule_items set deleted_at = null where id = p_id;
+end;
+$$;
+
+create or replace function public.archive_prayer_request(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('archive_prayer_request') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+  update public.prayer_requests set deleted_at = now() where id = p_id and deleted_at is null;
+end;
+$$;
+
+create or replace function public.restore_prayer_request(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('restore_prayer_request') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+  update public.prayer_requests set deleted_at = null where id = p_id;
+end;
+$$;
+
+create or replace function public.archive_ministry(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('archive_ministry') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+  update public.ministries set deleted_at = now() where id = p_id and deleted_at is null;
+end;
+$$;
+
+create or replace function public.restore_ministry(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('restore_ministry') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+  update public.ministries set deleted_at = null where id = p_id;
+end;
+$$;
+
+create or replace function public.find_member_duplicates(
+  p_full_name text,
+  p_cpf text,
+  p_email text,
+  p_phone text
+)
+returns table (
+  member_id uuid,
+  full_name text,
+  score numeric,
+  match_reason text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  phone_digits text := regexp_replace(coalesce(p_phone, ''), '\D+', '', 'g');
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+
+  return query
+  with candidates as (
+    select
+      m.id as member_id,
+      m.full_name as full_name,
+      case
+        when p_cpf is not null and p_cpf <> '' and m.cpf = p_cpf then 1.0
+        when p_email <> '' and lower(m.email) = lower(p_email) then 0.9
+        when phone_digits <> '' and regexp_replace(coalesce(m.phone, ''), '\D+', '', 'g') = phone_digits then 0.85
+        when phone_digits <> '' and regexp_replace(coalesce(m.whatsapp, ''), '\D+', '', 'g') = phone_digits then 0.85
+        when similarity(m.full_name, coalesce(p_full_name, '')) > 0.7 then similarity(m.full_name, p_full_name)::numeric
+        else 0
+      end as score,
+      case
+        when p_cpf is not null and p_cpf <> '' and m.cpf = p_cpf then 'cpf_match'
+        when p_email <> '' and lower(m.email) = lower(p_email) then 'email_match'
+        when phone_digits <> '' and regexp_replace(coalesce(m.phone, ''), '\D+', '', 'g') = phone_digits then 'phone_match'
+        when phone_digits <> '' and regexp_replace(coalesce(m.whatsapp, ''), '\D+', '', 'g') = phone_digits then 'phone_match'
+        when similarity(m.full_name, coalesce(p_full_name, '')) > 0.7 then 'name_similar'
+        else null
+      end as match_reason
+    from public.members m
+    where m.deleted_at is null
+  )
+  select c.member_id, c.full_name, c.score, c.match_reason
+  from candidates c
+  where c.score > 0
+  order by c.score desc
+  limit 5;
+end;
+$$;
+
+create or replace function public.purge_old_prayers()
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  affected int;
+begin
+  with purged as (
+    update public.prayer_requests
+    set deleted_at = now()
+    where status = 'concluido'
+      and updated_at < now() - interval '18 months'
+      and deleted_at is null
+    returning 1
+  )
+  select count(*) into affected from purged;
+  return affected;
+end;
+$$;
+
+create or replace function public.anonymize_member(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Acesso negado.';
+  end if;
+  if not public.check_admin_rate_limit('anonymize_member') then
+    raise exception 'Limite de operacoes destrutivas excedido. Aguarde um instante.';
+  end if;
+
+  update public.members
+  set
+    full_name = '[anonimizado]',
+    preferred_name = '',
+    birth_date = null,
+    marital_status = null,
+    gender = null,
+    photo_url = '',
+    email = '',
+    phone = '',
+    whatsapp = '',
+    cpf = null,
+    rg = '',
+    rg_issuer = '',
+    profession = '',
+    address_zip = '',
+    address_street = '',
+    address_number = '',
+    address_complement = '',
+    address_neighborhood = '',
+    address_city = '',
+    address_state = '',
+    baptism_location = '',
+    transferred_from = '',
+    emergency_contact_name = '',
+    emergency_contact_phone = '',
+    prayer_topics = '{}',
+    spiritual_gifts = '{}',
+    allergies = '',
+    medical_notes = '',
+    consent_medical_data_at = null,
+    volunteer_notes = '',
+    notes = '[anonimizado]',
+    consent_given_at = null,
+    consent_version = '',
+    public_directory = false,
+    deleted_at = coalesce(deleted_at, now())
+  where id = p_id;
+end;
+$$;
+
 
 -- =============================================================================
 -- 6. Indexes
@@ -435,18 +885,45 @@ create index announcements_pinned_published_at_idx
 create index announcements_status_published_at_idx
   on public.announcements (status, published_at desc);
 
-create unique index volunteers_name_unique on public.volunteers (lower(name));
-create index volunteers_sort_order_idx on public.volunteers (sort_order);
-
 create index prayer_requests_created_at_idx
   on public.prayer_requests (created_at desc);
 create index prayer_requests_assigned_to_idx
   on public.prayer_requests (assigned_to)
   where assigned_to is not null;
+create index prayer_requests_active_idx
+  on public.prayer_requests (created_at desc)
+  where deleted_at is null;
 create index prayer_rate_limits_ip_created_at_idx
   on public.prayer_request_rate_limits (ip_hash, created_at desc);
 
 create index ministries_sort_order_idx on public.ministries (sort_order);
+create index ministries_active_idx on public.ministries (sort_order) where deleted_at is null;
+
+create index announcements_active_idx
+  on public.announcements (published_at desc)
+  where deleted_at is null;
+
+create index schedule_items_active_idx
+  on public.schedule_items (starts_at)
+  where deleted_at is null;
+
+create unique index members_cpf_unique
+  on public.members (cpf)
+  where cpf is not null and deleted_at is null;
+create index members_email_idx on public.members (email);
+create index members_phone_idx on public.members (phone);
+create index members_household_id_idx on public.members (household_id);
+create index members_is_volunteer_idx on public.members (is_volunteer) where is_volunteer = true;
+create index members_deleted_at_idx on public.members (deleted_at);
+create index members_full_name_trgm_idx on public.members using gin (full_name gin_trgm_ops);
+
+create index households_deleted_at_idx on public.households (deleted_at);
+
+create index member_relationships_from_idx on public.member_relationships (from_member_id);
+create index member_relationships_to_idx on public.member_relationships (to_member_id);
+
+create index admin_rate_limit_buckets_user_created_idx
+  on public.admin_rate_limit_buckets (user_id, created_at desc);
 
 create index recurring_meetings_sort_order_idx
   on public.recurring_meetings (sort_order);
@@ -476,8 +953,12 @@ create trigger touch_prayer_requests_updated_at
 before update on public.prayer_requests
 for each row execute function public.touch_updated_at();
 
-create trigger touch_volunteers_updated_at
-before update on public.volunteers
+create trigger touch_members_updated_at
+before update on public.members
+for each row execute function public.touch_updated_at();
+
+create trigger touch_households_updated_at
+before update on public.households
 for each row execute function public.touch_updated_at();
 
 create trigger touch_church_profile_updated_at
@@ -505,8 +986,16 @@ create trigger audit_prayer_requests
 after insert or update or delete on public.prayer_requests
 for each row execute function public.log_content_audit();
 
-create trigger audit_volunteers
-after insert or update or delete on public.volunteers
+create trigger audit_members
+after insert or update or delete on public.members
+for each row execute function public.log_content_audit();
+
+create trigger audit_households
+after insert or update or delete on public.households
+for each row execute function public.log_content_audit();
+
+create trigger audit_member_relationships
+after insert or update or delete on public.member_relationships
 for each row execute function public.log_content_audit();
 
 create trigger audit_church_profile
@@ -529,13 +1018,16 @@ for each row execute function public.log_content_audit();
 alter table public.admin_users enable row level security;
 alter table public.announcements enable row level security;
 alter table public.schedule_items enable row level security;
-alter table public.volunteers enable row level security;
+alter table public.members enable row level security;
+alter table public.households enable row level security;
+alter table public.member_relationships enable row level security;
 alter table public.prayer_requests enable row level security;
 alter table public.prayer_request_rate_limits enable row level security;
 alter table public.content_audit_log enable row level security;
 alter table public.church_profile enable row level security;
 alter table public.ministries enable row level security;
 alter table public.recurring_meetings enable row level security;
+alter table public.admin_rate_limit_buckets enable row level security;
 
 create policy "admins can read own admin row"
   on public.admin_users for select
@@ -551,10 +1043,20 @@ create policy "owners can manage admin users"
 create policy "public can read announcements"
   on public.announcements for select
   to anon, authenticated
-  using (true);
+  using (deleted_at is null);
 
-create policy "admins can write announcements"
-  on public.announcements for all
+create policy "admins can read all announcements"
+  on public.announcements for select
+  to authenticated
+  using (public.is_admin());
+
+create policy "admins can insert announcements"
+  on public.announcements for insert
+  to authenticated
+  with check (public.is_admin());
+
+create policy "admins can update announcements"
+  on public.announcements for update
   to authenticated
   using (public.is_admin())
   with check (public.is_admin());
@@ -562,27 +1064,94 @@ create policy "admins can write announcements"
 create policy "public can read schedule"
   on public.schedule_items for select
   to anon, authenticated
-  using (true);
+  using (deleted_at is null);
 
-create policy "admins can write schedule"
-  on public.schedule_items for all
+create policy "admins can read all schedule"
+  on public.schedule_items for select
+  to authenticated
+  using (public.is_admin());
+
+create policy "admins can insert schedule"
+  on public.schedule_items for insert
+  to authenticated
+  with check (public.is_admin());
+
+create policy "admins can update schedule"
+  on public.schedule_items for update
   to authenticated
   using (public.is_admin())
   with check (public.is_admin());
 
-create policy "public can read volunteers"
-  on public.volunteers for select
+create policy "public can read public members"
+  on public.members for select
   to anon, authenticated
-  using (true);
+  using (deleted_at is null and public_directory = true);
 
-create policy "admins can write volunteers"
-  on public.volunteers for all
+create policy "admins can read all members"
+  on public.members for select
+  to authenticated
+  using (public.is_admin());
+
+create policy "admins can insert members"
+  on public.members for insert
+  to authenticated
+  with check (public.is_admin());
+
+create policy "admins can update members"
+  on public.members for update
   to authenticated
   using (public.is_admin())
   with check (public.is_admin());
 
-create policy "admins can manage prayer requests"
-  on public.prayer_requests for all
+create policy "admins can read households"
+  on public.households for select
+  to authenticated
+  using (public.is_admin());
+
+create policy "admins can insert households"
+  on public.households for insert
+  to authenticated
+  with check (public.is_admin());
+
+create policy "admins can update households"
+  on public.households for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create policy "admins can read member relationships"
+  on public.member_relationships for select
+  to authenticated
+  using (public.is_admin());
+
+create policy "admins can insert member relationships"
+  on public.member_relationships for insert
+  to authenticated
+  with check (public.is_admin());
+
+create policy "admins can update member relationships"
+  on public.member_relationships for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create policy "admins can delete member relationships"
+  on public.member_relationships for delete
+  to authenticated
+  using (public.is_admin());
+
+create policy "admins can read prayer requests"
+  on public.prayer_requests for select
+  to authenticated
+  using (public.is_admin());
+
+create policy "admins can insert prayer requests"
+  on public.prayer_requests for insert
+  to authenticated
+  with check (public.is_admin());
+
+create policy "admins can update prayer requests"
+  on public.prayer_requests for update
   to authenticated
   using (public.is_admin())
   with check (public.is_admin());
@@ -606,10 +1175,20 @@ create policy "admins can write church profile"
 create policy "public can read ministries"
   on public.ministries for select
   to anon, authenticated
-  using (true);
+  using (deleted_at is null);
 
-create policy "admins can write ministries"
-  on public.ministries for all
+create policy "admins can read all ministries"
+  on public.ministries for select
+  to authenticated
+  using (public.is_admin());
+
+create policy "admins can insert ministries"
+  on public.ministries for insert
+  to authenticated
+  with check (public.is_admin());
+
+create policy "admins can update ministries"
+  on public.ministries for update
   to authenticated
   using (public.is_admin())
   with check (public.is_admin());
@@ -624,6 +1203,31 @@ create policy "admins can write recurring meetings"
   to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+
+
+-- The admin_rate_limit_buckets table is only writable through SECURITY DEFINER
+-- RPCs (check_admin_rate_limit). No direct client access at all.
+
+-- Legacy compat view: codigo antigo lia volunteers como tabela. Agora membros
+-- com is_volunteer=true sao a fonte; a view derivacomo se fosse volunteers.
+create view public.volunteers as
+select
+  m.id,
+  m.full_name as name,
+  case
+    when array_length(m.volunteer_ministries, 1) > 0 then m.volunteer_ministries[1]
+    else 'geral'
+  end as role,
+  0 as sort_order,
+  coalesce(nullif(m.whatsapp, ''), nullif(m.phone, ''), m.email) as contact,
+  m.photo_url,
+  m.volunteer_ministries as ministries,
+  m.volunteer_unavailable_dates as unavailable_dates,
+  m.volunteer_notes as notes,
+  m.created_at,
+  m.updated_at
+from public.members m
+where m.is_volunteer = true and m.deleted_at is null;
 
 
 -- =============================================================================
