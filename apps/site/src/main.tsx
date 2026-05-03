@@ -17,9 +17,11 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { backend } from "./backend";
 import Gallery from "./components/Gallery";
+import PrivacyPolicy from "./components/PrivacyPolicy";
 import SchedulePage from "./components/SchedulePage";
 import TurnstileWidget from "./components/TurnstileWidget";
 import UpcomingEvents from "./components/UpcomingEvents";
+import UserDataRequest from "./components/UserDataRequest";
 import { CHURCH } from "./config/church";
 import { ChurchProvider, useChurchProfile, useMinistries, useRegularMeetings } from "./lib/church-context";
 import { initMonitoring } from "./monitoring";
@@ -54,7 +56,9 @@ const SECTION_TITLES: Record<string, string> = {
   programacao: `Programacao | ${SITE_TITLE}`,
   agenda: `Agenda completa | ${SITE_TITLE}`,
   ministerios: `Ministerios | ${SITE_TITLE}`,
-  contato: `Pedido de oracao | ${SITE_TITLE}`
+  contato: `Pedido de oracao | ${SITE_TITLE}`,
+  "politica-privacidade": `Politica de privacidade | ${SITE_TITLE}`,
+  "meus-dados": `Meus dados | ${SITE_TITLE}`
 };
 const PRAYER_FIELD_LIMITS = {
   name: 120,
@@ -84,10 +88,17 @@ interface SiteHomeProps {
       Parameters<typeof backend.content.createPrayerRequest>[0]
     >
   >;
+  prayerFormError: string | null;
   onPrayerRequest: (event: FormEvent<HTMLFormElement>) => void;
 }
 
-function SiteHome({ pinnedAnnouncements, schedule, prayerMutation, onPrayerRequest }: SiteHomeProps) {
+function SiteHome({
+  pinnedAnnouncements,
+  schedule,
+  prayerMutation,
+  prayerFormError,
+  onPrayerRequest
+}: SiteHomeProps) {
   const church = useChurchProfile();
   const regularMeetings = useRegularMeetings();
   const ministries = useMinistries();
@@ -273,6 +284,17 @@ function SiteHome({ pinnedAnnouncements, schedule, prayerMutation, onPrayerReque
               placeholder="Como podemos orar?"
             />
           </label>
+          <label className="prayer-consent">
+            <input type="checkbox" name="consent" required />
+            <span>
+              Autorizo a 4a IBIB a tratar meus dados (nome, contato, pedido) com finalidade pastoral e
+              religiosa, conforme a{" "}
+              <a className="prayer-consent-link" href="#politica-privacidade">
+                politica de privacidade
+              </a>
+              .
+            </span>
+          </label>
           {TURNSTILE_SITE_KEY && <TurnstileWidget siteKey={TURNSTILE_SITE_KEY} />}
           <button className="button primary" type="submit" disabled={prayerMutation.isPending}>
             <HeartHandshake size={18} />
@@ -283,6 +305,7 @@ function SiteHome({ pinnedAnnouncements, schedule, prayerMutation, onPrayerReque
                 : "Enviar pedido"}
           </button>
           {prayerMutation.isSuccess && <p className="form-success">Recebemos seu pedido. Estamos orando.</p>}
+          {prayerFormError && <p className="form-error">{prayerFormError}</p>}
           {prayerMutation.isError && (
             <p className="form-error">
               {prayerMutation.error instanceof Error
@@ -306,6 +329,8 @@ function SiteHome({ pinnedAnnouncements, schedule, prayerMutation, onPrayerReque
           <a href="#programacao">Programacao</a>
           <a href="#ministerios">Ministerios</a>
           <a href="#contato">Pedido de oracao</a>
+          <a href="#politica-privacidade">Politica de privacidade</a>
+          <a href="#meus-dados">Meus dados</a>
           <a href="/admin">Admin</a>
         </nav>
       </footer>
@@ -315,6 +340,7 @@ function SiteHome({ pinnedAnnouncements, schedule, prayerMutation, onPrayerReque
 
 export function App() {
   const [route, setRoute] = useState<string>(() => getCurrentHash());
+  const [prayerFormError, setPrayerFormError] = useState<string | null>(null);
   const {
     data: snapshot,
     isLoading,
@@ -350,6 +376,12 @@ export function App() {
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
+
+    if (formData.get("consent") !== "on") {
+      setPrayerFormError("E necessario autorizar o tratamento dos dados conforme a politica de privacidade.");
+      return;
+    }
+    setPrayerFormError(null);
 
     try {
       await prayerMutation.mutateAsync({
@@ -390,11 +422,16 @@ export function App() {
     >
       {route === "agenda" ? (
         <SchedulePage schedule={schedule} />
+      ) : route === "politica-privacidade" ? (
+        <PrivacyPolicy />
+      ) : route === "meus-dados" ? (
+        <UserDataRequest />
       ) : (
         <SiteHome
           pinnedAnnouncements={pinnedAnnouncements}
           schedule={schedule}
           prayerMutation={prayerMutation}
+          prayerFormError={prayerFormError}
           onPrayerRequest={handlePrayerRequest}
         />
       )}
