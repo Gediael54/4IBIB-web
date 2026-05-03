@@ -34,6 +34,9 @@ export interface ScheduleItem {
   status: ScheduleStatus;
   featured: boolean;
   seriesId: string | null;
+  preacherMemberId?: string | null;
+  directorMemberId?: string | null;
+  soundMemberId?: string | null;
 }
 
 export type VolunteerRole = "geral" | "som";
@@ -48,6 +51,116 @@ export interface Volunteer {
   ministries: string[];
   unavailableDates: string[];
   notes: string;
+}
+
+export type MaritalStatus = "solteiro" | "casado" | "viuvo" | "divorciado" | "uniao_estavel";
+
+export type Gender = "masculino" | "feminino" | "outro";
+
+export type MembershipStatus = "ativo" | "inativo" | "transferido" | "falecido";
+
+export type ChurchRole =
+  | "membro_comum"
+  | "presbitero"
+  | "diacono"
+  | "conselho_fiscal"
+  | "tesoureiro"
+  | "secretario"
+  | "pastor"
+  | "pastor_auxiliar";
+
+export type RelationshipType =
+  | "conjuge"
+  | "pai"
+  | "mae"
+  | "filho"
+  | "irmao"
+  | "avo"
+  | "neto"
+  | "tio"
+  | "sobrinho"
+  | "responsavel";
+
+export interface Address {
+  zip: string;
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+}
+
+export interface Member {
+  id: string;
+  fullName: string;
+  preferredName: string;
+  birthDate: string | null;
+  maritalStatus: MaritalStatus | null;
+  gender: Gender | null;
+  photoUrl: string;
+  email: string;
+  phone: string;
+  whatsapp: string;
+  cpf: string | null;
+  rg: string;
+  rgIssuer: string;
+  profession: string;
+  address: Address;
+  householdId: string | null;
+  churchRole: ChurchRole;
+  membershipStatus: MembershipStatus;
+  joinedAt: string | null;
+  baptismDate: string | null;
+  baptismLocation: string;
+  transferredFrom: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  prayerTopics: string[];
+  spiritualGifts: string[];
+  allergies: string;
+  medicalNotes: string;
+  consentMedicalDataAt: string | null;
+  isVolunteer: boolean;
+  volunteerMinistries: string[];
+  volunteerUnavailableDates: string[];
+  volunteerNotes: string;
+  notes: string;
+  consentGivenAt: string | null;
+  consentVersion: string;
+  publicDirectory: boolean;
+  dataRetentionUntil: string | null;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Household {
+  id: string;
+  name: string;
+  headMemberId: string | null;
+  address: Address;
+  notes: string;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemberRelationship {
+  id: string;
+  fromMemberId: string;
+  toMemberId: string;
+  type: RelationshipType;
+  startDate: string | null;
+  endDate: string | null;
+  createdAt: string;
+}
+
+export interface MemberDuplicateMatch {
+  memberId: string;
+  fullName: string;
+  score: number;
+  matchReason: "cpf_match" | "email_match" | "phone_match" | "name_similar";
 }
 
 export type PrayerStatus = "novo" | "em_oracao" | "concluido";
@@ -261,6 +374,48 @@ export interface ScheduleRepo {
   deleteScheduleItem(id: string): Promise<void>;
   duplicateScheduleItem(id: string): Promise<ScheduleItem>;
   bulkUpdateScheduleItems(ids: string[], patch: ScheduleBulkPatch): Promise<ScheduleItem[]>;
+  updateScheduleItemMembers(
+    itemId: string,
+    members: {
+      preacherMemberId: string | null;
+      directorMemberId: string | null;
+      soundMemberId: string | null;
+    }
+  ): Promise<void>;
+}
+
+export interface MemberRepo {
+  createMember(input: Omit<Member, "id" | "createdAt" | "updatedAt" | "deletedAt">): Promise<Member>;
+  updateMember(id: string, patch: Partial<Member>): Promise<Member>;
+  archiveMember(id: string): Promise<void>;
+  restoreMember(id: string): Promise<void>;
+  anonymizeMember(id: string): Promise<void>;
+  getMember(id: string): Promise<Member | null>;
+  listMembers(options?: {
+    includeDeleted?: boolean;
+    isVolunteer?: boolean;
+    householdId?: string;
+  }): Promise<Member[]>;
+  findMemberDuplicates(input: {
+    fullName: string;
+    cpf: string | null;
+    email: string;
+    phone: string;
+  }): Promise<MemberDuplicateMatch[]>;
+}
+
+export interface HouseholdRepo {
+  createHousehold(input: Omit<Household, "id" | "createdAt" | "updatedAt" | "deletedAt">): Promise<Household>;
+  updateHousehold(id: string, patch: Partial<Household>): Promise<Household>;
+  archiveHousehold(id: string): Promise<void>;
+  listHouseholds(): Promise<Household[]>;
+  getHousehold(id: string): Promise<Household | null>;
+}
+
+export interface RelationshipRepo {
+  createRelationship(input: Omit<MemberRelationship, "id" | "createdAt">): Promise<MemberRelationship>;
+  deleteRelationship(id: string): Promise<void>;
+  listRelationships(memberId: string): Promise<MemberRelationship[]>;
 }
 
 export interface VolunteerRepo {
@@ -323,7 +478,10 @@ export interface ContentRepository
     RecurringMeetingRepo,
     AdminRepo,
     AuditRepo,
-    SnapshotRepo {}
+    SnapshotRepo,
+    MemberRepo,
+    HouseholdRepo,
+    RelationshipRepo {}
 
 export interface AuthGateway {
   getSession(): Promise<AdminSession | null>;
