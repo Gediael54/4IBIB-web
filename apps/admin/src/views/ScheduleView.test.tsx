@@ -19,6 +19,7 @@ vi.mock("../backend", () => ({
   }
 }));
 
+import { ConfirmProvider } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/Toast";
 import ScheduleView from "./ScheduleView";
 
@@ -55,11 +56,13 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   return render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <ScheduleView
-          snapshot={snapshot}
-          state={{ search: "", sort: "startsAsc", page: 1 }}
-          onStateChange={vi.fn()}
-        />
+        <ConfirmProvider>
+          <ScheduleView
+            snapshot={snapshot}
+            state={{ search: "", sort: "startsAsc", page: 1 }}
+            onStateChange={vi.fn()}
+          />
+        </ConfirmProvider>
       </ToastProvider>
     </QueryClientProvider>
   );
