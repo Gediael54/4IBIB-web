@@ -81,11 +81,27 @@ RLS habilitado em todas as tabelas. Politicas via funcoes `is_admin()` e `is_own
 
 Detalhes completos vivem em `docs/plans/`. CLAUDE.md so resume status.
 
-| Plano                         | Arquivo                                                              | Status                                                                                                          |
-| ----------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Plano admin master (features) | [`docs/plans/admin-master-plan.md`](docs/plans/admin-master-plan.md) | Fases 1-5 ✅ exceto serie recorrente (provavelmente desnecessaria) e notificacao de pedido novo (depende canal) |
-| Plano S+++ (qualidade A → A+) | [`docs/plans/quality-roadmap.md`](docs/plans/quality-roadmap.md)     | Fase 6 (refactor DRY/SRP/ISP) ✅. Fases 7-15 pendentes.                                                         |
-| Fase 16 — UI redesign         | [`docs/plans/ui-redesign.md`](docs/plans/ui-redesign.md)             | Wave 1 ✅, Wave 2 ✅, Wave 3-5 em andamento                                                                     |
+| Plano                                       | Arquivo                                                              | Status                                                                                                                              |
+| ------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Plano admin master (features)               | [`docs/plans/admin-master-plan.md`](docs/plans/admin-master-plan.md) | Fases 1-5 ✅ exceto serie recorrente (provavelmente desnecessaria) e notificacao de pedido novo (depende canal email).              |
+| Plano S+++ (qualidade A → A+)               | [`docs/plans/quality-roadmap.md`](docs/plans/quality-roadmap.md)     | Fases 6, 7, 8.1, 9 (4 partes), 11 (3 partes), 12 (1, 2, 6), 15 (1, 2, 6, 7) ✅. Fases 8.2-8.5, 10, 13, 14, 9.4/9.6, 15.3-5, 15.8 ⏸. |
+| Fase 16 — UI redesign                       | [`docs/plans/ui-redesign.md`](docs/plans/ui-redesign.md)             | Waves 1-5 ✅. Pendente: AnnualGrid table-as-cards mobile, AuditLog filter drawer mobile.                                            |
+| Feature membros + LGPD + hardening (5/2026) | [`docs/plans/members-feature.md`](docs/plans/members-feature.md)     | Sessoes 1-3 ✅. Pendente: adapter archive-first (desbloqueia undo banner), LGPD anonymize UI, schedule-member binding edge cases.   |
+
+Estado atual: **407 tests verdes**, 100% cobertura em `core` e `supabase`, typecheck/build limpos. Ver `docs/plans/members-feature.md` se 1 para snapshot completo do que ja foi entregue.
+
+## Pendencias prioritarias (ordem de ROI)
+
+1. **Adapter archive-first** — `packages/supabase` ainda usa `.delete()` direto em announcements/schedule*items/ministries. Schema ja tem RPCs `archive*_`/`restore\__`(Sessao 1). Migrar adapter + criar`useArchive*`/`useRestore*` paralelos. Ativa undo banner ja wireado no Toast.
+2. **LGPD finalizar** — ativar pg_cron rodando `supabase/cron.sql` no painel. Wirear botao "Anonimizar dados" em MembersView. Funcao `purge_old_audit()` mensal.
+3. **ScheduleView dropdown de membros** — pregador/dirigente/som como select de members (`is_volunteer=true`) ao inves de input string + datalist.
+4. **Hardening manual** — #23 rotacionar service_role JWT, habilitar 2FA Supabase Auth, integrar provider email (Resend) em `login-alert.js`.
+5. **Performance Fase 10** (precisa deps): vite-plugin-visualizer, zod→valibot, code splitting AnnualSchedule, vite-plugin-image, Lighthouse CI.
+6. **Tooling Fase 13** (precisa CI infra): Dependabot, license-checker, commitlint, semantic-release, status badges.
+7. **axe-core CI** (precisa `vitest-axe`/`jest-axe`).
+8. **Diagrama C4** em Mermaid.
+9. **Drag-and-drop** (precisa @dnd-kit) em MinistriesView/RecurringMeetings/AnnualSchedule.
+10. **View-transition API** (Fase 15.8) com `prefers-reduced-motion`.
 
 ## Backlog aberto (fora dos planos)
 
@@ -113,3 +129,5 @@ Detalhes completos vivem em `docs/plans/`. CLAUDE.md so resume status.
 - **Cobertura**: gate 100% em `core` e `supabase`. Quebrar = test fail.
 - **Antes de instalar deps via apt/sudo**: pedir; sandbox geralmente bloqueia rede.
 - **Memoria**: o usuario tem `feedback_no_assumptions` ativa — em ambiguidade real, pergunta direta antes de chutar.
+- **`schema.sql` faz drop-and-recreate**: re-aplicar zera todas as tabelas. `admin_users` e preservado via backup-and-restore dentro da transacao (linhas 25-44 do schema). Outras tabelas perdem dados ao re-aplicar — em prod use migrations aditivas, nao re-execute o schema.sql.
+- **Owners atuais** (auth.users em prod): `gediael54@gmail.com`, `agtlislopes@gmail.com`. Se novo admin precisa ser adicionado, `insert into admin_users (user_id, role) values ('<uid>', 'owner') on conflict do nothing`.
