@@ -20,6 +20,38 @@ button {
   cursor: pointer;
 }
 
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: var(--space-2);
+  z-index: var(--z-toast);
+  padding: var(--space-2) var(--space-3);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-radius: var(--radius-md);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: var(--space-2);
+  clip: auto;
+  clip-path: none;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
 .loading,
 .login-screen {
   min-height: 100vh;
@@ -1902,6 +1934,60 @@ select:focus-visible {
   .modal {
     animation: none;
   }
+}
+
+/* ShortcutsHelp */
+.shortcuts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.shortcuts-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.shortcuts-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.shortcuts-key-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.shortcuts-key {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+}
+
+.shortcuts-key-sep {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.shortcuts-description {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 
 /* FieldGroup */
