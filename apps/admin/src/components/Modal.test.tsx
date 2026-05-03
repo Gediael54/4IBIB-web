@@ -91,4 +91,55 @@ describe("Modal", () => {
     );
     expect(screen.getByText("ok")).toBeInTheDocument();
   });
+
+  it("exposes aria-modal and aria-labelledby on dialog", () => {
+    render(
+      <Modal open onClose={() => {}} title="Confirmar">
+        body
+      </Modal>
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    const labelId = dialog.getAttribute("aria-labelledby");
+    expect(labelId).toBeTruthy();
+    const titleEl = document.getElementById(labelId!);
+    expect(titleEl).toHaveTextContent("Confirmar");
+  });
+
+  it("restores focus to the previously focused element when closed", async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" data-testid="trigger" onClick={() => setOpen(true)}>
+            abrir
+          </button>
+          <Modal open={open} onClose={() => setOpen(false)} title="x">
+            <button type="button">interno</button>
+          </Modal>
+        </>
+      );
+    }
+    render(<Harness />);
+    const trigger = screen.getByTestId("trigger");
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.click(trigger);
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(trigger);
+    fireEvent.keyDown(window, { key: "Escape" });
+    await Promise.resolve();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("falls back to the close button when body has no focusables", async () => {
+    render(
+      <Modal open onClose={() => {}} title="Vazio">
+        <span>somente texto</span>
+      </Modal>
+    );
+    await Promise.resolve();
+    const closeBtn = screen.getByLabelText("Fechar");
+    expect(document.activeElement).toBe(closeBtn);
+  });
 });
