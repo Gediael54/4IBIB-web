@@ -1,10 +1,11 @@
 import { formatDateTime, type AdminRole, type AdminUser } from "@4ibib/core";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save, Trash2, UserPlus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { EmptyState } from "../components/EmptyState";
 import { ListView } from "../components/ListView";
+import { useToast } from "../components/Toast";
 import { Field, ListToolbar, Pagination, SelectField } from "../components/ui";
 import { ADMIN_ROLE_LABELS } from "../lib/labels";
 import {
@@ -47,7 +48,7 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
   const inviteMutation = useInviteAdmin();
   const updateRoleMutation = useUpdateAdminRole();
   const removeMutation = useRemoveAdmin();
-  const [inviteError, setInviteError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const {
     register,
@@ -81,13 +82,14 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
   }, [admins, state]);
 
   async function onSubmit(values: InviteAdminFormValues) {
-    setInviteError(null);
     try {
       await inviteMutation.mutateAsync({ email: values.email.trim(), role: values.role });
       reset(EMPTY_INVITE);
+      toast("Convite enviado.", { variant: "success" });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Falha ao convidar admin.";
-      setInviteError(message);
+      const message =
+        error instanceof Error ? error.message : "Nao consegui enviar o convite — tenta de novo?";
+      toast(message, { variant: "danger" });
     }
   }
 
@@ -96,14 +98,29 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
     if (!window.confirm(`Remover acesso de ${label}?`)) {
       return;
     }
-    await removeMutation.mutateAsync(admin.userId);
+    try {
+      await removeMutation.mutateAsync(admin.userId);
+      toast(`Acesso de ${label} removido.`, { variant: "success" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui remover — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
   }
 
   function handleRoleChange(admin: AdminUser, role: AdminRole) {
     if (admin.role === role) {
       return;
     }
-    updateRoleMutation.mutate({ userId: admin.userId, role });
+    updateRoleMutation.mutate(
+      { userId: admin.userId, role },
+      {
+        onSuccess: () => toast("Funcao atualizada.", { variant: "success" }),
+        onError: (error) =>
+          toast(error instanceof Error ? error.message : "Nao consegui mudar a funcao — tenta de novo?", {
+            variant: "danger"
+          })
+      }
+    );
   }
 
   const saving = isSubmitting || inviteMutation.isPending;
@@ -130,11 +147,6 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
               <Save size={18} /> Convidar
             </button>
           </div>
-          {inviteError && (
-            <small className="form-error" role="alert">
-              {inviteError}
-            </small>
-          )}
         </form>
       </div>
 
@@ -166,8 +178,8 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
         emptyState={
           <EmptyState
             icon={<UserPlus size={32} />}
-            title="Nenhum admin cadastrado."
-            description="Convide alguem usando o formulario acima."
+            title="Sem admins ainda."
+            description="Use o formulario acima pra convidar quem vai cuidar do painel."
           />
         }
         footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
