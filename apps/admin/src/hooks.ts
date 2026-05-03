@@ -3,7 +3,10 @@ import type {
   AnnouncementInput,
   AuditLogFilter,
   ChurchProfileInput,
+  Household,
   InviteAdminInput,
+  Member,
+  MemberRelationship,
   MinistryInput,
   PrayerRequestPatch,
   PrayerStatus,
@@ -19,11 +22,47 @@ import { addMutationBreadcrumb } from "./monitoring";
 
 export { backend };
 
+const RETRY_DELAY_BASE_MS = 1000;
+const RETRY_DELAY_CAP_MS = 5000;
+const RETRY_MAX_ATTEMPTS = 2;
+
+function isRetryableError(error: unknown): boolean {
+  if (!(error instanceof Error)) return true;
+  const message = error.message.toLowerCase();
+  if (message.includes("network") || message.includes("fetch") || message.includes("timeout")) {
+    return true;
+  }
+  const candidate = error as { status?: number; statusCode?: number };
+  const status = candidate.status ?? candidate.statusCode;
+  if (typeof status === "number") {
+    if (status >= 400 && status < 500) return false;
+    if (status >= 500) return true;
+  }
+  return false;
+}
+
+const CRITICAL_RETRY = {
+  retry: (failureCount: number, error: unknown) => {
+    if (failureCount >= RETRY_MAX_ATTEMPTS) return false;
+    return isRetryableError(error);
+  },
+  retryDelay: (attempt: number) => Math.min(RETRY_DELAY_BASE_MS * 2 ** attempt, RETRY_DELAY_CAP_MS)
+} as const;
+
 const SNAPSHOT_KEY = ["snapshot"] as const;
 const PRAYERS_KEY = ["prayers"] as const;
 const VOLUNTEERS_KEY = ["volunteers"] as const;
 const ADMINS_KEY = ["admins"] as const;
 const AUDIT_KEY = ["audit"] as const;
+const MEMBERS_KEY = ["members"] as const;
+const HOUSEHOLDS_KEY = ["households"] as const;
+const RELATIONSHIPS_KEY = ["relationships"] as const;
+
+export type MemberInput = Omit<Member, "id" | "createdAt" | "updatedAt" | "deletedAt"> & { id?: string };
+export type HouseholdInput = Omit<Household, "id" | "createdAt" | "updatedAt" | "deletedAt"> & {
+  id?: string;
+};
+export type RelationshipInput = Omit<MemberRelationship, "id" | "createdAt">;
 
 export function useSnapshot() {
   return useQuery({
@@ -42,6 +81,7 @@ export function usePrayers() {
 export function useSaveAnnouncement() {
   const queryClient = useQueryClient();
   return useMutation({
+    ...CRITICAL_RETRY,
     mutationFn: (input: AnnouncementInput) => backend.content.saveAnnouncement(input),
     onMutate: (input) => {
       addMutationBreadcrumb("save-announcement", { id: input.id ?? null });
@@ -64,6 +104,7 @@ export function useDeleteAnnouncement() {
 export function useSaveScheduleItem() {
   const queryClient = useQueryClient();
   return useMutation({
+    ...CRITICAL_RETRY,
     mutationFn: (input: ScheduleItemInput) => backend.content.saveScheduleItem(input),
     onMutate: (input) => {
       addMutationBreadcrumb("save-schedule-item", { id: input.id ?? null });
@@ -131,6 +172,7 @@ export function useVolunteers() {
 export function useSaveVolunteer() {
   const queryClient = useQueryClient();
   return useMutation({
+    ...CRITICAL_RETRY,
     mutationFn: (input: VolunteerInput) => backend.content.saveVolunteer(input),
     onMutate: (input) => {
       addMutationBreadcrumb("save-volunteer", { id: input.id ?? null });
@@ -178,6 +220,7 @@ export function useSaveProfile() {
 export function useSaveMinistry() {
   const queryClient = useQueryClient();
   return useMutation({
+    ...CRITICAL_RETRY,
     mutationFn: (input: MinistryInput) => backend.content.saveMinistry(input),
     onMutate: (input) => {
       addMutationBreadcrumb("save-ministry", { id: input.id ?? null });
@@ -260,5 +303,176 @@ export function useRevertAuditEntry() {
       queryClient.invalidateQueries({ queryKey: AUDIT_KEY });
       queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY });
     }
+  });
+}
+
+export function useMembers(options?: { isVolunteer?: boolean; householdId?: string }) {
+  return useQuery({
+    queryKey: [...MEMBERS_KEY, options ?? null],
+    queryFn: () => backend.content.listMembers(options)
+  });
+}
+
+export function useHouseholds() {
+  return useQuery({
+    queryKey: HOUSEHOLDS_KEY,
+    queryFn: () => backend.content.listHouseholds()
+  });
+}
+
+export function useRelationships(memberId: string | null) {
+  return useQuery({
+    queryKey: [...RELATIONSHIPS_KEY, memberId],
+    enabled: memberId !== null && memberId !== "",
+    queryFn: () => backend.content.listRelationships(memberId ?? "")
+  });
+}
+
+export function useSaveMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...CRITICAL_RETRY,
+    mutationFn: (input: MemberInput) => {
+      const { id, ...rest } = input;
+      if (id) {
+        return backend.content.updateMember(id, rest);
+      }
+      return backend.content.createMember(rest);
+    },
+    onMutate: (input) => {
+      addMutationBreadcrumb("save-member", { id: input.id ?? null });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MEMBERS_KEY });
+      queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY });
+    }
+  });
+}
+
+export function useArchiveMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.archiveMember(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("archive-member", { id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MEMBERS_KEY });
+      queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY });
+    }
+  });
+}
+
+export function useRestoreMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.restoreMember(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("restore-member", { id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MEMBERS_KEY });
+      queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY });
+    }
+  });
+}
+
+export function useAnonymizeMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.anonymizeMember(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("anonymize-member", { id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MEMBERS_KEY });
+      queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY });
+    }
+  });
+}
+
+export function useFindMemberDuplicates() {
+  return useMutation({
+    mutationFn: (input: { fullName: string; cpf: string | null; email: string; phone: string }) =>
+      backend.content.findMemberDuplicates(input)
+  });
+}
+
+export function useSaveHousehold() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...CRITICAL_RETRY,
+    mutationFn: (input: HouseholdInput) => {
+      const { id, ...rest } = input;
+      if (id) {
+        return backend.content.updateHousehold(id, rest);
+      }
+      return backend.content.createHousehold(rest);
+    },
+    onMutate: (input) => {
+      addMutationBreadcrumb("save-household", { id: input.id ?? null });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: HOUSEHOLDS_KEY });
+      queryClient.invalidateQueries({ queryKey: MEMBERS_KEY });
+    }
+  });
+}
+
+export function useArchiveHousehold() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.archiveHousehold(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("archive-household", { id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: HOUSEHOLDS_KEY });
+      queryClient.invalidateQueries({ queryKey: MEMBERS_KEY });
+    }
+  });
+}
+
+export function useSaveRelationship() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: RelationshipInput) => backend.content.createRelationship(input),
+    onMutate: (input) => {
+      addMutationBreadcrumb("save-relationship", { fromMemberId: input.fromMemberId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: RELATIONSHIPS_KEY });
+    }
+  });
+}
+
+export function useDeleteRelationship() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.deleteRelationship(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("delete-relationship", { id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: RELATIONSHIPS_KEY });
+    }
+  });
+}
+
+export function useUpdateScheduleItemMembers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      itemId,
+      members
+    }: {
+      itemId: string;
+      members: {
+        preacherMemberId: string | null;
+        directorMemberId: string | null;
+        soundMemberId: string | null;
+      };
+    }) => backend.content.updateScheduleItemMembers(itemId, members),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });
 }
