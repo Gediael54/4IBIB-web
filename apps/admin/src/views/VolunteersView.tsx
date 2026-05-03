@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { EmptyState } from "../components/EmptyState";
 import { FieldGroup } from "../components/FieldGroup";
 import { ListView } from "../components/ListView";
+import { useToast } from "../components/Toast";
 import {
   Field,
   FormActions,
@@ -94,6 +95,7 @@ export default function VolunteersView({
   const saveMutation = useSaveVolunteer();
   const renameMutation = useRenameVolunteer();
   const deleteMutation = useDeleteVolunteer();
+  const { toast } = useToast();
 
   const {
     register,
@@ -190,31 +192,43 @@ export default function VolunteersView({
       }
     }
 
-    if (isRename && cascadeConfirmed && editingId) {
-      await renameMutation.mutateAsync({ id: editingId, newName: trimmedName, cascade: true });
-    }
+    try {
+      if (isRename && cascadeConfirmed && editingId) {
+        await renameMutation.mutateAsync({ id: editingId, newName: trimmedName, cascade: true });
+      }
 
-    await saveMutation.mutateAsync({
-      id: editingId ?? undefined,
-      name: trimmedName,
-      role: values.role,
-      sortOrder: values.sortOrder,
-      contact: values.contact,
-      photoUrl: values.photoUrl,
-      ministries: values.ministries,
-      unavailableDates: values.unavailableDates,
-      notes: values.notes
-    });
-    cancelEdit();
+      await saveMutation.mutateAsync({
+        id: editingId ?? undefined,
+        name: trimmedName,
+        role: values.role,
+        sortOrder: values.sortOrder,
+        contact: values.contact,
+        photoUrl: values.photoUrl,
+        ministries: values.ministries,
+        unavailableDates: values.unavailableDates,
+        notes: values.notes
+      });
+      toast(editingId ? "Voluntario atualizado." : "Voluntario cadastrado.", { variant: "success" });
+      cancelEdit();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
   }
 
   async function handleDelete(item: Volunteer) {
     if (!window.confirm(`Excluir o voluntario "${item.name}"?`)) {
       return;
     }
-    await deleteMutation.mutateAsync(item.id);
-    if (editingId === item.id) {
-      cancelEdit();
+    try {
+      await deleteMutation.mutateAsync(item.id);
+      toast(`Voluntario "${item.name}" removido.`, { variant: "success" });
+      if (editingId === item.id) {
+        cancelEdit();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui excluir — tenta de novo?";
+      toast(message, { variant: "danger" });
     }
   }
 
@@ -358,8 +372,8 @@ export default function VolunteersView({
         emptyState={
           <EmptyState
             icon={<Users size={32} />}
-            title="Nenhum voluntario encontrado."
-            description="Cadastre um voluntario no formulario ao lado."
+            title="Sem voluntarios cadastrados."
+            description="Adicione gente que serve — pregador, dirigente, equipe de som — no formulario ao lado."
           />
         }
         footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
@@ -393,13 +407,6 @@ export default function VolunteersView({
               { id: "notas", label: "Notas", content: notasPanel }
             ]}
           />
-          {(saveMutation.error || renameMutation.error) && (
-            <p className="form-error">
-              {(saveMutation.error ?? renameMutation.error) instanceof Error
-                ? (saveMutation.error ?? renameMutation.error)!.message
-                : "Falha ao salvar."}
-            </p>
-          )}
           <FormActions saving={saving} onCancel={cancelEdit} />
         </form>
       </div>
