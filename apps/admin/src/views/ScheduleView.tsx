@@ -27,7 +27,9 @@ import {
   useBulkUpdateScheduleItems,
   useDeleteScheduleItem,
   useDuplicateScheduleItem,
-  useSaveScheduleItem
+  useMembers,
+  useSaveScheduleItem,
+  useUpdateScheduleItemMembers
 } from "../hooks";
 import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
 import { scheduleSchema, type ScheduleFormValues } from "../schemas";
@@ -104,6 +106,9 @@ export function ScheduleForm(props: {
   resetSignal: number;
 }) {
   const saveMutation = useSaveScheduleItem();
+  const updateMembersMutation = useUpdateScheduleItemMembers();
+  const membersQuery = useMembers({ isVolunteer: true });
+  const volunteerMembers = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
   const { toast } = useToast();
 
   const {
@@ -143,25 +148,53 @@ export function ScheduleForm(props: {
 
   const volunteers = useMemo(() => props.snapshot.volunteers ?? [], [props.snapshot]);
 
+  const memberNames = useMemo(
+    () => uniqueSorted(volunteerMembers.map((member) => member.fullName)),
+    [volunteerMembers]
+  );
+
   const generalVolunteerNames = useMemo(
     () => uniqueSorted(volunteers.filter((item) => item.role === "geral").map((item) => item.name)),
     [volunteers]
   );
 
   const soundVolunteerNames = useMemo(
-    () => uniqueSorted(volunteers.filter((item) => item.role === "som").map((item) => item.name)),
-    [volunteers]
+    () =>
+      uniqueSorted([
+        ...volunteers.filter((item) => item.role === "som").map((item) => item.name),
+        ...memberNames
+      ]),
+    [volunteers, memberNames]
   );
 
   const schedulePreachers = useMemo(
-    () => uniqueSorted([...generalVolunteerNames, ...props.snapshot.schedule.map((item) => item.preacher)]),
-    [props.snapshot, generalVolunteerNames]
+    () =>
+      uniqueSorted([
+        ...memberNames,
+        ...generalVolunteerNames,
+        ...props.snapshot.schedule.map((item) => item.preacher)
+      ]),
+    [props.snapshot, generalVolunteerNames, memberNames]
   );
 
   const scheduleDirectors = useMemo(
-    () => uniqueSorted([...generalVolunteerNames, ...props.snapshot.schedule.map((item) => item.director)]),
-    [props.snapshot, generalVolunteerNames]
+    () =>
+      uniqueSorted([
+        ...memberNames,
+        ...generalVolunteerNames,
+        ...props.snapshot.schedule.map((item) => item.director)
+      ]),
+    [props.snapshot, generalVolunteerNames, memberNames]
   );
+
+  function resolveMemberId(name: string): string | null {
+    const trimmed = name.trim().toLocaleLowerCase("pt-BR");
+    if (!trimmed) return null;
+    const match = volunteerMembers.find(
+      (member) => member.fullName.trim().toLocaleLowerCase("pt-BR") === trimmed
+    );
+    return match?.id ?? null;
+  }
 
   const schedulePassages = useMemo(
     () => uniqueSorted(props.snapshot.schedule.map((item) => item.passage)),
@@ -190,7 +223,7 @@ export function ScheduleForm(props: {
 
   async function onSubmit(values: ScheduleFormValues) {
     try {
-      await saveMutation.mutateAsync({
+      const saved = await saveMutation.mutateAsync({
         id: props.editingId ?? undefined,
         title: values.title,
         ministry: values.ministry,
@@ -206,6 +239,16 @@ export function ScheduleForm(props: {
         status: values.status,
         featured: values.featured
       });
+      const preacherMemberId = resolveMemberId(values.preacher);
+      const directorMemberId = resolveMemberId(values.director);
+      const firstSoundName = values.soundTeam.split(",")[0] ?? "";
+      const soundMemberId = resolveMemberId(firstSoundName);
+      if (preacherMemberId || directorMemberId || soundMemberId) {
+        await updateMembersMutation.mutateAsync({
+          itemId: saved.id,
+          members: { preacherMemberId, directorMemberId, soundMemberId }
+        });
+      }
       toast(props.editingId ? "Programacao atualizada." : "Programacao criada.", { variant: "success" });
       props.onSaved();
     } catch (error) {
