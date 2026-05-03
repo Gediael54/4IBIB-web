@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { EmptyState } from "../components/EmptyState";
 import { ListView } from "../components/ListView";
 import { Modal } from "../components/Modal";
+import { useToast } from "../components/Toast";
 import { Field, ListToolbar, Pagination, SelectField } from "../components/ui";
 import { useAuditLog, useRevertAuditEntry } from "../hooks";
 import { AUDIT_ACTION_LABELS, AUDIT_ACTION_OPTIONS, AUDIT_TABLE_OPTIONS } from "../lib/labels";
@@ -80,11 +81,7 @@ export default function AuditLogView({ state, onStateChange }: AuditLogViewProps
   const [since, setSince] = useState<string>("");
   const [until, setUntil] = useState<string>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [revertFeedback, setRevertFeedback] = useState<{
-    id: string;
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const { toast } = useToast();
 
   const hasActiveFilters = tableFilter !== "all" || actionFilter !== "all" || since !== "" || until !== "";
 
@@ -120,13 +117,12 @@ export default function AuditLogView({ state, onStateChange }: AuditLogViewProps
   }, [entries, state]);
 
   async function handleRevert(entry: AuditLogEntry) {
-    setRevertFeedback(null);
     try {
       await revertMutation.mutateAsync(entry.id);
-      setRevertFeedback({ id: entry.id, type: "success", message: "Mudanca revertida." });
+      toast("Mudanca revertida.", { variant: "success" });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Nao foi possivel reverter a mudanca.";
-      setRevertFeedback({ id: entry.id, type: "error", message });
+      const message = error instanceof Error ? error.message : "Nao consegui reverter — tenta de novo?";
+      toast(message, { variant: "danger" });
     }
   }
 
@@ -235,8 +231,8 @@ export default function AuditLogView({ state, onStateChange }: AuditLogViewProps
         emptyState={
           <EmptyState
             icon={<History size={32} />}
-            title="Nenhuma mudanca encontrada para os filtros."
-            description="Ajuste os filtros acima ou aguarde novas alteracoes."
+            title="Nada por aqui ainda."
+            description="Mexa nos filtros ou espere alguem editar — toda mudanca aparece aqui."
           />
         }
         footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
@@ -274,14 +270,6 @@ export default function AuditLogView({ state, onStateChange }: AuditLogViewProps
               >
                 Reverter
               </button>
-              {revertFeedback && revertFeedback.id === entry.id && (
-                <small
-                  className={revertFeedback.type === "error" ? "form-error" : "form-success"}
-                  role={revertFeedback.type === "error" ? "alert" : "status"}
-                >
-                  {revertFeedback.message}
-                </small>
-              )}
             </div>
           </article>
         )}
