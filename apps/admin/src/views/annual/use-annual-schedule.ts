@@ -30,7 +30,7 @@ export interface UseAnnualScheduleResult {
   clearPending: () => void;
   saveError: string | null;
   isSaving: boolean;
-  handleSave: () => Promise<void>;
+  handleSave: () => Promise<boolean>;
 }
 
 export function useAnnualSchedule(snapshot: SiteSnapshot): UseAnnualScheduleResult {
@@ -167,14 +167,14 @@ export function useAnnualSchedule(snapshot: SiteSnapshot): UseAnnualScheduleResu
     [pending, snapshot.schedule]
   );
 
-  async function handleSave() {
+  async function handleSave(): Promise<boolean> {
     const batch = buildBatch();
-    if (batch.length === 0) return;
+    if (batch.length === 0) return false;
     const conflicts = detectConflicts();
     if (conflicts.length > 0) {
       const message = `Atencao:\n${conflicts.join("\n")}\nContinuar?`;
       if (!window.confirm(message)) {
-        return;
+        return false;
       }
     }
     setSaveError(null);
@@ -191,8 +191,10 @@ export function useAnnualSchedule(snapshot: SiteSnapshot): UseAnnualScheduleResu
         await bulkMutation.mutateAsync({ ids, patch });
       }
       clearPending();
+      return true;
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Falha ao salvar mudancas.");
+      setSaveError(error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?");
+      return false;
     }
   }
 
