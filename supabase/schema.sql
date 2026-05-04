@@ -50,7 +50,19 @@ end $$;
 -- explicit (instead of `drop schema public cascade`) preserves Supabase's
 -- default schema-level grants and any extension that might live in public.
 
-drop view if exists public.volunteers cascade;
+-- `volunteers` may be a TABLE (legacy) or a VIEW (new). Drop whichever exists.
+do $$
+begin
+  if exists (
+    select 1 from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relname = 'volunteers' and c.relkind = 'v'
+  ) then
+    execute 'drop view public.volunteers cascade';
+  end if;
+end $$;
+
+drop table if exists public.volunteers cascade;
 
 drop table if exists public.content_audit_log cascade;
 drop table if exists public.prayer_request_rate_limits cascade;
@@ -59,7 +71,6 @@ drop table if exists public.admin_rate_limit_buckets cascade;
 drop table if exists public.member_relationships cascade;
 drop table if exists public.members cascade;
 drop table if exists public.households cascade;
-drop table if exists public.volunteers cascade;
 drop table if exists public.schedule_items cascade;
 drop table if exists public.announcements cascade;
 drop table if exists public.admin_users cascade;
