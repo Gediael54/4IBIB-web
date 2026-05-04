@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   updateMember: vi.fn().mockResolvedValue({}),
   archiveMember: vi.fn().mockResolvedValue(undefined),
   restoreMember: vi.fn().mockResolvedValue(undefined),
+  anonymizeMember: vi.fn().mockResolvedValue(undefined),
   findMemberDuplicates: vi.fn<() => Promise<MemberDuplicateMatch[]>>().mockResolvedValue([])
 }));
 
@@ -26,11 +27,13 @@ vi.mock("../backend", () => ({
       updateMember: mocks.updateMember,
       archiveMember: mocks.archiveMember,
       restoreMember: mocks.restoreMember,
+      anonymizeMember: mocks.anonymizeMember,
       findMemberDuplicates: mocks.findMemberDuplicates
     }
   }
 }));
 
+import { ConfirmProvider } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/Toast";
 import MembersView from "./MembersView";
 
@@ -104,14 +107,16 @@ function renderView(opts: RenderOptions = {}) {
   const utils = render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <MembersView
-          state={{ search: "", sort: "nameAsc", page: 1 }}
-          onStateChange={onStateChange}
-          mode={opts.mode}
-          defaultTab={opts.defaultTab}
-          defaultFilter={opts.defaultFilter}
-          title={opts.title}
-        />
+        <ConfirmProvider>
+          <MembersView
+            state={{ search: "", sort: "nameAsc", page: 1 }}
+            onStateChange={onStateChange}
+            mode={opts.mode}
+            defaultTab={opts.defaultTab}
+            defaultFilter={opts.defaultFilter}
+            title={opts.title}
+          />
+        </ConfirmProvider>
       </ToastProvider>
     </QueryClientProvider>
   );
@@ -128,6 +133,7 @@ describe("MembersView", () => {
     mocks.updateMember.mockReset().mockResolvedValue({});
     mocks.archiveMember.mockReset().mockResolvedValue(undefined);
     mocks.restoreMember.mockReset().mockResolvedValue(undefined);
+    mocks.anonymizeMember.mockReset().mockResolvedValue(undefined);
     mocks.findMemberDuplicates.mockReset().mockResolvedValue([]);
   });
 
@@ -417,5 +423,119 @@ describe("MembersView", () => {
 
     fireEvent.change(screen.getByLabelText("Buscar"), { target: { value: "joao" } });
     expect(onStateChange).toHaveBeenCalledWith({ search: "joao", page: 1 });
+  });
+
+  it("anonymizes member after typing ANONIMIZAR confirmation", async () => {
+    mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Silva" })]);
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("Joao Silva")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    fireEvent.click(screen.getByRole("tab", { name: "LGPD" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Anonimizar dados" }));
+
+    expect(screen.getByText(/Anonimizar dados de Joao Silva\?/i)).toBeInTheDocument();
+
+    const confirmButton = screen.getByTestId("confirm-dialog-confirm");
+    expect(confirmButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Digite ANONIMIZAR para confirmar"), {
+      target: { value: "ANONIMIZAR" }
+    });
+    expect(confirmButton).not.toBeDisabled();
+
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(mocks.anonymizeMember).toHaveBeenCalledWith("m1");
+    });
+    await waitFor(() => {
+      expect(screen.getByText("Dados anonimizados.")).toBeInTheDocument();
+    });
+  });
+
+  it("does not show anonymize button when creating a new member", () => {
+    renderView({ defaultTab: "lgpd" });
+    expect(screen.queryByRole("button", { name: "Anonimizar dados" })).not.toBeInTheDocument();
+  });
+
+  it("blocks submit when health data is filled without consent", async () => {
+    renderView();
+
+    fireEvent.change(screen.getByLabelText("Nome completo"), {
+      target: { value: "Sem Consent" }
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Saude" }));
+    fireEvent.change(screen.getByLabelText("Alergias"), {
+      target: { value: "Amendoim" }
+    });
+
+    expect(
+      screen.getByText(/dados de saude sao categoria especial \(LGPD Art\.11\)\. Marque o consentimento/i)
+    ).toBeInTheDocument();
+
+    const form = screen.getByRole("button", { name: /salvar/i }).closest("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      const matches = screen.getAllByText("Marque o consentimento de saude antes de salvar dados medicos.");
+      expect(matches.length).toBeGreaterThan(0);
+    });
+
+    expect(mocks.createMember).not.toHaveBeenCalled();
+  });
+
+  it("shows retention expired banner when dataRetentionUntil is in the past", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({
+        id: "m1",
+        fullName: "Joao Expirado",
+        dataRetentionUntil: "2024-01-01"
+      })
+    ]);
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("Joao Expirado")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Retencao de dados expirou em/i)).toBeInTheDocument();
+    });
+  });
+
+  it("persists publicDirectory checkbox state when editing", async () => {
+    mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Pub" })]);
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("Joao Pub")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    fireEvent.click(screen.getByRole("tab", { name: "LGPD" }));
+
+    const checkbox = screen.getByLabelText(/Exibir no diretorio publico/i) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    fireEvent.click(checkbox);
+    expect(checkbox.checked).toBe(true);
+
+    const form = screen.getByRole("button", { name: /salvar/i }).closest("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(mocks.updateMember).toHaveBeenCalledTimes(1);
+    });
+    const payload = mocks.updateMember.mock.calls[0][1];
+    expect(payload.publicDirectory).toBe(true);
   });
 });
