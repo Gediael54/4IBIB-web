@@ -137,6 +137,27 @@ it("sorts schedule by start date and returns upcoming scheduled events", () => {
   expect(getUpcomingSchedule(schedule).map((item) => item.id)).toEqual(["soon", "later"]);
 });
 
+it("keeps an event in upcoming while it is currently happening", () => {
+  const now = new Date("2030-01-01T11:00:00.000Z");
+  vi.setSystemTime(now);
+  const items: ScheduleItem[] = [
+    makeSchedule({
+      id: "ongoing",
+      startsAt: "2030-01-01T10:00:00.000Z",
+      endsAt: "2030-01-01T12:00:00.000Z"
+    }),
+    makeSchedule({
+      id: "next-day",
+      startsAt: "2030-01-02T10:00:00.000Z",
+      endsAt: "2030-01-02T12:00:00.000Z"
+    })
+  ];
+  expect(getUpcomingSchedule(items).map((entry) => entry.id)).toEqual(["ongoing", "next-day"]);
+  vi.setSystemTime(new Date("2030-01-01T12:00:01.000Z"));
+  expect(getUpcomingSchedule(items).map((entry) => entry.id)).toEqual(["next-day"]);
+  vi.useRealTimers();
+});
+
 it("excludes free and suspended items from upcoming schedule", () => {
   const items: ScheduleItem[] = [
     makeSchedule({ id: "free-future", status: "free" }),
