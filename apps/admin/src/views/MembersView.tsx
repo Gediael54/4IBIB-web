@@ -13,6 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { FieldGroup } from "../components/FieldGroup";
 import { ListView } from "../components/ListView";
@@ -28,6 +29,7 @@ import {
   TextAreaField
 } from "../components/ui";
 import {
+  useAnonymizeMember,
   useArchiveMember,
   useFindMemberDuplicates,
   useHouseholds,
@@ -455,8 +457,10 @@ export default function MembersView({
   const saveMutation = useSaveMember();
   const archiveMutation = useArchiveMember();
   const restoreMutation = useRestoreMember();
+  const anonymizeMutation = useAnonymizeMember();
   const findDuplicates = useFindMemberDuplicates();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [duplicateBlocking, setDuplicateBlocking] = useState<MemberDuplicateMatch | null>(null);
@@ -471,6 +475,8 @@ export default function MembersView({
     setValue,
     watch,
     getValues,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting }
   } = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
@@ -483,11 +489,27 @@ export default function MembersView({
   const watchedPhone = watch("phone");
   const isVolunteer = watch("isVolunteer");
   const consentMedical = watch("consentMedicalDataChecked");
+  const watchedAllergies = watch("allergies") ?? "";
+  const watchedMedicalNotes = watch("medicalNotes") ?? "";
+  const watchedDataRetentionUntil = watch("dataRetentionUntil") ?? "";
   const volunteerMinistries = watch("volunteerMinistries") ?? [];
   const volunteerUnavailableDates = watch("volunteerUnavailableDates") ?? [];
   const prayerTopics = watch("prayerTopics") ?? [];
   const spiritualGifts = watch("spiritualGifts") ?? [];
   const householdId = watch("householdId");
+
+  const medicalDataWithoutConsent =
+    !consentMedical && (watchedAllergies.trim().length > 0 || watchedMedicalNotes.trim().length > 0);
+
+  const retentionExpiredDate = useMemo(() => {
+    if (!watchedDataRetentionUntil) return null;
+    const parsed = Date.parse(watchedDataRetentionUntil);
+    if (Number.isNaN(parsed)) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (parsed >= today.getTime()) return null;
+    return watchedDataRetentionUntil;
+  }, [watchedDataRetentionUntil]);
 
   const [newDate, setNewDate] = useState("");
 
@@ -591,6 +613,20 @@ export default function MembersView({
       toast("Resolva a possivel duplicata antes de salvar.", { variant: "warning" });
       return;
     }
+    const allergiesFilled = values.allergies.trim().length > 0;
+    const medicalNotesFilled = values.medicalNotes.trim().length > 0;
+    if (!values.consentMedicalDataChecked && (allergiesFilled || medicalNotesFilled)) {
+      const message = "Marque o consentimento de saude antes de salvar dados medicos.";
+      if (allergiesFilled) {
+        setError("allergies", { type: "manual", message });
+      }
+      if (medicalNotesFilled) {
+        setError("medicalNotes", { type: "manual", message });
+      }
+      toast(message, { variant: "warning" });
+      return;
+    }
+    clearErrors(["allergies", "medicalNotes"]);
     try {
       const payload = buildMemberPayload(values, { existing: editingItem });
       await saveMutation.mutateAsync(payload);
@@ -598,6 +634,27 @@ export default function MembersView({
       cancelEdit();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nao consegui salvar.";
+      toast(message, { variant: "danger" });
+    }
+  }
+
+  async function handleAnonymize() {
+    if (!editingItem) return;
+    const ok = await confirm({
+      title: `Anonimizar dados de ${editingItem.fullName}?`,
+      message:
+        "Esta acao substitui PII por placeholders e arquiva o registro. NAO pode ser desfeita. O membro perde nome, contato, endereco, etc.",
+      confirmText: "Anonimizar",
+      destructive: true,
+      requireText: "ANONIMIZAR"
+    });
+    if (!ok) return;
+    try {
+      await anonymizeMutation.mutateAsync(editingItem.id);
+      toast("Dados anonimizados.", { variant: "warning" });
+      cancelEdit();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui anonimizar.";
       toast(message, { variant: "danger" });
     }
   }
@@ -987,16 +1044,24 @@ export default function MembersView({
         Dados de saude sao categoria especial (LGPD Art.11) — so use se houver consentimento explicito do
         membro.
       </p>
+      {medicalDataWithoutConsent && (
+        <div className="lgpd-banner lgpd-banner-warning" role="alert">
+          Atencao: dados de saude sao categoria especial (LGPD Art.11). Marque o consentimento explicito antes
+          de salvar.
+        </div>
+      )}
       <TextAreaField
         label="Alergias"
         placeholder="Alergias conhecidas"
         maxLength={TEXTAREA_MAX}
+        error={errors.allergies?.message}
         {...register("allergies")}
       />
       <TextAreaField
         label="Notas medicas"
         placeholder="Restricoes ou condicoes relevantes"
         maxLength={TEXTAREA_MAX}
+        error={errors.medicalNotes?.message}
         {...register("medicalNotes")}
       />
       <label className="check-row">
@@ -1035,9 +1100,28 @@ export default function MembersView({
       />
       <label className="check-row">
         <input type="checkbox" {...register("publicDirectory")} />
-        Aparecer em diretorio publico
+        Exibir no diretorio publico
       </label>
+      <small className="form-hint">
+        Permite que este membro apareca em listagens publicas (ex: bio de pastores, equipe de lideranca).
+        Default off por LGPD.
+      </small>
       <Field label="Reter dados ate" type="date" {...register("dataRetentionUntil")} />
+      {editingItem && (
+        <div className="lgpd-anonymize-row">
+          <button
+            type="button"
+            className="button danger"
+            onClick={handleAnonymize}
+            disabled={anonymizeMutation.isPending}
+          >
+            Anonimizar dados
+          </button>
+          <small className="form-hint">
+            Substitui PII por placeholders e arquiva o registro. Acao irreversivel.
+          </small>
+        </div>
+      )}
     </>
   );
 
@@ -1104,6 +1188,12 @@ export default function MembersView({
               Atualizando dados de <strong>{editingItem.fullName}</strong>. Preencha apenas os campos novos —
               os existentes serao mantidos.
             </p>
+          )}
+          {retentionExpiredDate && (
+            <div className="lgpd-banner lgpd-banner-danger" role="alert">
+              Retencao de dados expirou em {new Date(retentionExpiredDate).toLocaleDateString("pt-BR")}.
+              Considere anonimizar ou atualizar consent.
+            </div>
           )}
           {duplicateWarning.length > 0 && !duplicateBlocking && (
             <div className="dedup-banner" role="alert">
