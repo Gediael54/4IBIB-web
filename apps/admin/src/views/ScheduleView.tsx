@@ -25,10 +25,11 @@ import {
 } from "../components/ui";
 import { MINISTRIES } from "../config/church";
 import {
+  useArchiveScheduleItem,
   useBulkUpdateScheduleItems,
-  useDeleteScheduleItem,
   useDuplicateScheduleItem,
   useMembers,
+  useRestoreScheduleItem,
   useSaveScheduleItem,
   useUpdateScheduleItemMembers
 } from "../hooks";
@@ -421,7 +422,8 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
   const [bulkText, setBulkText] = useState("");
   const [bulkStatus, setBulkStatus] = useState<ScheduleStatus>("scheduled");
 
-  const deleteMutation = useDeleteScheduleItem();
+  const archiveMutation = useArchiveScheduleItem();
+  const restoreMutation = useRestoreScheduleItem();
   const duplicateMutation = useDuplicateScheduleItem();
   const bulkMutation = useBulkUpdateScheduleItems();
   const { toast } = useToast();
@@ -546,8 +548,11 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
       return;
     }
     try {
-      await deleteMutation.mutateAsync(item.id);
-      toast(`"${item.title}" removido da programacao.`, { variant: "success" });
+      await archiveMutation.mutateAsync(item.id);
+      toast.undo({
+        message: `"${item.title}" arquivado.`,
+        onUndo: () => restoreMutation.mutate(item.id)
+      });
       setSelectedIds((prev) => {
         if (!prev.has(item.id)) return prev;
         const next = new Set(prev);
@@ -618,9 +623,16 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
     }
     try {
       for (const id of ids) {
-        await deleteMutation.mutateAsync(id);
+        await archiveMutation.mutateAsync(id);
       }
-      toast(`${ids.length} itens removidos.`, { variant: "success" });
+      toast.undo({
+        message: `${ids.length} itens arquivados.`,
+        onUndo: () => {
+          for (const id of ids) {
+            restoreMutation.mutate(id);
+          }
+        }
+      });
       if (editingId && ids.includes(editingId)) {
         cancelEdit();
       }
@@ -632,7 +644,7 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
   }
 
   const selectionCount = selectedIds.size;
-  const bulkPending = bulkMutation.isPending || deleteMutation.isPending;
+  const bulkPending = bulkMutation.isPending || archiveMutation.isPending;
 
   return (
     <div className="crud-layout">
