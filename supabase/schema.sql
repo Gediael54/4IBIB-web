@@ -890,6 +890,22 @@ create trigger audit_recurring_meetings
 -- 8. Row Level Security and policies
 -- =============================================================================
 
+-- Restore Supabase default base grants. drop schema public cascade revokes
+-- everything; without these grants the client gets `permission denied` BEFORE
+-- RLS even has a chance to filter. RLS narrows what each role can see; the
+-- grants below give the base permission for RLS to apply on top.
+grant select on all tables in schema public to anon, authenticated;
+grant insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to anon, authenticated;
+grant execute on all functions in schema public to anon, authenticated;
+
+alter default privileges in schema public
+  grant select on tables to anon, authenticated;
+alter default privileges in schema public
+  grant insert, update, delete on tables to authenticated;
+alter default privileges in schema public
+  grant execute on functions to anon, authenticated;
+
 alter table public.admin_users enable row level security;
 alter table public.admin_rate_limit_buckets enable row level security;
 alter table public.announcements enable row level security;
