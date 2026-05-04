@@ -1,176 +1,204 @@
-import { z } from "zod";
+import * as v from "valibot";
 import { isValidOptionalHttpUrl } from "./lib/format";
 import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "./lib/limits";
 
-const optionalHttpUrl = z
-  .string()
-  .max(URL_MAX, `Maximo ${URL_MAX} caracteres.`)
-  .refine((value) => isValidOptionalHttpUrl(value), "Informe uma URL http/https valida.");
+const optionalHttpUrl = v.pipe(
+  v.string(),
+  v.maxLength(URL_MAX, `Maximo ${URL_MAX} caracteres.`),
+  v.check((value) => isValidOptionalHttpUrl(value), "Informe uma URL http/https valida.")
+);
 
 const requiredText = (max: number, label: string) =>
-  z.string().trim().min(1, `${label} e obrigatorio.`).max(max, `Maximo ${max} caracteres.`);
+  v.pipe(
+    v.string(),
+    v.trim(),
+    v.minLength(1, `${label} e obrigatorio.`),
+    v.maxLength(max, `Maximo ${max} caracteres.`)
+  );
 
-const localDateTime = z
-  .string()
-  .min(1, "Informe a data.")
-  .refine((value) => Number.isFinite(new Date(value).getTime()), "Data invalida.");
+const localDateTime = v.pipe(
+  v.string(),
+  v.minLength(1, "Informe a data."),
+  v.check((value) => Number.isFinite(new Date(value).getTime()), "Data invalida.")
+);
 
-const optionalLocalDateTime = z
-  .string()
-  .max(40)
-  .refine((value) => value === "" || Number.isFinite(new Date(value).getTime()), "Data invalida.");
+const optionalLocalDateTime = v.pipe(
+  v.string(),
+  v.maxLength(40),
+  v.check((value) => value === "" || Number.isFinite(new Date(value).getTime()), "Data invalida.")
+);
 
-const timeOfDay = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/u, "Use o formato HH:MM.");
+const timeOfDay = v.pipe(v.string(), v.regex(/^([01]\d|2[0-3]):[0-5]\d$/u, "Use o formato HH:MM."));
 
-const slug = z
-  .string()
-  .trim()
-  .min(2, "Slug obrigatorio.")
-  .max(80, "Maximo 80 caracteres.")
-  .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u, "Use letras minusculas, numeros e tracos.");
+const slug = v.pipe(
+  v.string(),
+  v.trim(),
+  v.minLength(2, "Slug obrigatorio."),
+  v.maxLength(80, "Maximo 80 caracteres."),
+  v.regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u, "Use letras minusculas, numeros e tracos.")
+);
 
-const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/u, "Use formato hex tipo #0f766e.");
+const hexColor = v.pipe(v.string(), v.regex(/^#[0-9a-fA-F]{6}$/u, "Use formato hex tipo #0f766e."));
 
-export const announcementSchema = z.object({
+export const announcementSchema = v.object({
   title: requiredText(TEXT_MAX, "Titulo"),
   summary: requiredText(TEXTAREA_MAX, "Resumo"),
-  category: z.enum(["geral", "evento", "juventude", "oracao"]),
+  category: v.picklist(["geral", "evento", "juventude", "oracao"]),
   publishedAt: localDateTime,
-  pinned: z.boolean(),
-  ctaLabel: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
+  pinned: v.boolean(),
+  ctaLabel: v.pipe(v.string(), v.maxLength(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`)),
   ctaUrl: optionalHttpUrl,
-  status: z.enum(["draft", "scheduled", "published", "archived"]),
+  status: v.picklist(["draft", "scheduled", "published", "archived"]),
   expiresAt: optionalLocalDateTime,
   imageUrl: optionalHttpUrl
 });
 
-export type AnnouncementFormValues = z.infer<typeof announcementSchema>;
+export type AnnouncementFormValues = v.InferOutput<typeof announcementSchema>;
 
-export const scheduleSchema = z
-  .object({
+export const scheduleSchema = v.pipe(
+  v.object({
     title: requiredText(TEXT_MAX, "Titulo"),
     ministry: requiredText(TEXT_MAX, "Ministerio"),
     startsAt: localDateTime,
     endsAt: localDateTime,
     location: requiredText(TEXT_MAX, "Local"),
-    summary: z.string().max(TEXTAREA_MAX, `Maximo ${TEXTAREA_MAX} caracteres.`),
-    preacher: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
-    director: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
-    soundTeam: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
-    passage: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
-    occasionLabel: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
-    status: z.enum(["scheduled", "suspended", "free"]),
-    featured: z.boolean()
-  })
-  .refine((value) => new Date(value.endsAt).getTime() >= new Date(value.startsAt).getTime(), {
-    message: "Termino deve ser apos o inicio.",
-    path: ["endsAt"]
-  });
+    summary: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX, `Maximo ${TEXTAREA_MAX} caracteres.`)),
+    preacher: v.pipe(v.string(), v.maxLength(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`)),
+    director: v.pipe(v.string(), v.maxLength(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`)),
+    soundTeam: v.pipe(v.string(), v.maxLength(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`)),
+    passage: v.pipe(v.string(), v.maxLength(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`)),
+    occasionLabel: v.pipe(v.string(), v.maxLength(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`)),
+    status: v.picklist(["scheduled", "suspended", "free"]),
+    featured: v.boolean()
+  }),
+  v.forward(
+    v.partialCheck(
+      [["startsAt"], ["endsAt"]],
+      (input) => new Date(input.endsAt).getTime() >= new Date(input.startsAt).getTime(),
+      "Termino deve ser apos o inicio."
+    ),
+    ["endsAt"]
+  )
+);
 
-export type ScheduleFormValues = z.infer<typeof scheduleSchema>;
+export type ScheduleFormValues = v.InferOutput<typeof scheduleSchema>;
 
-export const volunteerSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().trim().min(2, "Nome obrigatorio").max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
-  role: z.enum(["geral", "som"]),
-  sortOrder: z.number().int().min(0),
-  contact: z.string().max(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`),
+export const volunteerSchema = v.object({
+  id: v.optional(v.string()),
+  name: v.pipe(
+    v.string(),
+    v.trim(),
+    v.minLength(2, "Nome obrigatorio"),
+    v.maxLength(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`)
+  ),
+  role: v.picklist(["geral", "som"]),
+  sortOrder: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  contact: v.pipe(v.string(), v.maxLength(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`)),
   photoUrl: optionalHttpUrl,
-  ministries: z.array(z.string().trim().max(TEXT_MAX)),
-  unavailableDates: z.array(z.string()),
-  notes: z.string().max(TEXTAREA_MAX, `Maximo ${TEXTAREA_MAX} caracteres.`)
+  ministries: v.array(v.pipe(v.string(), v.trim(), v.maxLength(TEXT_MAX))),
+  unavailableDates: v.array(v.string()),
+  notes: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX, `Maximo ${TEXTAREA_MAX} caracteres.`))
 });
 
-export type VolunteerFormValues = z.infer<typeof volunteerSchema>;
+export type VolunteerFormValues = v.InferOutput<typeof volunteerSchema>;
 
-export const profileSchema = z.object({
+export const profileSchema = v.object({
   name: requiredText(TEXT_MAX, "Nome"),
   shortName: requiredText(TEXT_MAX, "Sigla"),
-  tagline: z.string().max(TEXTAREA_MAX),
-  city: z.string().max(TEXT_MAX),
-  pastorName: z.string().max(TEXT_MAX),
-  address: z.string().max(TEXT_MAX),
-  email: z
-    .string()
-    .max(TEXT_MAX)
-    .refine((value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value), "Email invalido."),
-  whatsapp: z.string().max(TEXT_MAX),
+  tagline: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX)),
+  city: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  pastorName: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  address: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  email: v.pipe(
+    v.string(),
+    v.maxLength(TEXT_MAX),
+    v.check((value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value), "Email invalido.")
+  ),
+  whatsapp: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
   instagramUrl: optionalHttpUrl,
   youtubeUrl: optionalHttpUrl,
   mapsUrl: optionalHttpUrl,
-  heroVerse: z.string().max(TEXTAREA_MAX),
-  mission: z.string().max(TEXTAREA_MAX)
+  heroVerse: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX)),
+  mission: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX))
 });
 
-export type ProfileFormValues = z.infer<typeof profileSchema>;
+export type ProfileFormValues = v.InferOutput<typeof profileSchema>;
 
-export const ministrySchema = z.object({
-  id: z.string().optional(),
+export const ministrySchema = v.object({
+  id: v.optional(v.string()),
   slug,
   name: requiredText(TEXT_MAX, "Nome"),
-  summary: z.string().max(TEXTAREA_MAX),
-  meetingTime: z.string().max(TEXT_MAX),
-  contact: z.string().max(TEXT_MAX),
+  summary: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX)),
+  meetingTime: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  contact: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
   color: hexColor,
-  sortOrder: z.number().int().min(0)
+  sortOrder: v.pipe(v.number(), v.integer(), v.minValue(0))
 });
 
-export type MinistryFormValues = z.infer<typeof ministrySchema>;
+export type MinistryFormValues = v.InferOutput<typeof ministrySchema>;
 
-export const recurringMeetingSchema = z
-  .object({
-    id: z.string().optional(),
+export const recurringMeetingSchema = v.pipe(
+  v.object({
+    id: v.optional(v.string()),
     title: requiredText(TEXT_MAX, "Titulo"),
-    weekday: z.number().int().min(0).max(6),
+    weekday: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(6)),
     startsAt: timeOfDay,
     endsAt: timeOfDay,
-    description: z.string().max(TEXTAREA_MAX),
-    sortOrder: z.number().int().min(0)
-  })
-  .refine((value) => value.endsAt > value.startsAt, {
-    message: "Termino deve ser apos o inicio.",
-    path: ["endsAt"]
-  });
+    description: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX)),
+    sortOrder: v.pipe(v.number(), v.integer(), v.minValue(0))
+  }),
+  v.forward(
+    v.partialCheck(
+      [["startsAt"], ["endsAt"]],
+      (input) => input.endsAt > input.startsAt,
+      "Termino deve ser apos o inicio."
+    ),
+    ["endsAt"]
+  )
+);
 
-export type RecurringMeetingFormValues = z.infer<typeof recurringMeetingSchema>;
+export type RecurringMeetingFormValues = v.InferOutput<typeof recurringMeetingSchema>;
 
-const optionalDate = z
-  .string()
-  .max(40)
-  .refine((value) => value === "" || Number.isFinite(new Date(value).getTime()), "Data invalida.");
+const optionalDate = v.pipe(
+  v.string(),
+  v.maxLength(40),
+  v.check((value) => value === "" || Number.isFinite(new Date(value).getTime()), "Data invalida.")
+);
 
-export const memberSchema = z.object({
-  id: z.string().optional(),
+export const memberSchema = v.object({
+  id: v.optional(v.string()),
   fullName: requiredText(TEXT_MAX, "Nome completo"),
-  preferredName: z.string().max(TEXT_MAX),
+  preferredName: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
   birthDate: optionalDate,
-  maritalStatus: z.enum(["solteiro", "casado", "viuvo", "divorciado", "uniao_estavel", ""]),
-  gender: z.enum(["masculino", "feminino", "outro", ""]),
+  maritalStatus: v.picklist(["solteiro", "casado", "viuvo", "divorciado", "uniao_estavel", ""]),
+  gender: v.picklist(["masculino", "feminino", "outro", ""]),
   photoUrl: optionalHttpUrl,
-  cpf: z
-    .string()
-    .max(14)
-    .refine(
+  cpf: v.pipe(
+    v.string(),
+    v.maxLength(14),
+    v.check(
       (value) => value === "" || /^\d{11}$/u.test(value.replace(/\D+/g, "")),
       "CPF deve ter 11 digitos."
-    ),
-  rg: z.string().max(TEXT_MAX),
-  rgIssuer: z.string().max(TEXT_MAX),
-  email: z
-    .string()
-    .max(TEXT_MAX)
-    .refine((value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value), "Email invalido."),
-  phone: z.string().max(TEXT_MAX),
-  whatsapp: z.string().max(TEXT_MAX),
-  addressZip: z.string().max(20),
-  addressStreet: z.string().max(TEXT_MAX),
-  addressNumber: z.string().max(20),
-  addressComplement: z.string().max(TEXT_MAX),
-  addressNeighborhood: z.string().max(TEXT_MAX),
-  addressCity: z.string().max(TEXT_MAX),
-  addressState: z.string().max(2),
-  householdId: z.string().nullable(),
-  churchRole: z.enum([
+    )
+  ),
+  rg: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  rgIssuer: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  email: v.pipe(
+    v.string(),
+    v.maxLength(TEXT_MAX),
+    v.check((value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value), "Email invalido.")
+  ),
+  phone: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  whatsapp: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  addressZip: v.pipe(v.string(), v.maxLength(20)),
+  addressStreet: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  addressNumber: v.pipe(v.string(), v.maxLength(20)),
+  addressComplement: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  addressNeighborhood: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  addressCity: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  addressState: v.pipe(v.string(), v.maxLength(2)),
+  householdId: v.nullable(v.string()),
+  churchRole: v.picklist([
     "membro_comum",
     "presbitero",
     "diacono",
@@ -180,55 +208,56 @@ export const memberSchema = z.object({
     "pastor",
     "pastor_auxiliar"
   ]),
-  membershipStatus: z.enum(["ativo", "inativo", "transferido", "falecido"]),
+  membershipStatus: v.picklist(["ativo", "inativo", "transferido", "falecido"]),
   joinedAt: optionalDate,
   baptismDate: optionalDate,
-  baptismLocation: z.string().max(TEXT_MAX),
-  transferredFrom: z.string().max(TEXT_MAX),
-  notes: z.string().max(TEXTAREA_MAX),
-  isVolunteer: z.boolean(),
-  volunteerMinistries: z.array(z.string().trim().max(TEXT_MAX)),
-  volunteerUnavailableDates: z.array(z.string()),
-  volunteerNotes: z.string().max(TEXTAREA_MAX),
-  profession: z.string().max(TEXT_MAX),
-  emergencyContactName: z.string().max(TEXT_MAX),
-  emergencyContactPhone: z.string().max(TEXT_MAX),
-  prayerTopics: z.array(z.string().trim().max(TEXT_MAX)),
-  spiritualGifts: z.array(z.string().trim().max(TEXT_MAX)),
-  allergies: z.string().max(TEXTAREA_MAX),
-  medicalNotes: z.string().max(TEXTAREA_MAX),
-  consentMedicalDataChecked: z.boolean(),
-  consentVersion: z.string().max(40),
-  publicDirectory: z.boolean(),
+  baptismLocation: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  transferredFrom: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  notes: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX)),
+  isVolunteer: v.boolean(),
+  volunteerMinistries: v.array(v.pipe(v.string(), v.trim(), v.maxLength(TEXT_MAX))),
+  volunteerUnavailableDates: v.array(v.string()),
+  volunteerNotes: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX)),
+  profession: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  emergencyContactName: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  emergencyContactPhone: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  prayerTopics: v.array(v.pipe(v.string(), v.trim(), v.maxLength(TEXT_MAX))),
+  spiritualGifts: v.array(v.pipe(v.string(), v.trim(), v.maxLength(TEXT_MAX))),
+  allergies: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX)),
+  medicalNotes: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX)),
+  consentMedicalDataChecked: v.boolean(),
+  consentVersion: v.pipe(v.string(), v.maxLength(40)),
+  publicDirectory: v.boolean(),
   dataRetentionUntil: optionalDate
 });
 
-export type MemberFormValues = z.infer<typeof memberSchema>;
+export type MemberFormValues = v.InferOutput<typeof memberSchema>;
 
-export const householdSchema = z.object({
-  id: z.string().optional(),
+export const householdSchema = v.object({
+  id: v.optional(v.string()),
   name: requiredText(TEXT_MAX, "Nome"),
-  headMemberId: z.string().nullable(),
-  addressZip: z.string().max(20),
-  addressStreet: z.string().max(TEXT_MAX),
-  addressNumber: z.string().max(20),
-  addressComplement: z.string().max(TEXT_MAX),
-  addressNeighborhood: z.string().max(TEXT_MAX),
-  addressCity: z.string().max(TEXT_MAX),
-  addressState: z.string().max(2),
-  notes: z.string().max(TEXTAREA_MAX)
+  headMemberId: v.nullable(v.string()),
+  addressZip: v.pipe(v.string(), v.maxLength(20)),
+  addressStreet: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  addressNumber: v.pipe(v.string(), v.maxLength(20)),
+  addressComplement: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  addressNeighborhood: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  addressCity: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  addressState: v.pipe(v.string(), v.maxLength(2)),
+  notes: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX))
 });
 
-export type HouseholdFormValues = z.infer<typeof householdSchema>;
+export type HouseholdFormValues = v.InferOutput<typeof householdSchema>;
 
-export const inviteAdminSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .min(3, "Informe um email.")
-    .max(TEXT_MAX)
-    .refine((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value), "Email invalido."),
-  role: z.enum(["owner", "editor"])
+export const inviteAdminSchema = v.object({
+  email: v.pipe(
+    v.string(),
+    v.trim(),
+    v.minLength(3, "Informe um email."),
+    v.maxLength(TEXT_MAX),
+    v.check((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value), "Email invalido.")
+  ),
+  role: v.picklist(["owner", "editor"])
 });
 
-export type InviteAdminFormValues = z.infer<typeof inviteAdminSchema>;
+export type InviteAdminFormValues = v.InferOutput<typeof inviteAdminSchema>;
