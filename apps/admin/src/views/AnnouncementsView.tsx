@@ -15,7 +15,7 @@ import { FieldGroup } from "../components/FieldGroup";
 import { ListView } from "../components/ListView";
 import { useToast } from "../components/Toast";
 import { Field, FormActions, ListToolbar, Pagination, SelectField, TextAreaField } from "../components/ui";
-import { useDeleteAnnouncement, useSaveAnnouncement } from "../hooks";
+import { useArchiveAnnouncement, useRestoreAnnouncement, useSaveAnnouncement } from "../hooks";
 import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
 import { announcementSchema, type AnnouncementFormValues } from "../schemas";
 import { ANNOUNCEMENT_STATUS_LABELS, ANNOUNCEMENT_STATUS_OPTIONS } from "../lib/labels";
@@ -82,7 +82,8 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
   const [editingId, setEditingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const saveMutation = useSaveAnnouncement();
-  const deleteMutation = useDeleteAnnouncement();
+  const archiveMutation = useArchiveAnnouncement();
+  const restoreMutation = useRestoreAnnouncement();
   const { toast } = useToast();
   const confirm = useConfirm();
 
@@ -178,8 +179,11 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
       return;
     }
     try {
-      await deleteMutation.mutateAsync(item.id);
-      toast(`"${item.title}" arquivado. Some do site, mas continua na auditoria.`, { variant: "success" });
+      await archiveMutation.mutateAsync(item.id);
+      toast.undo({
+        message: `"${item.title}" arquivado.`,
+        onUndo: () => restoreMutation.mutate(item.id)
+      });
       if (editingId === item.id) {
         cancelEdit();
       }
