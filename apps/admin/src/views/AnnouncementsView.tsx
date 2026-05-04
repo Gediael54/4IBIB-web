@@ -5,7 +5,7 @@ import {
   type Announcement,
   type SiteSnapshot
 } from "@4ibib/core";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { ExternalLink, Megaphone, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -94,7 +94,7 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
     control,
     formState: { errors, isSubmitting }
   } = useForm<AnnouncementFormValues>({
-    resolver: zodResolver(announcementSchema),
+    resolver: valibotResolver(announcementSchema),
     defaultValues: emptyAnnouncementValues()
   });
 
