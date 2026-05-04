@@ -32,6 +32,7 @@ import { initMonitoring, setSentryUser } from "./monitoring";
 import "./styles.css";
 import { TEXT_MAX } from "./lib/limits";
 import { INITIAL_LIST_STATE, type ListState, type ListView } from "./lib/list-state";
+import { runWithViewTransition } from "./lib/view-transition";
 
 initMonitoring();
 
@@ -142,8 +143,10 @@ export function App() {
   }, []);
 
   function navigateTo(next: AdminView) {
-    setView(next);
-    setDrawerOpen(false);
+    runWithViewTransition(() => {
+      setView(next);
+      setDrawerOpen(false);
+    });
   }
 
   useEffect(() => {
@@ -168,8 +171,10 @@ export function App() {
         const tag = target?.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
         event.preventDefault();
-        setView("members");
-        setDrawerOpen(false);
+        runWithViewTransition(() => {
+          setView("members");
+          setDrawerOpen(false);
+        });
       }
     }
     window.addEventListener("keydown", onKey);
