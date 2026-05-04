@@ -1,12 +1,17 @@
 import "@testing-library/jest-dom/vitest";
-import type { SiteSnapshot, Volunteer } from "@4ibib/core";
+import type { ScheduleItem, SiteSnapshot, Volunteer } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   saveScheduleItem: vi.fn().mockResolvedValue({}),
-  deleteScheduleItem: vi.fn().mockResolvedValue(undefined)
+  archiveScheduleItem: vi.fn().mockResolvedValue(undefined),
+  restoreScheduleItem: vi.fn().mockResolvedValue(undefined),
+  listMembers: vi.fn().mockResolvedValue([]),
+  updateScheduleItemMembers: vi.fn().mockResolvedValue(undefined),
+  duplicateScheduleItem: vi.fn().mockResolvedValue({}),
+  bulkUpdateScheduleItems: vi.fn().mockResolvedValue([])
 }));
 
 vi.mock("../backend", () => ({
@@ -14,7 +19,12 @@ vi.mock("../backend", () => ({
     mode: "supabase",
     content: {
       saveScheduleItem: mocks.saveScheduleItem,
-      deleteScheduleItem: mocks.deleteScheduleItem
+      archiveScheduleItem: mocks.archiveScheduleItem,
+      restoreScheduleItem: mocks.restoreScheduleItem,
+      listMembers: mocks.listMembers,
+      updateScheduleItemMembers: mocks.updateScheduleItemMembers,
+      duplicateScheduleItem: mocks.duplicateScheduleItem,
+      bulkUpdateScheduleItems: mocks.bulkUpdateScheduleItems
     }
   }
 }));
@@ -23,14 +33,38 @@ import { ConfirmProvider } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/Toast";
 import ScheduleView from "./ScheduleView";
 
-function buildSnapshot(volunteers: Volunteer[] = []): SiteSnapshot {
+function buildSnapshot(volunteers: Volunteer[] = [], schedule: ScheduleItem[] = []): SiteSnapshot {
   return {
     announcements: [],
-    schedule: [],
+    schedule,
     volunteers,
     profile: null,
     ministries: [],
     recurringMeetings: []
+  };
+}
+
+function makeScheduleItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
+  return {
+    id: "s1",
+    title: "Culto",
+    ministry: "louvor",
+    startsAt: "2030-01-01T19:30:00.000Z",
+    endsAt: "2030-01-01T21:00:00.000Z",
+    location: "Templo",
+    summary: "",
+    preacher: "Pr. X",
+    director: "",
+    soundTeam: "",
+    passage: "",
+    occasionLabel: "",
+    status: "scheduled",
+    featured: false,
+    seriesId: null,
+    preacherMemberId: null,
+    directorMemberId: null,
+    soundMemberId: null,
+    ...overrides
   };
 }
 
@@ -72,7 +106,10 @@ describe("ScheduleView form", () => {
   afterEach(() => {
     cleanup();
     mocks.saveScheduleItem.mockClear();
-    mocks.deleteScheduleItem.mockClear();
+    mocks.archiveScheduleItem.mockClear();
+    mocks.restoreScheduleItem.mockClear();
+    mocks.listMembers.mockClear();
+    mocks.updateScheduleItemMembers.mockClear();
   });
 
   it("renders inline errors when required fields are empty", async () => {
@@ -163,5 +200,26 @@ describe("ScheduleView form", () => {
     expect(optionValues).toContain("Miguel");
     expect(optionValues).toContain("Brainer");
     expect(optionValues).not.toContain("Pastor Joao");
+  });
+
+  it("archives a schedule item after confirmation and offers undo", async () => {
+    const snapshot = buildSnapshot([], [makeScheduleItem({ id: "s1", title: "Culto solene" })]);
+    renderView(snapshot);
+
+    fireEvent.click(screen.getByRole("button", { name: /Excluir Culto solene/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+    });
+
+    await waitFor(() => {
+      expect(mocks.archiveScheduleItem).toHaveBeenCalledWith("s1");
+    });
+
+    const undoButton = await screen.findByRole("button", { name: "Desfazer" });
+    fireEvent.click(undoButton);
+
+    await waitFor(() => {
+      expect(mocks.restoreScheduleItem).toHaveBeenCalledWith("s1");
+    });
   });
 });
