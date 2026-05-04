@@ -367,6 +367,7 @@ describe("SupabaseContentRepository", () => {
     expect(items[0]?.status).toBe("published");
     expect(items[0]?.imageUrl).toBe("");
     expect(items[0]?.expiresAt).toBeNull();
+    expect(client.queries[0]?.is).toHaveBeenCalledWith("deleted_at", null);
   });
 
   it("propagates supabase error on listAnnouncements", async () => {
@@ -458,16 +459,37 @@ describe("SupabaseContentRepository", () => {
     ).rejects.toThrow("save-fail");
   });
 
-  it("deletes announcement", async () => {
-    client.setNext({ data: null, error: null });
+  it("deletes announcement via archive rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
     await backend().content.deleteAnnouncement("a1");
-    expect(client.queries[0]?.delete).toHaveBeenCalled();
-    expect(client.queries[0]?.eq).toHaveBeenCalledWith("id", "a1");
+    expect(client.rpc).toHaveBeenCalledWith("archive_announcement", { p_id: "a1" });
   });
 
   it("propagates supabase error on deleteAnnouncement", async () => {
-    client.setNext({ data: null, error: { message: "del-fail" } });
+    client.setNextRpc({ data: null, error: { message: "del-fail" } });
     await expect(backend().content.deleteAnnouncement("a1")).rejects.toThrow("del-fail");
+  });
+
+  it("archives announcement through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.archiveAnnouncement("a1");
+    expect(client.rpc).toHaveBeenCalledWith("archive_announcement", { p_id: "a1" });
+  });
+
+  it("propagates rpc error on archiveAnnouncement", async () => {
+    client.setNextRpc({ data: null, error: { message: "arc-ann-fail" } });
+    await expect(backend().content.archiveAnnouncement("a1")).rejects.toThrow("arc-ann-fail");
+  });
+
+  it("restores announcement through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.restoreAnnouncement("a1");
+    expect(client.rpc).toHaveBeenCalledWith("restore_announcement", { p_id: "a1" });
+  });
+
+  it("propagates rpc error on restoreAnnouncement", async () => {
+    client.setNextRpc({ data: null, error: { message: "res-ann-fail" } });
+    await expect(backend().content.restoreAnnouncement("a1")).rejects.toThrow("res-ann-fail");
   });
 
   it("lists schedule reading ministry as plain text", async () => {
@@ -476,6 +498,7 @@ describe("SupabaseContentRepository", () => {
     expect(items[0]?.title).toBe("Reuniao");
     expect(items[0]?.ministry).toBe("louvor");
     expect(items[0]?.seriesId).toBeNull();
+    expect(client.queries[0]?.is).toHaveBeenCalledWith("deleted_at", null);
   });
 
   it("maps every schedule column from supabase row", async () => {
@@ -604,15 +627,37 @@ describe("SupabaseContentRepository", () => {
     ).rejects.toThrow("sch-save");
   });
 
-  it("deletes schedule item", async () => {
-    client.setNext({ data: null, error: null });
+  it("deletes schedule item via archive rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
     await backend().content.deleteScheduleItem("s1");
-    expect(client.queries[0]?.delete).toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalledWith("archive_schedule_item", { p_id: "s1" });
   });
 
   it("propagates supabase error on deleteScheduleItem", async () => {
-    client.setNext({ data: null, error: { message: "sch-del" } });
+    client.setNextRpc({ data: null, error: { message: "sch-del" } });
     await expect(backend().content.deleteScheduleItem("s1")).rejects.toThrow("sch-del");
+  });
+
+  it("archives schedule item through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.archiveScheduleItem("s1");
+    expect(client.rpc).toHaveBeenCalledWith("archive_schedule_item", { p_id: "s1" });
+  });
+
+  it("propagates rpc error on archiveScheduleItem", async () => {
+    client.setNextRpc({ data: null, error: { message: "arc-sch-fail" } });
+    await expect(backend().content.archiveScheduleItem("s1")).rejects.toThrow("arc-sch-fail");
+  });
+
+  it("restores schedule item through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.restoreScheduleItem("s1");
+    expect(client.rpc).toHaveBeenCalledWith("restore_schedule_item", { p_id: "s1" });
+  });
+
+  it("propagates rpc error on restoreScheduleItem", async () => {
+    client.setNextRpc({ data: null, error: { message: "res-sch-fail" } });
+    await expect(backend().content.restoreScheduleItem("s1")).rejects.toThrow("res-sch-fail");
   });
 
   it("duplicates schedule item generating new id and clearing featured", async () => {
@@ -1012,6 +1057,7 @@ describe("SupabaseContentRepository", () => {
     expect(items[0]?.pastoralNotes).toBe("obs");
     expect(items[0]?.assignedTo).toBe("u-1");
     expect(items[0]?.seenAt).toBe("2030-01-02T10:00:00.000Z");
+    expect(client.queries[0]?.is).toHaveBeenCalledWith("deleted_at", null);
   });
 
   it("propagates supabase error on listPrayerRequests", async () => {
@@ -1069,6 +1115,28 @@ describe("SupabaseContentRepository", () => {
   it("propagates supabase error on updatePrayerRequest", async () => {
     client.setNext({ data: null, error: { message: "pray-update" } });
     await expect(backend().content.updatePrayerRequest("p1", {})).rejects.toThrow("pray-update");
+  });
+
+  it("archives prayer request through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.archivePrayerRequest("p1");
+    expect(client.rpc).toHaveBeenCalledWith("archive_prayer_request", { p_id: "p1" });
+  });
+
+  it("propagates rpc error on archivePrayerRequest", async () => {
+    client.setNextRpc({ data: null, error: { message: "arc-pray-fail" } });
+    await expect(backend().content.archivePrayerRequest("p1")).rejects.toThrow("arc-pray-fail");
+  });
+
+  it("restores prayer request through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.restorePrayerRequest("p1");
+    expect(client.rpc).toHaveBeenCalledWith("restore_prayer_request", { p_id: "p1" });
+  });
+
+  it("propagates rpc error on restorePrayerRequest", async () => {
+    client.setNextRpc({ data: null, error: { message: "res-pray-fail" } });
+    await expect(backend().content.restorePrayerRequest("p1")).rejects.toThrow("res-pray-fail");
   });
 
   it("getProfile returns mapped profile", async () => {
@@ -1155,6 +1223,7 @@ describe("SupabaseContentRepository", () => {
     });
     const items = await backend().content.listMinistries();
     expect(items.map((m) => m.id)).toEqual(["m1", "m2"]);
+    expect(client.queries[0]?.is).toHaveBeenCalledWith("deleted_at", null);
   });
 
   it("maps ministry nullable fields to defaults", async () => {
@@ -1236,16 +1305,37 @@ describe("SupabaseContentRepository", () => {
     ).rejects.toThrow("min-save");
   });
 
-  it("deletes ministry", async () => {
-    client.setNext({ data: null, error: null });
+  it("deletes ministry via archive rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
     await backend().content.deleteMinistry("m1");
-    expect(client.queries[0]?.delete).toHaveBeenCalled();
-    expect(client.queries[0]?.eq).toHaveBeenCalledWith("id", "m1");
+    expect(client.rpc).toHaveBeenCalledWith("archive_ministry", { p_id: "m1" });
   });
 
   it("propagates supabase error on deleteMinistry", async () => {
-    client.setNext({ data: null, error: { message: "min-del" } });
+    client.setNextRpc({ data: null, error: { message: "min-del" } });
     await expect(backend().content.deleteMinistry("m1")).rejects.toThrow("min-del");
+  });
+
+  it("archives ministry through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.archiveMinistry("m1");
+    expect(client.rpc).toHaveBeenCalledWith("archive_ministry", { p_id: "m1" });
+  });
+
+  it("propagates rpc error on archiveMinistry", async () => {
+    client.setNextRpc({ data: null, error: { message: "arc-min-fail" } });
+    await expect(backend().content.archiveMinistry("m1")).rejects.toThrow("arc-min-fail");
+  });
+
+  it("restores ministry through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.restoreMinistry("m1");
+    expect(client.rpc).toHaveBeenCalledWith("restore_ministry", { p_id: "m1" });
+  });
+
+  it("propagates rpc error on restoreMinistry", async () => {
+    client.setNextRpc({ data: null, error: { message: "res-min-fail" } });
+    await expect(backend().content.restoreMinistry("m1")).rejects.toThrow("res-min-fail");
   });
 
   it("lists recurring meetings stripping seconds", async () => {
