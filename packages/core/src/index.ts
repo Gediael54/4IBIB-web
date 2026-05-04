@@ -366,12 +366,16 @@ export interface AnnouncementRepo {
   listAnnouncements(): Promise<Announcement[]>;
   saveAnnouncement(input: AnnouncementInput): Promise<Announcement>;
   deleteAnnouncement(id: string): Promise<void>;
+  archiveAnnouncement(id: string): Promise<void>;
+  restoreAnnouncement(id: string): Promise<void>;
 }
 
 export interface ScheduleRepo {
   listSchedule(): Promise<ScheduleItem[]>;
   saveScheduleItem(input: ScheduleItemInput): Promise<ScheduleItem>;
   deleteScheduleItem(id: string): Promise<void>;
+  archiveScheduleItem(id: string): Promise<void>;
+  restoreScheduleItem(id: string): Promise<void>;
   duplicateScheduleItem(id: string): Promise<ScheduleItem>;
   bulkUpdateScheduleItems(ids: string[], patch: ScheduleBulkPatch): Promise<ScheduleItem[]>;
   updateScheduleItemMembers(
@@ -432,6 +436,8 @@ export interface PrayerRepo {
   listPrayerRequests(): Promise<PrayerRequest[]>;
   updatePrayerRequestStatus(id: string, status: PrayerStatus): Promise<void>;
   updatePrayerRequest(id: string, patch: PrayerRequestPatch): Promise<PrayerRequest>;
+  archivePrayerRequest(id: string): Promise<void>;
+  restorePrayerRequest(id: string): Promise<void>;
 }
 
 export interface ProfileRepo {
@@ -443,6 +449,8 @@ export interface MinistryRepo {
   listMinistries(): Promise<MinistryRecord[]>;
   saveMinistry(input: MinistryInput): Promise<MinistryRecord>;
   deleteMinistry(id: string): Promise<void>;
+  archiveMinistry(id: string): Promise<void>;
+  restoreMinistry(id: string): Promise<void>;
 }
 
 export interface RecurringMeetingRepo {
