@@ -22,7 +22,9 @@
     "preview:site": "npm run preview --workspace @4ibib/site",
     "preview:admin": "npm run preview --workspace @4ibib/admin",
     "prepare": "husky",
-    "seed:schedule": "node scripts/seed-from-xlsx.mjs"
+    "seed:schedule": "node scripts/seed-from-xlsx.mjs",
+    "analyze": "ANALYZE=true npm run build",
+    "license-check": "license-checker-rseidelsohn --production --excludePrivatePackages --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;CC0-1.0;CC-BY-4.0;Unlicense;0BSD;MIT-0;BlueOak-1.0.0;Python-2.0'"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,tsx}": [
