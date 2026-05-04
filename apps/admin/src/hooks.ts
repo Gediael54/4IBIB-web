@@ -101,6 +101,28 @@ export function useDeleteAnnouncement() {
   });
 }
 
+export function useArchiveAnnouncement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.archiveAnnouncement(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("archive-announcement", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useRestoreAnnouncement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.restoreAnnouncement(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("restore-announcement", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
 export function useSaveScheduleItem() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -119,6 +141,28 @@ export function useDeleteScheduleItem() {
     mutationFn: (id: string) => backend.content.deleteScheduleItem(id),
     onMutate: (id) => {
       addMutationBreadcrumb("delete-schedule-item", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useArchiveScheduleItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.archiveScheduleItem(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("archive-schedule-item", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useRestoreScheduleItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.restoreScheduleItem(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("restore-schedule-item", { id });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });
@@ -157,6 +201,28 @@ export function useUpdatePrayer() {
       backend.content.updatePrayerRequest(id, patch),
     onMutate: ({ id }) => {
       addMutationBreadcrumb("update-prayer", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: PRAYERS_KEY })
+  });
+}
+
+export function useArchivePrayerRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.archivePrayerRequest(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("archive-prayer", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: PRAYERS_KEY })
+  });
+}
+
+export function useRestorePrayerRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.restorePrayerRequest(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("restore-prayer", { id });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: PRAYERS_KEY })
   });
@@ -235,6 +301,28 @@ export function useDeleteMinistry() {
     mutationFn: (id: string) => backend.content.deleteMinistry(id),
     onMutate: (id) => {
       addMutationBreadcrumb("delete-ministry", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useArchiveMinistry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.archiveMinistry(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("archive-ministry", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useRestoreMinistry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.restoreMinistry(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("restore-ministry", { id });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });
