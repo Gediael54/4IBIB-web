@@ -9,7 +9,7 @@ import {
   type MembershipStatus,
   type RelationshipType
 } from "@4ibib/core";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { Trash2, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -479,7 +479,7 @@ export default function MembersView({
     clearErrors,
     formState: { errors, isSubmitting }
   } = useForm<MemberFormValues>({
-    resolver: zodResolver(memberSchema),
+    resolver: valibotResolver(memberSchema),
     defaultValues: emptyMemberValues()
   });
 
