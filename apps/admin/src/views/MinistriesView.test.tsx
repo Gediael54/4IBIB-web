@@ -227,4 +227,16 @@ describe("MinistriesView", () => {
     expect(mocks.saveMinistry.mock.calls[0][0].sortOrder).toBe(1);
     expect(mocks.saveMinistry.mock.calls[1][0].sortOrder).toBe(0);
   });
+
+  it("renders a drag handle for each ministry row", () => {
+    renderView(
+      buildSnapshot([
+        makeMinistry({ id: "m1", name: "Louvor", sortOrder: 0 }),
+        makeMinistry({ id: "m2", slug: "diaconia", name: "Diaconia", sortOrder: 1 })
+      ])
+    );
+
+    expect(screen.getByRole("button", { name: "Arrastar Louvor" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Arrastar Diaconia" })).toBeInTheDocument();
+  });
 });
