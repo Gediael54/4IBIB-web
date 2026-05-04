@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
-import { defineConfig, loadEnv } from "vite";
+import { visualizer } from "rollup-plugin-visualizer";
+import { defineConfig, loadEnv, type PluginOption } from "vite";
 
 const ENV_KEYS = [
   "VITE_BACKEND",
@@ -14,8 +15,19 @@ export default defineConfig(({ mode }) => {
   for (const key of ENV_KEYS) {
     define[`import.meta.env.${key}`] = JSON.stringify(process.env[key] ?? fileEnv[key] ?? "");
   }
+  const plugins: PluginOption[] = [react()];
+  if (process.env.ANALYZE === "true") {
+    plugins.push(
+      visualizer({
+        filename: "dist/stats.html",
+        gzipSize: true,
+        brotliSize: true,
+        open: false
+      })
+    );
+  }
   return {
-    plugins: [react()],
+    plugins,
     envDir: "../..",
     base: "/admin/",
     define,
