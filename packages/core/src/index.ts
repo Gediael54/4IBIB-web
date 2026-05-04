@@ -521,7 +521,7 @@ export function sortSchedule(items: ScheduleItem[]): ScheduleItem[] {
 export function getUpcomingSchedule(items: ScheduleItem[], limit = 5): ScheduleItem[] {
   const now = Date.now();
   return sortSchedule(items)
-    .filter((item) => item.status === "scheduled" && Date.parse(item.startsAt) >= now)
+    .filter((item) => item.status === "scheduled" && Date.parse(item.endsAt) > now)
     .slice(0, limit);
 }
 
