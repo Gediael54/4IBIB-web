@@ -164,7 +164,8 @@ desktop.ini
 .claude/
 
 # Local artifacts that should not be committed
-/assets/
+/assets/*
+!/assets/logo-betel-2026.png
 /coverage/
 /dist/
 **/dist/
