@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import type { ScheduleItem, SiteSnapshot, Volunteer } from "@4ibib/core";
+import type { Member, ScheduleItem, SiteSnapshot, Volunteer } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -68,6 +68,61 @@ function makeScheduleItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   };
 }
 
+function makeMember(overrides: Partial<Member> = {}): Member {
+  return {
+    id: "m1",
+    fullName: "Joao Silva",
+    preferredName: "",
+    birthDate: null,
+    maritalStatus: null,
+    gender: null,
+    photoUrl: "",
+    email: "",
+    phone: "",
+    whatsapp: "",
+    cpf: null,
+    rg: "",
+    rgIssuer: "",
+    profession: "",
+    address: {
+      zip: "",
+      street: "",
+      number: "",
+      complement: "",
+      neighborhood: "",
+      city: "",
+      state: ""
+    },
+    householdId: null,
+    churchRole: "membro_comum",
+    membershipStatus: "ativo",
+    joinedAt: null,
+    baptismDate: null,
+    baptismLocation: "",
+    transferredFrom: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    prayerTopics: [],
+    spiritualGifts: [],
+    allergies: "",
+    medicalNotes: "",
+    consentMedicalDataAt: null,
+    isVolunteer: true,
+    volunteerMinistries: [],
+    volunteerUnavailableDates: [],
+    volunteerNotes: "",
+    notes: "",
+    consentGivenAt: null,
+    consentVersion: "1.0",
+    publicDirectory: false,
+    dataRetentionUntil: null,
+    deletedAt: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    ...overrides
+  };
+}
+
 function makeVolunteer(overrides: Partial<Volunteer> = {}): Volunteer {
   return {
     id: "v",
@@ -105,11 +160,11 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
 describe("ScheduleView form", () => {
   afterEach(() => {
     cleanup();
-    mocks.saveScheduleItem.mockClear();
+    mocks.saveScheduleItem.mockReset().mockResolvedValue({});
     mocks.archiveScheduleItem.mockClear();
     mocks.restoreScheduleItem.mockClear();
-    mocks.listMembers.mockClear();
-    mocks.updateScheduleItemMembers.mockClear();
+    mocks.listMembers.mockReset().mockResolvedValue([]);
+    mocks.updateScheduleItemMembers.mockReset().mockResolvedValue(undefined);
   });
 
   it("renders inline errors when required fields are empty", async () => {
@@ -221,5 +276,98 @@ describe("ScheduleView form", () => {
     await waitFor(() => {
       expect(mocks.restoreScheduleItem).toHaveBeenCalledWith("s1");
     });
+  });
+
+  it("links member id when preacher matches a registered member", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({ id: "m-pregador", fullName: "Pastor Joao", isVolunteer: true })
+    ]);
+    mocks.saveScheduleItem.mockResolvedValue({ id: "saved-1" });
+    renderView();
+
+    await waitFor(() => {
+      expect(mocks.listMembers).toHaveBeenCalled();
+    });
+
+    fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Culto solene" } });
+    fireEvent.change(screen.getByLabelText("Ministerio"), { target: { value: "Louvor" } });
+    fireEvent.change(screen.getByLabelText("Pregador"), { target: { value: "Pastor Joao" } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("preacher-member-tag")).toBeInTheDocument();
+    });
+
+    const form = screen.getByRole("button", { name: /salvar/i }).closest("form");
+    if (!form) {
+      throw new Error("form not found");
+    }
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(mocks.updateScheduleItemMembers).toHaveBeenCalledTimes(1);
+    });
+
+    const [itemId, members] = mocks.updateScheduleItemMembers.mock.calls[0];
+    expect(itemId).toBe("saved-1");
+    expect(members).toEqual({
+      preacherMemberId: "m-pregador",
+      directorMemberId: null,
+      soundMemberId: null
+    });
+  });
+
+  it("keeps preacherMemberId null when typed name does not match any member", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({ id: "m-pregador", fullName: "Pastor Joao", isVolunteer: true })
+    ]);
+    mocks.saveScheduleItem.mockResolvedValue({ id: "saved-2" });
+    renderView();
+
+    await waitFor(() => {
+      expect(mocks.listMembers).toHaveBeenCalled();
+    });
+
+    fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Culto" } });
+    fireEvent.change(screen.getByLabelText("Ministerio"), { target: { value: "Louvor" } });
+    fireEvent.change(screen.getByLabelText("Pregador"), { target: { value: "Convidado externo" } });
+
+    expect(screen.queryByTestId("preacher-member-tag")).not.toBeInTheDocument();
+
+    const form = screen.getByRole("button", { name: /salvar/i }).closest("form");
+    if (!form) {
+      throw new Error("form not found");
+    }
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(mocks.saveScheduleItem).toHaveBeenCalledTimes(1);
+    });
+
+    const payload = mocks.saveScheduleItem.mock.calls[0][0];
+    expect(payload.preacher).toBe("Convidado externo");
+    expect(mocks.updateScheduleItemMembers).not.toHaveBeenCalled();
+  });
+
+  it("shows the membro badge for director and sound team when names match members", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({ id: "m-dir", fullName: "Maria Souza", isVolunteer: true }),
+      makeMember({ id: "m-som", fullName: "Miguel Lima", isVolunteer: true })
+    ]);
+    renderView();
+
+    await waitFor(() => {
+      expect(mocks.listMembers).toHaveBeenCalled();
+    });
+
+    fireEvent.change(screen.getByLabelText("Dirigente"), { target: { value: "Maria Souza" } });
+    fireEvent.change(screen.getByLabelText("Equipe de som"), {
+      target: { value: "Miguel Lima, Brainer" }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("director-member-tag")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("sound-member-tag")).toBeInTheDocument();
+    expect(screen.queryByTestId("preacher-member-tag")).not.toBeInTheDocument();
   });
 });
