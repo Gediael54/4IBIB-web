@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   saveMinistry: vi.fn().mockResolvedValue({}),
-  deleteMinistry: vi.fn().mockResolvedValue(undefined)
+  archiveMinistry: vi.fn().mockResolvedValue(undefined),
+  restoreMinistry: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock("../backend", () => ({
@@ -14,7 +15,8 @@ vi.mock("../backend", () => ({
     mode: "supabase",
     content: {
       saveMinistry: mocks.saveMinistry,
-      deleteMinistry: mocks.deleteMinistry
+      archiveMinistry: mocks.archiveMinistry,
+      restoreMinistry: mocks.restoreMinistry
     }
   }
 }));
@@ -73,7 +75,8 @@ describe("MinistriesView", () => {
   afterEach(() => {
     cleanup();
     mocks.saveMinistry.mockReset().mockResolvedValue({});
-    mocks.deleteMinistry.mockReset().mockResolvedValue(undefined);
+    mocks.archiveMinistry.mockReset().mockResolvedValue(undefined);
+    mocks.restoreMinistry.mockReset().mockResolvedValue(undefined);
   });
 
   it("renders empty state when there are no ministries", () => {
@@ -142,7 +145,7 @@ describe("MinistriesView", () => {
     expect(slugField.readOnly).toBe(true);
   });
 
-  it("opens the confirm dialog and deletes a ministry after confirmation", async () => {
+  it("opens the confirm dialog and archives a ministry after confirmation", async () => {
     renderView(buildSnapshot([makeMinistry({ name: "Diaconia" })]));
 
     fireEvent.click(screen.getByRole("button", { name: /Excluir ministerio Diaconia/i }));
@@ -154,14 +157,14 @@ describe("MinistriesView", () => {
     });
 
     await waitFor(() => {
-      expect(mocks.deleteMinistry).toHaveBeenCalledTimes(1);
+      expect(mocks.archiveMinistry).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
-      expect(screen.getByText('Ministerio "Diaconia" removido.')).toBeInTheDocument();
+      expect(screen.getByText('Ministerio "Diaconia" arquivado.')).toBeInTheDocument();
     });
   });
 
-  it("does not delete when the confirm dialog is cancelled", async () => {
+  it("does not archive when the confirm dialog is cancelled", async () => {
     renderView(buildSnapshot([makeMinistry({ name: "Diaconia" })]));
 
     fireEvent.click(screen.getByRole("button", { name: /Excluir ministerio Diaconia/i }));
@@ -170,7 +173,27 @@ describe("MinistriesView", () => {
       fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     });
 
-    expect(mocks.deleteMinistry).not.toHaveBeenCalled();
+    expect(mocks.archiveMinistry).not.toHaveBeenCalled();
+  });
+
+  it("triggers restore when the undo button is clicked after archive", async () => {
+    renderView(buildSnapshot([makeMinistry({ id: "m9", name: "Diaconia" })]));
+
+    fireEvent.click(screen.getByRole("button", { name: /Excluir ministerio Diaconia/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+    });
+
+    await waitFor(() => {
+      expect(mocks.archiveMinistry).toHaveBeenCalledWith("m9");
+    });
+
+    const undoButton = await screen.findByRole("button", { name: "Desfazer" });
+    fireEvent.click(undoButton);
+
+    await waitFor(() => {
+      expect(mocks.restoreMinistry).toHaveBeenCalledWith("m9");
+    });
   });
 
   it("disables the up button on the first ministry", () => {
