@@ -1,7 +1,24 @@
 import { sortMinistries, type MinistryRecord, type SiteSnapshot } from "@4ibib/core";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowDown, ArrowUp, LayoutGrid, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { valibotResolver } from "@hookform/resolvers/valibot";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { ArrowDown, ArrowUp, GripVertical, LayoutGrid, Trash2 } from "lucide-react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useForm } from "react-hook-form";
 import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
@@ -72,7 +89,7 @@ export default function MinistriesView({ snapshot, state, onStateChange }: Minis
     reset,
     formState: { errors, isSubmitting }
   } = useForm<MinistryFormValues>({
-    resolver: zodResolver(ministrySchema),
+    resolver: valibotResolver(ministrySchema),
     defaultValues: emptyMinistryValues(nextSortOrder)
   });
 
@@ -186,80 +203,100 @@ export default function MinistriesView({ snapshot, state, onStateChange }: Minis
     });
   }
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      return;
+    }
+    const fromIndex = orderedMinistries.findIndex((entry) => entry.id === active.id);
+    const toIndex = orderedMinistries.findIndex((entry) => entry.id === over.id);
+    if (fromIndex === -1 || toIndex === -1) {
+      return;
+    }
+    const reordered = arrayMove(orderedMinistries, fromIndex, toIndex);
+    try {
+      for (let position = 0; position < reordered.length; position += 1) {
+        const entry = reordered[position];
+        const nextSort = position * 10;
+        if (entry.sortOrder === nextSort) {
+          continue;
+        }
+        await saveMutation.mutateAsync({
+          id: entry.id,
+          slug: entry.slug,
+          name: entry.name,
+          summary: entry.summary,
+          meetingTime: entry.meetingTime,
+          contact: entry.contact,
+          color: entry.color,
+          sortOrder: nextSort
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui reordenar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
+  }
+
   const saving = isSubmitting || saveMutation.isPending;
   const reordering = saveMutation.isPending;
 
   return (
     <div className="crud-layout">
-      <ListView
-        title="Ministerios"
-        count={list.total}
-        toolbar={
-          <ListToolbar
-            search={state.search}
-            searchLabel="Nome, slug ou descricao"
-            sort={state.sort}
-            sortOptions={MINISTRY_SORT_OPTIONS}
-            total={list.total}
-            onSearch={(search) => onStateChange({ search, page: 1 })}
-            onSort={(sort) => onStateChange({ sort, page: 1 })}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={orderedMinistries.map((entry) => entry.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ListView
+            title="Ministerios"
+            count={list.total}
+            toolbar={
+              <ListToolbar
+                search={state.search}
+                searchLabel="Nome, slug ou descricao"
+                sort={state.sort}
+                sortOptions={MINISTRY_SORT_OPTIONS}
+                total={list.total}
+                onSearch={(search) => onStateChange({ search, page: 1 })}
+                onSort={(sort) => onStateChange({ sort, page: 1 })}
+              />
+            }
+            items={list.items}
+            getId={(item) => item.id}
+            emptyState={
+              <EmptyState
+                icon={<LayoutGrid size={32} />}
+                title="Sem ministerios ainda."
+                description="Crie o primeiro pra organizar voluntarios e horarios."
+              />
+            }
+            footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
+            renderItem={(item) => {
+              const orderedIndex = orderedMinistries.findIndex((other) => other.id === item.id);
+              const isFirst = orderedIndex <= 0;
+              const isLast = orderedIndex === -1 || orderedIndex >= orderedMinistries.length - 1;
+              return (
+                <SortableMinistryRow
+                  item={item}
+                  isFirst={isFirst}
+                  isLast={isLast}
+                  reordering={reordering}
+                  onMoveUp={() => swapSortOrder(item, "up")}
+                  onMoveDown={() => swapSortOrder(item, "down")}
+                  onEdit={() => startEdit(item)}
+                  onDelete={() => handleDelete(item)}
+                />
+              );
+            }}
           />
-        }
-        items={list.items}
-        getId={(item) => item.id}
-        emptyState={
-          <EmptyState
-            icon={<LayoutGrid size={32} />}
-            title="Sem ministerios ainda."
-            description="Crie o primeiro pra organizar voluntarios e horarios."
-          />
-        }
-        footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
-        renderItem={(item) => {
-          const orderedIndex = orderedMinistries.findIndex((other) => other.id === item.id);
-          const isFirst = orderedIndex <= 0;
-          const isLast = orderedIndex === -1 || orderedIndex >= orderedMinistries.length - 1;
-          return (
-            <article className="ministry-row">
-              <div>
-                <strong>{item.name}</strong>
-                <span>Ordem {item.sortOrder}</span>
-              </div>
-              <div className="row-actions">
-                <button
-                  onClick={() => swapSortOrder(item, "up")}
-                  type="button"
-                  aria-label={`Mover ${item.name} para cima`}
-                  title="Mover para cima"
-                  disabled={isFirst || reordering}
-                >
-                  <ArrowUp size={16} />
-                </button>
-                <button
-                  onClick={() => swapSortOrder(item, "down")}
-                  type="button"
-                  aria-label={`Mover ${item.name} para baixo`}
-                  title="Mover para baixo"
-                  disabled={isLast || reordering}
-                >
-                  <ArrowDown size={16} />
-                </button>
-                <button onClick={() => startEdit(item)} type="button">
-                  Editar
-                </button>
-                <button
-                  onClick={() => handleDelete(item)}
-                  type="button"
-                  aria-label={`Excluir ministerio ${item.name}`}
-                  title="Excluir"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </article>
-          );
-        }}
-      />
+        </SortableContext>
+      </DndContext>
       <div className="editor-panel">
         <form className="editor-form" onSubmit={handleSubmit(onSubmit)} noValidate>
           <Field
@@ -314,5 +351,87 @@ export default function MinistriesView({ snapshot, state, onStateChange }: Minis
         </form>
       </div>
     </div>
+  );
+}
+
+interface SortableMinistryRowProps {
+  item: MinistryRecord;
+  isFirst: boolean;
+  isLast: boolean;
+  reordering: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function SortableMinistryRow({
+  item,
+  isFirst,
+  isLast,
+  reordering,
+  onMoveUp,
+  onMoveDown,
+  onEdit,
+  onDelete
+}: SortableMinistryRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id
+  });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : undefined
+  };
+  return (
+    <article ref={setNodeRef} className="ministry-row" style={style}>
+      <div className="row-drag-wrap">
+        <button
+          type="button"
+          className="row-drag-handle"
+          aria-label={`Arrastar ${item.name}`}
+          title="Arrastar para reordenar"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical size={16} aria-hidden="true" />
+        </button>
+        <div>
+          <strong>{item.name}</strong>
+          <span>Ordem {item.sortOrder}</span>
+        </div>
+      </div>
+      <div className="row-actions">
+        <button
+          onClick={onMoveUp}
+          type="button"
+          aria-label={`Mover ${item.name} para cima`}
+          title="Mover para cima"
+          disabled={isFirst || reordering}
+        >
+          <ArrowUp size={16} />
+        </button>
+        <button
+          onClick={onMoveDown}
+          type="button"
+          aria-label={`Mover ${item.name} para baixo`}
+          title="Mover para baixo"
+          disabled={isLast || reordering}
+        >
+          <ArrowDown size={16} />
+        </button>
+        <button onClick={onEdit} type="button">
+          Editar
+        </button>
+        <button
+          onClick={onDelete}
+          type="button"
+          aria-label={`Excluir ministerio ${item.name}`}
+          title="Excluir"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </article>
   );
 }
