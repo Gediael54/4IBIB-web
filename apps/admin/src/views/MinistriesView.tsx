@@ -8,7 +8,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ListView } from "../components/ListView";
 import { useToast } from "../components/Toast";
 import { Field, FormActions, ListToolbar, Pagination, TextAreaField } from "../components/ui";
-import { useDeleteMinistry, useSaveMinistry } from "../hooks";
+import { useArchiveMinistry, useRestoreMinistry, useSaveMinistry } from "../hooks";
 import { ministrySchema, type MinistryFormValues } from "../schemas";
 import { TEXT_MAX, TEXTAREA_MAX } from "../lib/limits";
 import {
@@ -54,7 +54,8 @@ function ministryToFormValues(item: MinistryRecord): MinistryFormValues {
 export default function MinistriesView({ snapshot, state, onStateChange }: MinistriesViewProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const saveMutation = useSaveMinistry();
-  const deleteMutation = useDeleteMinistry();
+  const archiveMutation = useArchiveMinistry();
+  const restoreMutation = useRestoreMinistry();
   const { toast } = useToast();
   const confirm = useConfirm();
 
@@ -138,8 +139,11 @@ export default function MinistriesView({ snapshot, state, onStateChange }: Minis
       return;
     }
     try {
-      await deleteMutation.mutateAsync(item.id);
-      toast(`Ministerio "${item.name}" removido.`, { variant: "success" });
+      await archiveMutation.mutateAsync(item.id);
+      toast.undo({
+        message: `Ministerio "${item.name}" arquivado.`,
+        onUndo: () => restoreMutation.mutate(item.id)
+      });
       if (editingId === item.id) {
         cancelEdit();
       }
