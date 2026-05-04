@@ -6,7 +6,7 @@ import {
   type ScheduleStatus,
   type SiteSnapshot
 } from "@4ibib/core";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { CalendarDays, Copy, ExternalLink, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -122,7 +122,7 @@ export function ScheduleForm(props: {
     getValues,
     formState: { errors, isSubmitting }
   } = useForm<ScheduleFormValues>({
-    resolver: zodResolver(scheduleSchema),
+    resolver: valibotResolver(scheduleSchema),
     defaultValues: props.initialValues
   });
 
