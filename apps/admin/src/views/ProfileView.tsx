@@ -4,9 +4,26 @@ import {
   type RecurringMeetingRecord,
   type SiteSnapshot
 } from "@4ibib/core";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarClock, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { valibotResolver } from "@hookform/resolvers/valibot";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { CalendarClock, GripVertical, Trash2 } from "lucide-react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useForm } from "react-hook-form";
 import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
@@ -107,12 +124,12 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
 
   const profileForm = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
+    resolver: valibotResolver(profileSchema),
     defaultValues: profileToFormValues(snapshot.profile)
   });
 
   const recurringForm = useForm<RecurringMeetingFormValues>({
-    resolver: zodResolver(recurringMeetingSchema),
+    resolver: valibotResolver(recurringMeetingSchema),
     defaultValues: emptyRecurringValues()
   });
 
@@ -177,6 +194,45 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
       cancelEditMeeting();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  async function handleMeetingDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      return;
+    }
+    const fromIndex = sortedMeetings.findIndex((entry) => entry.id === active.id);
+    const toIndex = sortedMeetings.findIndex((entry) => entry.id === over.id);
+    if (fromIndex === -1 || toIndex === -1) {
+      return;
+    }
+    const reordered = arrayMove(sortedMeetings, fromIndex, toIndex);
+    try {
+      for (let position = 0; position < reordered.length; position += 1) {
+        const entry = reordered[position];
+        const nextSort = position * 10;
+        if (entry.sortOrder === nextSort) {
+          continue;
+        }
+        await recurringSaveMutation.mutateAsync({
+          id: entry.id,
+          title: entry.title,
+          weekday: entry.weekday,
+          startsAt: entry.startsAt,
+          endsAt: entry.endsAt,
+          description: entry.description,
+          sortOrder: nextSort
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui reordenar — tenta de novo?";
       toast(message, { variant: "danger" });
     }
   }
@@ -367,29 +423,22 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
               description="Cadastre culto, escola biblica ou estudo da semana ao lado pra aparecer no site."
             />
           ) : (
-            sortedMeetings.map((item) => (
-              <article key={item.id} className="item-row">
-                <div>
-                  <strong>{item.title}</strong>
-                  <span>
-                    {WEEKDAY_LABELS[item.weekday]} - {formatTimeRange(item.startsAt, item.endsAt)}
-                  </span>
-                </div>
-                <div className="row-actions">
-                  <button onClick={() => startEditMeeting(item)} type="button">
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => handleDeleteMeeting(item)}
-                    type="button"
-                    aria-label={`Excluir encontro ${item.title}`}
-                    title="Excluir"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </article>
-            ))
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMeetingDragEnd}>
+              <SortableContext
+                items={sortedMeetings.map((entry) => entry.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {sortedMeetings.map((item) => (
+                  <SortableMeetingRow
+                    key={item.id}
+                    item={item}
+                    label={`${WEEKDAY_LABELS[item.weekday]} - ${formatTimeRange(item.startsAt, item.endsAt)}`}
+                    onEdit={() => startEditMeeting(item)}
+                    onDelete={() => handleDeleteMeeting(item)}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
           )}
         </div>
         <div className="editor-panel">
@@ -452,5 +501,56 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+interface SortableMeetingRowProps {
+  item: RecurringMeetingRecord;
+  label: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function SortableMeetingRow({ item, label, onEdit, onDelete }: SortableMeetingRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id
+  });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : undefined
+  };
+  return (
+    <article ref={setNodeRef} className="item-row" style={style}>
+      <div className="row-drag-wrap">
+        <button
+          type="button"
+          className="row-drag-handle"
+          aria-label={`Arrastar ${item.title}`}
+          title="Arrastar para reordenar"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical size={16} aria-hidden="true" />
+        </button>
+        <div>
+          <strong>{item.title}</strong>
+          <span>{label}</span>
+        </div>
+      </div>
+      <div className="row-actions">
+        <button onClick={onEdit} type="button">
+          Editar
+        </button>
+        <button
+          onClick={onDelete}
+          type="button"
+          aria-label={`Excluir encontro ${item.title}`}
+          title="Excluir"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </article>
   );
 }
