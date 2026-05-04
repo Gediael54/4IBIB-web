@@ -96,6 +96,12 @@ npm run format           # prettier
 npm run seed:schedule    # regenera bloco de seed inline em supabase/schema.sql
 ```
 
+## Ferramentas
+
+- `npm run analyze` — gera `dist/stats.html` com mapa do bundle (rollup-plugin-visualizer; ativa via env `ANALYZE=true`).
+- `npm run license-check` — valida licencas das deps de producao (so MIT, Apache-2.0, BSD, ISC, CC0, CC-BY-4.0, Unlicense, 0BSD, MIT-0, BlueOak-1.0.0, Python-2.0). Quebra se aparecer GPL/AGPL.
+- Commits sao validados pelo commitlint via Husky `commit-msg` hook (formato conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`...). Mensagens fora do padrao sao rejeitadas pelo hook.
+
 ## Health check
 
 Apos deploy, valide com:
