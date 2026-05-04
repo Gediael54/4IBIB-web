@@ -19,6 +19,7 @@ import { backend } from "./backend";
 import Gallery from "./components/Gallery";
 import PrivacyPolicy from "./components/PrivacyPolicy";
 import SchedulePage from "./components/SchedulePage";
+import SmartContactInput, { detectContactMode, validateContact } from "./components/SmartContactInput";
 import TurnstileWidget from "./components/TurnstileWidget";
 import UpcomingEvents from "./components/UpcomingEvents";
 import UserDataRequest from "./components/UserDataRequest";
@@ -272,7 +273,7 @@ function SiteHome({
           </label>
           <label>
             Contato
-            <input name="contact" maxLength={PRAYER_FIELD_LIMITS.contact} placeholder="WhatsApp ou email" />
+            <SmartContactInput name="contact" maxLength={PRAYER_FIELD_LIMITS.contact} />
           </label>
           <label>
             Pedido
@@ -380,6 +381,15 @@ export function App() {
     if (formData.get("consent") !== "on") {
       setPrayerFormError("E necessario autorizar o tratamento dos dados conforme a politica de privacidade.");
       return;
+    }
+
+    const contactRaw = String(formData.get("contact") ?? "");
+    if (contactRaw.trim()) {
+      const contactError = validateContact(detectContactMode(contactRaw), contactRaw);
+      if (contactError) {
+        setPrayerFormError(contactError);
+        return;
+      }
     }
     setPrayerFormError(null);
 
