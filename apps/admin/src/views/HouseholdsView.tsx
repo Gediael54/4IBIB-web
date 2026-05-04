@@ -1,5 +1,5 @@
 import { type Household, type Member } from "@4ibib/core";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { Home, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -81,7 +81,7 @@ export default function HouseholdsView({ state, onStateChange }: HouseholdsViewP
     watch,
     formState: { errors, isSubmitting }
   } = useForm<HouseholdFormValues>({
-    resolver: zodResolver(householdSchema),
+    resolver: valibotResolver(householdSchema),
     defaultValues: emptyHouseholdValues()
   });
 
