@@ -1,5 +1,5 @@
 import { formatDateTime, type AdminRole, type AdminUser } from "@4ibib/core";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { Save, Trash2, UserPlus } from "lucide-react";
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
@@ -58,7 +58,7 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
     reset,
     formState: { errors, isSubmitting }
   } = useForm<InviteAdminFormValues>({
-    resolver: zodResolver(inviteAdminSchema),
+    resolver: valibotResolver(inviteAdminSchema),
     defaultValues: EMPTY_INVITE
   });
 
