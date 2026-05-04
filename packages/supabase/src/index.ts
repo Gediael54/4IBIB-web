@@ -621,9 +621,11 @@ class SupabaseContentRepository implements ContentRepository {
   }
 
   async listAnnouncements() {
-    const { data, error } = await this.client.from("announcements").select("*").order("published_at", {
-      ascending: false
-    });
+    const { data, error } = await this.client
+      .from("announcements")
+      .select("*")
+      .is("deleted_at", null)
+      .order("published_at", { ascending: false });
     return sortAnnouncements(requireData(data as JsonObject[] | null, error).map(mapAnnouncement));
   }
 
@@ -650,12 +652,25 @@ class SupabaseContentRepository implements ContentRepository {
   }
 
   async deleteAnnouncement(id: string) {
-    const { error } = await this.client.from("announcements").delete().eq("id", id);
+    await this.archiveAnnouncement(id);
+  }
+
+  async archiveAnnouncement(id: string) {
+    const { error } = await this.client.rpc("archive_announcement", { p_id: id });
+    requireOk(error);
+  }
+
+  async restoreAnnouncement(id: string) {
+    const { error } = await this.client.rpc("restore_announcement", { p_id: id });
     requireOk(error);
   }
 
   async listSchedule() {
-    const { data, error } = await this.client.from("schedule_items").select("*").order("starts_at");
+    const { data, error } = await this.client
+      .from("schedule_items")
+      .select("*")
+      .is("deleted_at", null)
+      .order("starts_at");
     return sortSchedule(requireData(data as JsonObject[] | null, error).map(mapSchedule));
   }
 
@@ -686,7 +701,16 @@ class SupabaseContentRepository implements ContentRepository {
   }
 
   async deleteScheduleItem(id: string) {
-    const { error } = await this.client.from("schedule_items").delete().eq("id", id);
+    await this.archiveScheduleItem(id);
+  }
+
+  async archiveScheduleItem(id: string) {
+    const { error } = await this.client.rpc("archive_schedule_item", { p_id: id });
+    requireOk(error);
+  }
+
+  async restoreScheduleItem(id: string) {
+    const { error } = await this.client.rpc("restore_schedule_item", { p_id: id });
     requireOk(error);
   }
 
@@ -834,8 +858,19 @@ class SupabaseContentRepository implements ContentRepository {
     const { data, error } = await this.client
       .from("prayer_requests")
       .select("*")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
     return requireData(data as JsonObject[] | null, error).map(mapPrayer);
+  }
+
+  async archivePrayerRequest(id: string) {
+    const { error } = await this.client.rpc("archive_prayer_request", { p_id: id });
+    requireOk(error);
+  }
+
+  async restorePrayerRequest(id: string) {
+    const { error } = await this.client.rpc("restore_prayer_request", { p_id: id });
+    requireOk(error);
   }
 
   async updatePrayerRequestStatus(id: string, status: PrayerStatus) {
@@ -882,6 +917,7 @@ class SupabaseContentRepository implements ContentRepository {
     const { data, error } = await this.client
       .from("ministries")
       .select("*")
+      .is("deleted_at", null)
       .order("sort_order", { ascending: true });
     return sortMinistries(requireData(data as JsonObject[] | null, error).map(mapMinistry));
   }
@@ -906,7 +942,16 @@ class SupabaseContentRepository implements ContentRepository {
   }
 
   async deleteMinistry(id: string) {
-    const { error } = await this.client.from("ministries").delete().eq("id", id);
+    await this.archiveMinistry(id);
+  }
+
+  async archiveMinistry(id: string) {
+    const { error } = await this.client.rpc("archive_ministry", { p_id: id });
+    requireOk(error);
+  }
+
+  async restoreMinistry(id: string) {
+    const { error } = await this.client.rpc("restore_ministry", { p_id: id });
     requireOk(error);
   }
 
