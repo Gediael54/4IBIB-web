@@ -1,10 +1,18 @@
 import { buildWhatsAppForContact, formatDateTime, type AdminUser, type PrayerRequest } from "@4ibib/core";
-import { HeartHandshake } from "lucide-react";
+import { HeartHandshake, Trash2 } from "lucide-react";
 import { useMemo } from "react";
+import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { ListView } from "../components/ListView";
+import { useToast } from "../components/Toast";
 import { ListToolbar, Pagination, SelectField, TextAreaField } from "../components/ui";
-import { useAdmins, useUpdatePrayer, useUpdatePrayerStatus } from "../hooks";
+import {
+  useAdmins,
+  useArchivePrayerRequest,
+  useRestorePrayerRequest,
+  useUpdatePrayer,
+  useUpdatePrayerStatus
+} from "../hooks";
 import { PRAYER_STATUS_OPTIONS } from "../lib/labels";
 import { TEXTAREA_MAX } from "../lib/limits";
 import {
@@ -89,8 +97,34 @@ export default function PrayersView({
 }: PrayersViewProps) {
   const updateStatusMutation = useUpdatePrayerStatus();
   const updatePrayerMutation = useUpdatePrayer();
+  const archiveMutation = useArchivePrayerRequest();
+  const restoreMutation = useRestorePrayerRequest();
   const adminsQuery = useAdmins();
   const admins = adminsQuery.data ?? [];
+  const { toast } = useToast();
+  const confirm = useConfirm();
+
+  async function handleArchive(request: PrayerRequest) {
+    const ok = await confirm({
+      title: "Arquivar pedido?",
+      message: `O pedido de ${request.name} sera arquivado e some da lista. Voce pode desfazer.`,
+      confirmText: "Arquivar",
+      destructive: true
+    });
+    if (!ok) {
+      return;
+    }
+    try {
+      await archiveMutation.mutateAsync(request.id);
+      toast.undo({
+        message: `Pedido de ${request.name} arquivado.`,
+        onUndo: () => restoreMutation.mutate(request.id)
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui arquivar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
+  }
 
   const filteredSorted = useMemo(() => {
     const query = normalizeSearch(state.search);
@@ -205,6 +239,15 @@ export default function PrayersView({
                     Enviar mensagem
                   </button>
                 )}
+                <button
+                  type="button"
+                  className="button ghost"
+                  onClick={() => handleArchive(request)}
+                  aria-label={`Arquivar pedido de ${request.name}`}
+                  title="Arquivar"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
               <details className="prayer-notes">
                 <summary>Notas pastorais (admin)</summary>
