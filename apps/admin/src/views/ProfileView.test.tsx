@@ -258,4 +258,24 @@ describe("ProfileView", () => {
     expect((screen.getByLabelText("Inicio") as HTMLInputElement).value).toBe("20:00");
     expect((screen.getByLabelText("Termino") as HTMLInputElement).value).toBe("21:30");
   });
+
+  it("renders a drag handle for each recurring meeting row", () => {
+    renderView(
+      buildSnapshot({
+        recurringMeetings: [
+          makeRecurring({ id: "r1", title: "Culto solene", weekday: 0 }),
+          makeRecurring({
+            id: "r2",
+            title: "Culto de louvor",
+            weekday: 4,
+            startsAt: "19:30",
+            endsAt: "21:00"
+          })
+        ]
+      })
+    );
+
+    expect(screen.getByRole("button", { name: "Arrastar Culto solene" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Arrastar Culto de louvor" })).toBeInTheDocument();
+  });
 });
