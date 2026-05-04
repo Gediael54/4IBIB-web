@@ -133,6 +133,9 @@ export function ScheduleForm(props: {
   }, [props.resetSignal, props.initialValues, reset]);
 
   const startsAt = useWatch({ control, name: "startsAt" });
+  const preacherValue = useWatch({ control, name: "preacher" });
+  const directorValue = useWatch({ control, name: "director" });
+  const soundTeamValue = useWatch({ control, name: "soundTeam" });
 
   const ministryNames = useMemo(
     () =>
@@ -189,14 +192,25 @@ export function ScheduleForm(props: {
     [props.snapshot, generalVolunteerNames, memberNames]
   );
 
+  const memberIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const member of volunteerMembers) {
+      const key = member.fullName.trim().toLocaleLowerCase("pt-BR");
+      if (key) map.set(key, member.id);
+    }
+    return map;
+  }, [volunteerMembers]);
+
   function resolveMemberId(name: string): string | null {
-    const trimmed = name.trim().toLocaleLowerCase("pt-BR");
-    if (!trimmed) return null;
-    const match = volunteerMembers.find(
-      (member) => member.fullName.trim().toLocaleLowerCase("pt-BR") === trimmed
-    );
-    return match?.id ?? null;
+    const key = name.trim().toLocaleLowerCase("pt-BR");
+    if (!key) return null;
+    return memberIdByName.get(key) ?? null;
   }
+
+  const preacherMatched = resolveMemberId(preacherValue ?? "") !== null;
+  const directorMatched = resolveMemberId(directorValue ?? "") !== null;
+  const soundFirstName = (soundTeamValue ?? "").split(",")[0] ?? "";
+  const soundMatched = resolveMemberId(soundFirstName) !== null;
 
   const schedulePassages = useMemo(
     () => uniqueSorted(props.snapshot.schedule.map((item) => item.passage)),
@@ -322,31 +336,52 @@ export function ScheduleForm(props: {
         </SelectField>
       </div>
       <div className="form-grid">
-        <Field
-          label="Pregador"
-          list="schedule-preachers"
-          placeholder="Pregador"
-          maxLength={TEXT_MAX}
-          error={errors.preacher?.message}
-          {...register("preacher")}
-        />
-        <Field
-          label="Dirigente"
-          list="schedule-directors"
-          placeholder="Dirigente"
-          maxLength={TEXT_MAX}
-          error={errors.director?.message}
-          {...register("director")}
-        />
+        <div className="member-field">
+          <Field
+            label="Pregador"
+            list="schedule-preachers"
+            placeholder="Pregador"
+            maxLength={TEXT_MAX}
+            error={errors.preacher?.message}
+            {...register("preacher")}
+          />
+          {preacherMatched && (
+            <span className="member-match-tag" data-testid="preacher-member-tag">
+              Membro
+            </span>
+          )}
+        </div>
+        <div className="member-field">
+          <Field
+            label="Dirigente"
+            list="schedule-directors"
+            placeholder="Dirigente"
+            maxLength={TEXT_MAX}
+            error={errors.director?.message}
+            {...register("director")}
+          />
+          {directorMatched && (
+            <span className="member-match-tag" data-testid="director-member-tag">
+              Membro
+            </span>
+          )}
+        </div>
       </div>
-      <Field
-        label="Equipe de som"
-        list="schedule-sound-team"
-        placeholder="Miguel, Brainer (separe com virgula)"
-        maxLength={TEXT_MAX}
-        error={errors.soundTeam?.message}
-        {...register("soundTeam")}
-      />
+      <div className="member-field">
+        <Field
+          label="Equipe de som"
+          list="schedule-sound-team"
+          placeholder="Miguel, Brainer (separe com virgula)"
+          maxLength={TEXT_MAX}
+          error={errors.soundTeam?.message}
+          {...register("soundTeam")}
+        />
+        {soundMatched && (
+          <span className="member-match-tag" data-testid="sound-member-tag">
+            Membro
+          </span>
+        )}
+      </div>
       <datalist id="schedule-sound-team">
         {soundVolunteerNames.map((value) => (
           <option key={value} value={value} />
