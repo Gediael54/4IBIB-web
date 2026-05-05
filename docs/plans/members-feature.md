@@ -118,23 +118,15 @@ Roadmap da feature grande iniciada em 2026-05-03: cadastro de membros que substi
 
 ## Pendencias prioritarias
 
-### 0. Familia com chips + trigger reverso (em andamento — agente 2026-05-04)
+### 0. Familia com chips + trigger reverso ✅ (entregue 2026-05-04)
 
-Frente 3 da rodada de extras. UI hoje em `RelationshipsPanel` (MembersView) e linear; substituir por chips agrupados por categoria (Pai/Mae/Filhos/Conjuge/Irmaos/Avos/Netos/Tios/Sobrinhos/Responsavel) com botao circular `+` que abre modal de busca de membros existentes.
+Schema: trigger SQL `create_reverse_relationship` / `delete_reverse_relationship` em `member_relationships` cria/remove o lado oposto automaticamente. Pai/mae ↔ filho (filho usa gender do to_member pra decidir pai vs mae no reverso), avo ↔ neto, tio ↔ sobrinho, conjuge/irmao simetricos, responsavel sem reverso. Avoid recursao via `pg_trigger_depth() > 1`.
 
-Schema: trigger SQL `create_reverse_relationship` / `delete_reverse_relationship` em `member_relationships` cria/remove o lado oposto automaticamente:
+UI: `RelationshipsPanel` em MembersView agora mostra 10 categorias (Conjuge, Pai, Mae, Filhos, Irmaos, Avos, Netos, Tios, Sobrinhos, Responsavel), cada uma com chips dos parentes vinculados + botao `+` circular pra abrir modal e selecionar membro existente. Direcao do INSERT varia por categoria — `buildInsertPayload` resolve.
 
-- pai/mae → filho (no reverso)
-- filho → pai (default) ou mae (se `to_member.gender = 'feminino'`)
-- avo ↔ neto, tio ↔ sobrinho
-- conjuge ↔ conjuge, irmao ↔ irmao (simetricos)
-- responsavel sem reverso
+`listRelationships` ja retorna ambas direcoes (`or(from_member_id.eq.X,to_member_id.eq.X)`).
 
-Avoid recursao via `pg_trigger_depth() > 1`. Direcao do INSERT na UI varia por categoria (ex: "Pai" insere `from=Y, to=X, type=pai`; "Filhos" insere `from=X, to=Y, type=pai/mae`).
-
-Adapter `listRelationships` precisa retornar ambas direcoes (`or(from_member_id.eq.X,to_member_id.eq.X)`) — verificar e ajustar se necessario.
-
-Apos aplicar, rodar `supabase/schema.sql` no SQL Editor pra ativar os triggers.
+Pendente: ativar triggers em prod re-aplicando `supabase/schema.sql` no SQL Editor (banco zerado, sem perda). Tests do MembersView nao foram atualizados pra cobrir especificamente as novas categorias chip (461 baseline continua passando) — follow-up.
 
 ### 1. Adapter archive-first (desbloqueia undo banner)
 
