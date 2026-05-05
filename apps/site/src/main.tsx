@@ -20,7 +20,7 @@ import Gallery from "./components/Gallery";
 import PictureSet from "./components/PictureSet";
 import PrivacyPolicy from "./components/PrivacyPolicy";
 import SchedulePage from "./components/SchedulePage";
-import SmartContactInput, { detectContactMode, validateContact } from "./components/SmartContactInput";
+import SmartContactInput from "./components/SmartContactInput";
 import TurnstileWidget from "./components/TurnstileWidget";
 import UpcomingEvents from "./components/UpcomingEvents";
 import UserDataRequest from "./components/UserDataRequest";
@@ -386,15 +386,6 @@ export function App() {
     if (formData.get("consent") !== "on") {
       setPrayerFormError("E necessario autorizar o tratamento dos dados conforme a politica de privacidade.");
       return;
-    }
-
-    const contactRaw = String(formData.get("contact") ?? "");
-    if (contactRaw.trim()) {
-      const contactError = validateContact(detectContactMode(contactRaw), contactRaw);
-      if (contactError) {
-        setPrayerFormError(contactError);
-        return;
-      }
     }
     setPrayerFormError(null);
 
