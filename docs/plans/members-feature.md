@@ -143,7 +143,7 @@ A fazer:
 - Ativar pg_cron e rodar `supabase/cron.sql` (manual no Supabase SQL Editor).
 - `members.public_directory` ja existe — falta wirear opt-in no UI da MembersView (tab LGPD).
 - Anonymize flow: `useAnonymizeMember` ja existe; falta UI (botao "Anonimizar dados" na MembersView com ConfirmDialog `requireText`).
-- Audit log retention 24m: precisa funcao SQL nova `purge_old_audit()` + cron entry.
+- Audit log retention 24m: implementado (`public.purge_old_audit()` em `supabase/migrations/20260505113632_add_purge_old_audit_function.sql` + entry `purge-old-audit-monthly` em `supabase/cron.sql`). Requer rodar `cron.sql` no painel Supabase pra ativar o agendamento mensal.
 
 ### 3. ScheduleView usar MembersView pra dropdown de pregadores
 
