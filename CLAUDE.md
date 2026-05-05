@@ -19,7 +19,10 @@ packages/
   core/        # tipos de dominio + utilidades puras (100% cobertura)
   supabase/    # adapter para Supabase (100% cobertura)
 supabase/
-  schema.sql      # fonte unica idempotente: estrutura/RLS/funcoes/triggers + seed inline
+  config.toml     # config local (Supabase CLI)
+  migrations/     # migrations versionadas (aditivas, imutaveis)
+  seed.sql        # DML aplicado em dev local via `supabase db reset`
+  cron.sql        # script manual pra ativar pg_cron
   sources/        # planilhas/fontes externas de seed
 scripts/
   compose-dist.mjs       # combina site + admin em um dist/ pro Cloudflare
@@ -129,5 +132,5 @@ Estado atual: **407 tests verdes**, 100% cobertura em `core` e `supabase`, typec
 - **Cobertura**: gate 100% em `core` e `supabase`. Quebrar = test fail.
 - **Antes de instalar deps via apt/sudo**: pedir; sandbox geralmente bloqueia rede.
 - **Memoria**: o usuario tem `feedback_no_assumptions` ativa — em ambiguidade real, pergunta direta antes de chutar.
-- **`schema.sql` faz drop-and-recreate**: re-aplicar zera todas as tabelas. `admin_users` e preservado via backup-and-restore dentro da transacao (linhas 25-44 do schema). Outras tabelas perdem dados ao re-aplicar — em prod use migrations aditivas, nao re-execute o schema.sql.
+- **Banco via Supabase CLI + migrations versionadas**. Mudancas viram novos arquivos em `supabase/migrations/` via `npx supabase migration new <nome>`. Ver `supabase/README.md` pra workflow completo. NAO existe mais `schema.sql` canonico — baseline foi capturada em `migrations/20260504000000_initial_schema.sql`.
 - **Owners atuais** (auth.users em prod): `gediael54@gmail.com`, `agtlislopes@gmail.com`. Se novo admin precisa ser adicionado, `insert into admin_users (user_id, role) values ('<uid>', 'owner') on conflict do nothing`.
