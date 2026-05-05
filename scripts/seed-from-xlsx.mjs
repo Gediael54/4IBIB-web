@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 const ROOT = process.cwd();
 const CULTOS_XLSX = resolve(ROOT, "supabase/sources/Escala-de-cultos.xlsx");
 const SOM_XLSX = resolve(ROOT, "supabase/sources/escala-som.xlsx");
-const SCHEMA_PATH = resolve(ROOT, "supabase/schema.sql");
+const SEED_PATH = resolve(ROOT, "supabase/seed.sql");
 const BR_OFFSET_HOURS = 3;
 const BEGIN_MARKER = "-- BEGIN SEED ------------------------------------------------------------------";
 const END_MARKER = "-- END SEED --------------------------------------------------------------------";
@@ -285,16 +285,16 @@ where si.ministry is distinct from excluded.ministry
 const seed = `${membersSeed}\n\n${scheduleSeed}`;
 const block = [BEGIN_MARKER, seed, END_MARKER].join("\n");
 
-const schema = await readFile(SCHEMA_PATH, "utf8");
-const startIdx = schema.indexOf(BEGIN_MARKER);
-const endIdx = schema.indexOf(END_MARKER);
+const seedFile = await readFile(SEED_PATH, "utf8");
+const startIdx = seedFile.indexOf(BEGIN_MARKER);
+const endIdx = seedFile.indexOf(END_MARKER);
 
 if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
-  throw new Error(`SEED markers not found in ${SCHEMA_PATH}`);
+  throw new Error(`SEED markers not found in ${SEED_PATH}`);
 }
 
-const next = schema.slice(0, startIdx) + block + schema.slice(endIdx + END_MARKER.length);
-await writeFile(SCHEMA_PATH, next);
+const next = seedFile.slice(0, startIdx) + block + seedFile.slice(endIdx + END_MARKER.length);
+await writeFile(SEED_PATH, next);
 console.log(
-  `Updated SEED block in ${SCHEMA_PATH}: ${seedMembers.length} members, ${items.length} schedule items`
+  `Updated SEED block in ${SEED_PATH}: ${seedMembers.length} members, ${items.length} schedule items`
 );
