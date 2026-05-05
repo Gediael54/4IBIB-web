@@ -2755,6 +2755,89 @@ select:focus-visible {
   align-items: flex-start;
 }
 
+.relationships-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.relationships-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.relationship-category {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.relationship-category-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.relationship-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.relationship-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-default);
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  font-size: 0.875rem;
+  color: var(--text-default);
+}
+
+.relationship-chip-remove,
+.relationship-chip-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px dashed var(--border-default);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.relationship-chip-remove {
+  border: none;
+  background: var(--surface-soft);
+}
+
+.relationship-chip-remove:hover,
+.relationship-chip-remove:focus-visible {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.relationship-chip-add:hover,
+.relationship-chip-add:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--surface-default);
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 200ms;
