@@ -57,6 +57,13 @@ jobs:
           if [ -f supabase/seed.sql ]; then
             psql -v ON_ERROR_STOP=1 -f supabase/seed.sql
           fi
+      - name: DB tests (RLS, triggers, RPCs)
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: npm run test:db
       - name: Smoke test queries
         env:
           PGHOST: localhost
