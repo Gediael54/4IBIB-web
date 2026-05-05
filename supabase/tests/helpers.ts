@@ -24,9 +24,9 @@ export async function connectTestDb(): Promise<TestDb> {
 
 export async function resetSession(client: Client): Promise<void> {
   await client.query("reset role");
-  await client.query("select set_config('request.jwt.claim.sub', '', true)");
-  await client.query("select set_config('request.jwt.claim.role', '', true)");
-  await client.query("select set_config('request.jwt.claims', '', true)");
+  await client.query("select set_config('request.jwt.claim.sub', '', false)");
+  await client.query("select set_config('request.jwt.claim.role', '', false)");
+  await client.query("select set_config('request.jwt.claims', '', false)");
 }
 
 export async function setRole(
@@ -38,18 +38,18 @@ export async function setRole(
 
 export async function asAnon(client: Client): Promise<void> {
   await resetSession(client);
-  await client.query("select set_config('request.jwt.claim.role', 'anon', true)");
+  await client.query("select set_config('request.jwt.claim.role', 'anon', false)");
   await setRole(client, "anon");
 }
 
 export async function asAuthenticated(client: Client, userId: string): Promise<void> {
   await resetSession(client);
-  await client.query("select set_config('request.jwt.claim.sub', $1, true)", [userId]);
+  await client.query("select set_config('request.jwt.claim.sub', $1, false)", [userId]);
   await client.query(
-    "select set_config('request.jwt.claims', json_build_object('sub', $1::text, 'role', 'authenticated')::text, true)",
+    "select set_config('request.jwt.claims', json_build_object('sub', $1::text, 'role', 'authenticated')::text, false)",
     [userId]
   );
-  await client.query("select set_config('request.jwt.claim.role', 'authenticated', true)");
+  await client.query("select set_config('request.jwt.claim.role', 'authenticated', false)");
   await setRole(client, "authenticated");
 }
 
@@ -63,12 +63,15 @@ export async function asServiceRole(client: Client): Promise<void> {
 }
 
 export async function createAuthUser(client: Client, email: string): Promise<string> {
+  await client.query("reset role");
+  await client.query("set role supabase_auth_admin");
   const result = await client.query<{ id: string }>(
     `insert into auth.users (id, email, instance_id, aud, role)
      values (gen_random_uuid(), $1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated')
      returning id`,
     [email]
   );
+  await client.query("reset role");
   return result.rows[0].id;
 }
 
@@ -85,5 +88,8 @@ export async function makeAdmin(
 }
 
 export async function deleteAuthUser(client: Client, userId: string): Promise<void> {
+  await client.query("reset role");
+  await client.query("set role supabase_auth_admin");
   await client.query("delete from auth.users where id = $1", [userId]);
+  await client.query("reset role");
 }
