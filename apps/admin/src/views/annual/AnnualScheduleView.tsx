@@ -1,11 +1,20 @@
 import { type SiteSnapshot } from "@4ibib/core";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useToast } from "../../components/Toast";
 import { SelectField } from "../../components/ui";
-import { AnnualAutoDistribute } from "./AnnualAutoDistribute";
-import { AnnualGenerator } from "./AnnualGenerator";
 import { AnnualGrid } from "./AnnualGrid";
 import { useAnnualSchedule } from "./use-annual-schedule";
+
+const AnnualAutoDistribute = lazy(() =>
+  import("./AnnualAutoDistribute").then((module) => ({ default: module.AnnualAutoDistribute }))
+);
+const AnnualGenerator = lazy(() =>
+  import("./AnnualGenerator").then((module) => ({ default: module.AnnualGenerator }))
+);
+
+function AnnualPanelFallback() {
+  return <p className="empty-note">Carregando...</p>;
+}
 
 interface AnnualScheduleViewProps {
   snapshot: SiteSnapshot;
@@ -102,22 +111,26 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
         )}
       </div>
 
-      <AnnualAutoDistribute
-        open={autoOpen}
-        onClose={() => setAutoOpen(false)}
-        volunteers={volunteers}
-        yearItems={yearItems}
-        pending={pending}
-        setPendingForCell={setPendingForCell}
-      />
+      <Suspense fallback={<AnnualPanelFallback />}>
+        {autoOpen && (
+          <AnnualAutoDistribute
+            open={autoOpen}
+            onClose={() => setAutoOpen(false)}
+            volunteers={volunteers}
+            yearItems={yearItems}
+            pending={pending}
+            setPendingForCell={setPendingForCell}
+          />
+        )}
 
-      <AnnualGenerator
-        volunteers={volunteers}
-        yearItems={yearItems}
-        schedule={snapshot.schedule}
-        pending={pending}
-        applyPendingMap={applyPendingMap}
-      />
+        <AnnualGenerator
+          volunteers={volunteers}
+          yearItems={yearItems}
+          schedule={snapshot.schedule}
+          pending={pending}
+          applyPendingMap={applyPendingMap}
+        />
+      </Suspense>
 
       <AnnualGrid
         yearItems={yearItems}
