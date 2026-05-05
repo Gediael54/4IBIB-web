@@ -166,6 +166,9 @@ desktop.ini
 # Local artifacts that should not be committed
 /assets/*
 !/assets/logo-betel-2026.png
+supabase/.temp/
+supabase/.branches/
+supabase/MARK_BASELINE_APPLIED.sql
 /coverage/
 /dist/
 **/dist/
