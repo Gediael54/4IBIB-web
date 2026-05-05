@@ -1,5 +1,6 @@
 import { Camera } from "lucide-react";
 import { useEffect, useRef } from "react";
+import PictureSet from "./PictureSet";
 
 interface GalleryItem {
   src: string;
@@ -176,7 +177,7 @@ export default function Gallery() {
             role="listitem"
             aria-hidden={index >= ITEMS.length}
           >
-            <img src={item.src} alt={item.alt} loading="lazy" draggable={false} />
+            <PictureSet src={item.src} alt={item.alt} loading="lazy" draggable={false} />
             <figcaption className="gallery-card-overlay">
               <span className="gallery-card-eyebrow">{item.eyebrow}</span>
               <span className="gallery-card-title">{item.title}</span>
