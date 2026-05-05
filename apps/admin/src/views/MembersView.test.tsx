@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import type { Household, Member, MemberDuplicateMatch, MemberRelationship } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -13,7 +13,9 @@ const mocks = vi.hoisted(() => ({
   archiveMember: vi.fn().mockResolvedValue(undefined),
   restoreMember: vi.fn().mockResolvedValue(undefined),
   anonymizeMember: vi.fn().mockResolvedValue(undefined),
-  findMemberDuplicates: vi.fn<() => Promise<MemberDuplicateMatch[]>>().mockResolvedValue([])
+  findMemberDuplicates: vi.fn<() => Promise<MemberDuplicateMatch[]>>().mockResolvedValue([]),
+  createRelationship: vi.fn().mockResolvedValue({}),
+  deleteRelationship: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock("../backend", () => ({
@@ -28,7 +30,9 @@ vi.mock("../backend", () => ({
       archiveMember: mocks.archiveMember,
       restoreMember: mocks.restoreMember,
       anonymizeMember: mocks.anonymizeMember,
-      findMemberDuplicates: mocks.findMemberDuplicates
+      findMemberDuplicates: mocks.findMemberDuplicates,
+      createRelationship: mocks.createRelationship,
+      deleteRelationship: mocks.deleteRelationship
     }
   }
 }));
@@ -135,6 +139,8 @@ describe("MembersView", () => {
     mocks.restoreMember.mockReset().mockResolvedValue(undefined);
     mocks.anonymizeMember.mockReset().mockResolvedValue(undefined);
     mocks.findMemberDuplicates.mockReset().mockResolvedValue([]);
+    mocks.createRelationship.mockReset().mockResolvedValue({});
+    mocks.deleteRelationship.mockReset().mockResolvedValue(undefined);
   });
 
   it("renders empty state when no members exist", async () => {
@@ -537,5 +543,151 @@ describe("MembersView", () => {
     });
     const payload = mocks.updateMember.mock.calls[0][1];
     expect(payload.publicDirectory).toBe(true);
+  });
+
+  it("renders all relationship category titles when editing a member", async () => {
+    mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Familia" })]);
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText("Joao Familia")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Familia" }));
+
+    const titles = [
+      "Conjuge",
+      "Pai",
+      "Mae",
+      "Filhos",
+      "Irmaos",
+      "Avos",
+      "Netos",
+      "Tios",
+      "Sobrinhos",
+      "Responsavel"
+    ];
+    for (const title of titles) {
+      expect(screen.getByRole("heading", { level: 4, name: title })).toBeInTheDocument();
+    }
+  });
+
+  it("shows the chip in the correct category for an incoming pai relationship", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({ id: "m1", fullName: "Filho X" }),
+      makeMember({ id: "m2", fullName: "Pai Y" })
+    ]);
+    mocks.listRelationships.mockResolvedValue([
+      {
+        id: "r1",
+        fromMemberId: "m2",
+        toMemberId: "m1",
+        type: "pai",
+        startDate: null,
+        endDate: null,
+        createdAt: "2026-01-01T00:00:00.000Z"
+      }
+    ]);
+    renderView();
+
+    const filhoRow = (await screen.findByText("Filho X")).closest("article");
+    if (!filhoRow) throw new Error("row not found");
+    fireEvent.click(within(filhoRow as HTMLElement).getByRole("button", { name: "Editar" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Familia" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Remover Pai Y de Pai/i })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: /Remover Pai Y de Filhos/i })).not.toBeInTheDocument();
+  });
+
+  it("creates type=pai when adding a child for a male editing member", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({ id: "m1", fullName: "Pai X", gender: "masculino" }),
+      makeMember({ id: "m2", fullName: "Filho Y" })
+    ]);
+    renderView();
+
+    const paiRow = (await screen.findByText("Pai X")).closest("article");
+    if (!paiRow) throw new Error("row not found");
+    fireEvent.click(within(paiRow as HTMLElement).getByRole("button", { name: "Editar" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Familia" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar em Filhos/i }));
+
+    const select = await screen.findByLabelText("Membro");
+    fireEvent.change(select, { target: { value: "m2" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
+
+    await waitFor(() => {
+      expect(mocks.createRelationship).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.createRelationship.mock.calls[0][0]).toMatchObject({
+      fromMemberId: "m1",
+      toMemberId: "m2",
+      type: "pai"
+    });
+  });
+
+  it("creates type=mae when adding a child for a female editing member", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({ id: "m1", fullName: "Mae X", gender: "feminino" }),
+      makeMember({ id: "m2", fullName: "Filho Y" })
+    ]);
+    renderView();
+
+    const maeRow = (await screen.findByText("Mae X")).closest("article");
+    if (!maeRow) throw new Error("row not found");
+    fireEvent.click(within(maeRow as HTMLElement).getByRole("button", { name: "Editar" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Familia" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar em Filhos/i }));
+
+    const select = await screen.findByLabelText("Membro");
+    fireEvent.change(select, { target: { value: "m2" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
+
+    await waitFor(() => {
+      expect(mocks.createRelationship).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.createRelationship.mock.calls[0][0]).toMatchObject({
+      fromMemberId: "m1",
+      toMemberId: "m2",
+      type: "mae"
+    });
+  });
+
+  it("calls deleteRelationship with the relationship id when chip remove is clicked", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({ id: "m1", fullName: "Filho X" }),
+      makeMember({ id: "m2", fullName: "Pai Y" })
+    ]);
+    mocks.listRelationships.mockResolvedValue([
+      {
+        id: "r-existing",
+        fromMemberId: "m2",
+        toMemberId: "m1",
+        type: "pai",
+        startDate: null,
+        endDate: null,
+        createdAt: "2026-01-01T00:00:00.000Z"
+      }
+    ]);
+    renderView();
+
+    const filhoRow = (await screen.findByText("Filho X")).closest("article");
+    if (!filhoRow) throw new Error("row not found");
+    fireEvent.click(within(filhoRow as HTMLElement).getByRole("button", { name: "Editar" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Familia" }));
+
+    const removeButton = await screen.findByRole("button", { name: /Remover Pai Y de Pai/i });
+    fireEvent.click(removeButton);
+
+    await waitFor(() => {
+      expect(mocks.deleteRelationship).toHaveBeenCalledWith("r-existing");
+    });
   });
 });
