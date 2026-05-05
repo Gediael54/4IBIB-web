@@ -81,7 +81,7 @@ Variaveis com prefixo `VITE_` vao pro bundle (publico). Service role e access to
 ## Seguranca Supabase
 
 - RLS habilitado em todas tabelas com policies via `is_admin()` + `is_owner()` (security definer).
-- DELETE direto bloqueado em members/announcements/schedule*items/prayer_requests/ministries — soft delete via RPCs `archive*_`/`restore\__`.
+- DELETE direto bloqueado em members, announcements, schedule_items, prayer_requests, ministries — soft delete via RPCs `archive_X` e `restore_X`.
 - Rate limit por `admin_users.user_id`: 30 mutations destrutivas/min via `check_admin_rate_limit`.
 - LGPD: cron mensal `purge_old_prayers` (18m) + `purge_old_audit` (24m). RPC `anonymize_member` substitui PII.
 - Owners atuais (auth.users): `gediael54@gmail.com`, `agtlislopes@gmail.com`.
