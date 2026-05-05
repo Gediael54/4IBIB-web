@@ -117,4 +117,22 @@ describe("AnnualScheduleView", () => {
     fireEvent.click(button);
     expect(button.getAttribute("aria-expanded")).not.toBe("true");
   });
+
+  it("lazy-loads the generator panel and shows its summary", async () => {
+    renderView();
+
+    const summary = await screen.findByText("Gerador de escalas (cadencia por voluntario)");
+    expect(summary).toBeInTheDocument();
+  });
+
+  it("mounts the auto-distribute panel only after clicking the toggle", async () => {
+    renderView();
+
+    expect(screen.queryByRole("button", { name: "Aplicar" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Auto-distribuir voluntario" }));
+
+    expect(await screen.findByRole("button", { name: "Aplicar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
+  });
 });
