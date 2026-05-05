@@ -348,6 +348,69 @@ describe("ScheduleView form", () => {
     expect(mocks.updateScheduleItemMembers).not.toHaveBeenCalled();
   });
 
+  it("shows badge with text Membro vinculado when typed name matches an existing member", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({ id: "m-pregador", fullName: "Pastor Joao", isVolunteer: true })
+    ]);
+    renderView();
+
+    await waitFor(() => {
+      expect(mocks.listMembers).toHaveBeenCalled();
+    });
+
+    fireEvent.change(screen.getByLabelText("Pregador"), { target: { value: "Pastor Joao" } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("preacher-member-tag")).toHaveTextContent("Membro vinculado");
+    });
+  });
+
+  it("does not show the badge when the typed name does not match any member", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({ id: "m-pregador", fullName: "Pastor Joao", isVolunteer: true })
+    ]);
+    renderView();
+
+    await waitFor(() => {
+      expect(mocks.listMembers).toHaveBeenCalled();
+    });
+
+    fireEvent.change(screen.getByLabelText("Pregador"), { target: { value: "Convidado externo" } });
+
+    expect(screen.queryByTestId("preacher-member-tag")).not.toBeInTheDocument();
+  });
+
+  it("orders preacher datalist with volunteer members before non-volunteer members, alphabetical within each group", async () => {
+    mocks.listMembers.mockResolvedValue([
+      makeMember({ id: "m1", fullName: "Carlos Souza", isVolunteer: false }),
+      makeMember({ id: "m2", fullName: "Ana Lima", isVolunteer: true }),
+      makeMember({ id: "m3", fullName: "Bruno Costa", isVolunteer: false }),
+      makeMember({ id: "m4", fullName: "Diego Mello", isVolunteer: true })
+    ]);
+    renderView();
+
+    await waitFor(() => {
+      expect(mocks.listMembers).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      const datalist = document.getElementById("schedule-preachers");
+      expect(datalist?.querySelector("option")).not.toBeNull();
+    });
+
+    const datalist = document.getElementById("schedule-preachers");
+    const optionValues = Array.from(datalist?.querySelectorAll("option") ?? []).map(
+      (option) => (option as HTMLOptionElement).value
+    );
+    const memberPositions = ["Ana Lima", "Diego Mello", "Bruno Costa", "Carlos Souza"].map((name) =>
+      optionValues.indexOf(name)
+    );
+    expect(memberPositions.every((position) => position >= 0)).toBe(true);
+    expect(memberPositions[0]).toBeLessThan(memberPositions[1]);
+    expect(memberPositions[1]).toBeLessThan(memberPositions[2]);
+    expect(memberPositions[2]).toBeLessThan(memberPositions[3]);
+  });
+
   it("shows the membro badge for director and sound team when names match members", async () => {
     mocks.listMembers.mockResolvedValue([
       makeMember({ id: "m-dir", fullName: "Maria Souza", isVolunteer: true }),
