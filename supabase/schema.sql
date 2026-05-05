@@ -735,7 +735,82 @@ begin
 end;
 $$;
 
--- 5.8 Background maintenance --------------------------------------------
+-- 5.8 Member relationships reverse mirror --------------------------------
+
+create or replace function public.create_reverse_relationship()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  reverse_type public.relationship_type;
+  to_gender public.gender;
+begin
+  if pg_trigger_depth() > 1 then return new; end if;
+  case new.type
+    when 'pai' then reverse_type := 'filho';
+    when 'mae' then reverse_type := 'filho';
+    when 'avo' then reverse_type := 'neto';
+    when 'tio' then reverse_type := 'sobrinho';
+    when 'irmao' then reverse_type := 'irmao';
+    when 'conjuge' then reverse_type := 'conjuge';
+    when 'neto' then reverse_type := 'avo';
+    when 'sobrinho' then reverse_type := 'tio';
+    when 'filho' then
+      select gender into to_gender from public.members where id = new.to_member_id;
+      reverse_type := case
+        when to_gender = 'feminino' then 'mae'::public.relationship_type
+        else 'pai'::public.relationship_type
+      end;
+    else return new;
+  end case;
+  insert into public.member_relationships (from_member_id, to_member_id, type, start_date, end_date)
+  values (new.to_member_id, new.from_member_id, reverse_type, new.start_date, new.end_date)
+  on conflict (from_member_id, to_member_id, type, start_date) do nothing;
+  return new;
+end;
+$$;
+
+create or replace function public.delete_reverse_relationship()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  reverse_type public.relationship_type;
+  to_gender public.gender;
+begin
+  if pg_trigger_depth() > 1 then return old; end if;
+  case old.type
+    when 'pai' then reverse_type := 'filho';
+    when 'mae' then reverse_type := 'filho';
+    when 'avo' then reverse_type := 'neto';
+    when 'tio' then reverse_type := 'sobrinho';
+    when 'irmao' then reverse_type := 'irmao';
+    when 'conjuge' then reverse_type := 'conjuge';
+    when 'neto' then reverse_type := 'avo';
+    when 'sobrinho' then reverse_type := 'tio';
+    when 'filho' then
+      select gender into to_gender from public.members where id = old.to_member_id;
+      reverse_type := case
+        when to_gender = 'feminino' then 'mae'::public.relationship_type
+        else 'pai'::public.relationship_type
+      end;
+    else return old;
+  end case;
+  delete from public.member_relationships
+  where from_member_id = old.to_member_id
+    and to_member_id = old.from_member_id
+    and type = reverse_type
+    and start_date is not distinct from old.start_date;
+  return old;
+end;
+$$;
+
+
+-- 5.9 Background maintenance --------------------------------------------
 
 create or replace function public.purge_old_prayers()
 returns int
@@ -884,6 +959,15 @@ create trigger audit_ministries
 create trigger audit_recurring_meetings
   after insert or update or delete on public.recurring_meetings
   for each row execute function public.log_content_audit();
+
+-- 7.3 Member relationships reverse mirror -------------------------------
+create trigger member_relationships_reverse_insert
+  after insert on public.member_relationships
+  for each row execute function public.create_reverse_relationship();
+
+create trigger member_relationships_reverse_delete
+  after delete on public.member_relationships
+  for each row execute function public.delete_reverse_relationship();
 
 
 -- =============================================================================
