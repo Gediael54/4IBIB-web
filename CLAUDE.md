@@ -1,35 +1,38 @@
 # 4IBIB Web — Contexto do projeto
 
-Site publico + painel admin da **4ª Igreja Batista Independente Betel** (igreja batista, perfil reformado, nao neopentecostal).
+Site publico + painel admin da **4ª Igreja Batista Independente Betel** (igreja batista, perfil reformado, nao neopentecostal). Em producao desde 2026-05; release atual e `v1.0.0` via `semantic-release`.
 
 ## Stack
 
-- **Frontend**: React 19 + Vite 7 + TypeScript estrito
-- **Backend**: Supabase (Postgres + Auth + RLS); fallback `mock` foi removido (dev contra Supabase real)
-- **Hospedagem**: Cloudflare Pages (site em `/`, admin em `/admin/`)
-- **Monorepo**: npm workspaces
+- **Frontend**: React 19 + Vite 7 + TypeScript estrito (5 workspaces npm).
+- **Backend**: Supabase (Postgres + Auth + RLS). Sem fallback mock — dev contra Supabase real ou local via Docker.
+- **Hospedagem**: Cloudflare Pages (site em `/`, admin em `/admin/`); Cloudflare Functions em `functions/api/*`.
+- **Schema versionado**: Supabase CLI + migrations aditivas em `supabase/migrations/`. NAO existe mais `schema.sql` canonico.
 
 ## Layout do repo
 
 ```
 apps/
-  site/        # site publico (porta 5173 em dev)
-  admin/       # painel CMS (porta 5174 em dev, deploy em /admin/)
+  site/                 # site publico
+  admin/                # painel CMS (deploy /admin/)
 packages/
-  core/        # tipos de dominio + utilidades puras (100% cobertura)
-  supabase/    # adapter para Supabase (100% cobertura)
+  core/                 # tipos de dominio + helpers puros (100% cobertura)
+  supabase/             # adapter Supabase (100% cobertura)
+  db/                   # types.ts gerado via `supabase gen types`
 supabase/
-  config.toml     # config local (Supabase CLI)
-  migrations/     # migrations versionadas (aditivas, imutaveis)
-  seed.sql        # DML aplicado em dev local via `supabase db reset`
-  cron.sql        # script manual pra ativar pg_cron
-  sources/        # planilhas/fontes externas de seed
-scripts/
-  compose-dist.mjs       # combina site + admin em um dist/ pro Cloudflare
-  seed-from-xlsx.mjs     # regenera bloco de seed dentro de supabase/schema.sql
+  config.toml           # config do Supabase CLI
+  migrations/           # versionadas, aditivas, imutaveis
+  seed.sql              # DML aplicado em `supabase db reset`
+  cron.sql              # ativa pg_cron + agenda purges (manual, 1x)
+  sources/              # planilhas xlsx do seed
+  tests/                # tests reais via Vitest+pg (helpers/rls/triggers/rpcs)
+functions/api/          # Cloudflare Pages Functions (prayer, health, auth)
+scripts/                # build, seed, fotos, logos
 docs/
-  plans/                 # planos de longo prazo (ver "Planos ativos" abaixo)
-  setup-checklist.md
+  adr/                  # 5 ADRs (decisoes arquiteturais)
+  architecture.md       # diagramas C4 (Mermaid)
+  onboarding.md         # quickstart pra novo dev
+.github/workflows/      # ci, db-validate, lighthouse, release, dependabot
 ```
 
 `apps/*` consomem **somente** `@4ibib/core` (tipos) + `@4ibib/supabase` (adapter). Nada de detalhes de Supabase vazando pra UI.
@@ -38,100 +41,90 @@ docs/
 
 ```bash
 npm install
-npm run dev:site      # site em http://localhost:5173
-npm run dev:admin     # admin em http://localhost:5174
-npm test              # vitest run --coverage (gate 100% em core/supabase)
-npm run typecheck     # todos os workspaces
-npm run build         # gera dist/ pra Cloudflare Pages
-npm run seed:schedule # regenera bloco de seed inline em supabase/schema.sql
+npm run dev:site         # http://localhost:5173
+npm run dev:admin        # http://localhost:5174
+npm test                 # vitest + cobertura (gate 100% em core/supabase)
+npm run typecheck        # 5 workspaces
+npm run build            # gera dist/ pra Cloudflare Pages
+npm run analyze          # ANALYZE=true npm run build (gera stats.html)
+npm run license-check    # bloqueia GPL/AGPL nas deps de prod
+npm run seed:schedule    # regenera SEED block em supabase/seed.sql
+npm run db:types         # regenera packages/db/types.ts via Supabase CLI
+npm run test:db          # tests SQL reais (precisa Postgres rodando)
 ```
 
 ## Convencoes
 
 - **Sem comentarios explicando WHAT** — codigo auto-explicativo. Comentario so pra WHY nao-obvio.
-- **Sem mocks em testes de banco** — testes do Supabase mockam o cliente, mas usam contratos reais.
-- **Strings em PT-BR sem acentos** (compatibilidade mais ampla; convencao do projeto).
-- **Cobertura 100%** obrigatoria em `core` e `supabase` (gate no `vitest.config.ts`).
-- **`.env`** fica na raiz; `vite.config.ts` de cada app aponta `envDir: "../.."`.
-- **Commits**: skill `commit` em `~/.claude/skills/commit/SKILL.md` — sem `Co-Authored-By`, conventional commits, staging individual.
+- **Strings em PT-BR sem acentos** (compatibilidade ampla).
+- **Cobertura 100%** em `core` + `supabase` (gate em `vitest.config.ts`).
+- **`.env`** fica na raiz; cada app aponta `envDir: "../.."`.
+- **Conventional commits obrigatorio** — `commitlint` valida via Husky `commit-msg`. `semantic-release` calcula versao a partir disso.
+- **Commits**: skill `commit` em `~/.claude/skills/commit/SKILL.md` — sem `Co-Authored-By`, staging individual.
 
 ## Variaveis de ambiente
 
 ```
 VITE_SUPABASE_URL=https://...
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+VITE_PRAYER_ENDPOINT=/api/prayer
+VITE_TURNSTILE_SITE_KEY=0x...
+VITE_SENTRY_DSN=https://...
+
+TURNSTILE_SECRET_KEY=0x...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+SUPABASE_ACCESS_TOKEN=sbp_...    # PAT pra Supabase CLI (db push, gen types)
 ```
 
-A `Publishable key` (`sb_publishable_*`) e segura no frontend. A `service_role` / `secret key` **nunca** vai pro `.env` do Vite.
+Variaveis com prefixo `VITE_` vao pro bundle (publico). Service role e access token **nunca** vao pro front.
 
 ## Seguranca Supabase
 
-RLS habilitado em todas as tabelas. Politicas via funcoes `is_admin()` e `is_owner()` (security definer, evita recursao). `admin_users` controla quem pode editar. Leitura publica para conteudo institucional, restrita para `prayer_requests` e `content_audit_log`.
+- RLS habilitado em todas tabelas com policies via `is_admin()` + `is_owner()` (security definer).
+- DELETE direto bloqueado em members/announcements/schedule*items/prayer_requests/ministries — soft delete via RPCs `archive*_`/`restore\__`.
+- Rate limit por `admin_users.user_id`: 30 mutations destrutivas/min via `check_admin_rate_limit`.
+- LGPD: cron mensal `purge_old_prayers` (18m) + `purge_old_audit` (24m). RPC `anonymize_member` substitui PII.
+- Owners atuais (auth.users): `gediael54@gmail.com`, `agtlislopes@gmail.com`.
 
-## Decisoes confirmadas pelo usuario
+Detalhes em [`docs/adr/0002-supabase-rls-as-authz-boundary.md`](docs/adr/0002-supabase-rls-as-authz-boundary.md) e [`docs/architecture.md`](docs/architecture.md).
 
-- **SQL/migrations autorizados**: pode alterar schema seguindo melhores praticas, preservando dados atuais.
-- **Horarios oficiais**: culto de louvor quinta 19:30-21:00; escola biblica domingo 09:30-11:00; culto solene domingo 17:00-19:00.
+## Decisoes confirmadas
+
+- **Horarios oficiais**: louvor quinta 19:30-21:00; escola biblica domingo 09:30-11:00; culto solene domingo 17:00-19:00.
 - **SEO canonico**: `https://4ibib-web.pages.dev/`.
 - **Contato oficial**: `478 Rua Jose Victor de Albuquerque`; WhatsApp `+55 81 98122-0651`; email `4ibibetel@gmail.com`.
-- **Robots**: manter `/admin` fora de indexacao.
-- **Form de oracao**: Cloudflare Turnstile + validacao server-side/rate-limit.
-- **Infra**: ESLint + Prettier conservador, GitHub Actions CI, Husky+lint-staged.
-- **Error tracking**: Sentry para frontend React/Vite.
+- **Robots**: `/admin` fora de indexacao.
+- **Form de oracao**: Cloudflare Turnstile + rate-limit server-side.
 - **Redes sociais**: Instagram `https://www.instagram.com/4igrejabatista/`, YouTube `https://www.youtube.com/@4aibibetel864`.
+- **URL antiga** `https://4ibibetel.lovestoblog.com` redireciona via `.htaccess` 301 + index.php fallback pra preservar QR codes ja distribuidos.
 
-## Planos ativos
+## Pendencias
 
-Detalhes completos vivem em `docs/plans/`. CLAUDE.md so resume status.
+### Manual no painel (depende do usuario)
 
-| Plano                                       | Arquivo                                                              | Status                                                                                                                              |
-| ------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Plano admin master (features)               | [`docs/plans/admin-master-plan.md`](docs/plans/admin-master-plan.md) | Fases 1-5 ✅ exceto serie recorrente (provavelmente desnecessaria) e notificacao de pedido novo (depende canal email).              |
-| Plano S+++ (qualidade A → A+)               | [`docs/plans/quality-roadmap.md`](docs/plans/quality-roadmap.md)     | Fases 6, 7, 8.1, 9 (4 partes), 11 (3 partes), 12 (1, 2, 6), 15 (1, 2, 6, 7) ✅. Fases 8.2-8.5, 10, 13, 14, 9.4/9.6, 15.3-5, 15.8 ⏸. |
-| Fase 16 — UI redesign                       | [`docs/plans/ui-redesign.md`](docs/plans/ui-redesign.md)             | Waves 1-5 ✅. Pendente: AnnualGrid table-as-cards mobile, AuditLog filter drawer mobile.                                            |
-| Feature membros + LGPD + hardening (5/2026) | [`docs/plans/members-feature.md`](docs/plans/members-feature.md)     | Sessoes 1-3 ✅. Pendente: adapter archive-first (desbloqueia undo banner), LGPD anonymize UI, schedule-member binding edge cases.   |
+- **Rotacionar legacy service_role JWT** — Supabase Dashboard → Settings → API.
+- **Habilitar 2FA Auth MFA** — Supabase Dashboard → Authentication → Providers.
+- **Provider email Resend** — criar conta → adicionar `RESEND_API_KEY` no `.env` + Cloudflare → wirear em `functions/api/login-alert.js`.
 
-Estado atual: **407 tests verdes**, 100% cobertura em `core` e `supabase`, typecheck/build limpos. Ver `docs/plans/members-feature.md` para snapshot completo do que ja foi entregue.
+### Backlog aberto
 
-## Pendencias prioritarias (ordem de ROI)
-
-1. **Adapter archive-first** — `packages/supabase` ainda usa hard delete direto em announcements, schedule_items e ministries. Schema ja tem RPCs `archive_X` e `restore_X` da Sessao 1. Migrar adapter + criar hooks `useArchive` e `useRestore` paralelos. Ativa undo banner ja wireado no Toast.
-2. **LGPD finalizar** — ativar pg_cron rodando `supabase/cron.sql` no painel. Wirear botao "Anonimizar dados" em MembersView. Funcao `purge_old_audit()` mensal.
-3. **ScheduleView dropdown de membros** — pregador/dirigente/som como select de members (`is_volunteer=true`) ao inves de input string + datalist.
-4. **Hardening manual** — #23 rotacionar service_role JWT, habilitar 2FA Supabase Auth, integrar provider email (Resend) em `login-alert.js`.
-5. **Performance Fase 10** (precisa deps): vite-plugin-visualizer, zod→valibot, code splitting AnnualSchedule, vite-plugin-image, Lighthouse CI.
-6. **Tooling Fase 13** (precisa CI infra): Dependabot, license-checker, commitlint, semantic-release, status badges.
-7. **axe-core CI** (precisa `vitest-axe`/`jest-axe`).
-8. **Diagrama C4** em Mermaid.
-9. **Drag-and-drop** (precisa @dnd-kit) em MinistriesView/RecurringMeetings/AnnualSchedule.
-10. **View-transition API** (Fase 15.8) com `prefers-reduced-motion`.
-
-## Backlog aberto (fora dos planos)
-
-### Schema/banco
-
-- [ ] **#23** Rotacionar/desabilitar legacy service_role JWT no Supabase (manual no painel).
-
-### Funcionalidades extra (fora do admin)
-
-- [ ] **#51** Inscricoes em eventos com formulario publico (depende de definir destino).
-- [ ] **#52** Pregacoes/estudos: vincular YouTube a eventos passados, com preview.
-- [ ] **#53** PIX/doacoes: chave copia-e-cola + QR estatico.
-- [ ] **#54** Newsletter/mailing list.
-- [ ] **#55** Notificacao ao publicar aviso (canal a decidir).
-- [ ] **#57** Bio dos pastores/lideranca com fotos (CRUD novo + secao publica).
-- [ ] **#62** Secao "Primeira vez aqui?" no site (onboarding com 4-5 cards).
-- [ ] **#63** Eyebrow tags por categoria nos avisos/eventos.
-- [ ] **#64** "Latest Teaching" persistente na home (depende #52).
-- [ ] **#65** Confissao de fe / doutrina no footer (link ou texto curto).
+- **#51** Inscricoes em eventos com formulario publico (depende de definir destino).
+- **#52** Pregacoes/estudos: vincular YouTube a eventos passados, com preview.
+- **#53** PIX/doacoes: chave copia-e-cola + QR estatico.
+- **#54** Newsletter/mailing list.
+- **#55** Notificacao ao publicar aviso (canal a decidir).
+- **#57** Bio dos pastores/lideranca com fotos (CRUD novo + secao publica).
+- **#62** Secao "Primeira vez aqui?" no site (onboarding com 4-5 cards).
+- **#63** Eyebrow tags por categoria nos avisos/eventos.
+- **#64** "Latest Teaching" persistente na home (depende #52).
+- **#65** Confissao de fe / doutrina no footer.
+- **AnnualGrid table-as-cards mobile**, **AuditLog filter drawer mobile** — pendencias UX que ficaram do redesign.
 
 ## Notas de operacao
 
-- **Branch principal**: `main`.
+- **Branch principal**: `main`. Push dispara `semantic-release` no GitHub Actions (CHANGELOG + tag + GitHub Release automatico via conventional commits).
 - **Commits**: criar so quando o usuario pedir.
-- **Cobertura**: gate 100% em `core` e `supabase`. Quebrar = test fail.
-- **Antes de instalar deps via apt/sudo**: pedir; sandbox geralmente bloqueia rede.
+- **Migrations**: nova mudanca de schema = `npx supabase migration new <nome>` + edita SQL + `npx supabase db push`. Apos aplicar: `npm run db:types` regenera os types. Ver [`supabase/README.md`](supabase/README.md).
+- **DB tests local**: `docker run -d --name pg-test -e POSTGRES_PASSWORD=postgres -p 5432:5432 supabase/postgres:15.6.1.146`, aplica migrations + seed via psql, roda `npm run test:db`. CI faz isso automaticamente em PRs via `.github/workflows/db-validate.yml`.
 - **Memoria**: o usuario tem `feedback_no_assumptions` ativa — em ambiguidade real, pergunta direta antes de chutar.
-- **Banco via Supabase CLI + migrations versionadas**. Mudancas viram novos arquivos em `supabase/migrations/` via `npx supabase migration new <nome>`. Ver `supabase/README.md` pra workflow completo. NAO existe mais `schema.sql` canonico — baseline foi capturada em `migrations/20260504000000_initial_schema.sql`.
-- **Owners atuais** (auth.users em prod): `gediael54@gmail.com`, `agtlislopes@gmail.com`. Se novo admin precisa ser adicionado, `insert into admin_users (user_id, role) values ('<uid>', 'owner') on conflict do nothing`.
-- **Releases**: `semantic-release` roda no workflow `.github/workflows/release.yml` em cada push pra `main`. Calcula a proxima versao a partir dos conventional commits, atualiza `CHANGELOG.md`, faz commit `chore(release): X.Y.Z [skip ci]`, cria tag e publica release no GitHub. Sem publish em npm. Usa `GITHUB_TOKEN` (escopo do repo, nao precisa PAT extra).
+- **Onboarding**: ver [`docs/onboarding.md`](docs/onboarding.md) pra setup local em <30min.
