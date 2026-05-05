@@ -53,14 +53,14 @@ describe("validateContact", () => {
     expect(validateContact("phone", "(81) 98122-0651")).toBeNull();
   });
   it("flags ambiguous starts as invalid", () => {
-    expect(validateContact("auto", "@@@")).toMatch(/letra/);
+    expect(validateContact("auto", "@@@")).toMatch(/WhatsApp/);
   });
 });
 
 describe("SmartContactInput component", () => {
   it("renders default hint when empty", () => {
     render(<SmartContactInput name="contact" maxLength={180} />);
-    expect(screen.getByText(/letra para email ou numero/i)).toBeInTheDocument();
+    expect(screen.getByText("Email ou WhatsApp com DDD")).toBeInTheDocument();
   });
   it("masks phone digits as user types", () => {
     render(<SmartContactInput name="contact" maxLength={180} />);
@@ -79,6 +79,6 @@ describe("SmartContactInput component", () => {
     const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: "ana" } });
     fireEvent.blur(input);
-    expect(screen.getByText(/email valido/i)).toBeInTheDocument();
+    expect(screen.getByText(/email parece incompleto/i)).toBeInTheDocument();
   });
 });
