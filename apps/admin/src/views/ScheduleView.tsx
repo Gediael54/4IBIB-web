@@ -1,6 +1,7 @@
 import {
   formatInputDateTime,
   inputDateTimeToIso,
+  type Member,
   type ScheduleBulkPatch,
   type ScheduleItem,
   type ScheduleStatus,
@@ -8,7 +9,7 @@ import {
 } from "@4ibib/core";
 import { valibotResolver } from "@hookform/resolvers/valibot";
 import { CalendarDays, Copy, ExternalLink, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type InputHTMLAttributes } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
@@ -37,6 +38,7 @@ import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
 import { scheduleSchema, type ScheduleFormValues } from "../schemas";
 import { formatScheduleDetail } from "../lib/format";
 import { TEXT_MAX, TEXTAREA_MAX } from "../lib/limits";
+import { findMemberByName, sortMembersForAutocomplete } from "../lib/members";
 import {
   compareText,
   matchesSearch,
@@ -99,6 +101,63 @@ function scheduleToFormValues(item: ScheduleItem): ScheduleFormValues {
 
 const SCHEDULE_DRAFT_KEY = "schedule-draft";
 
+interface MemberAutocompleteInputProps {
+  label: string;
+  placeholder?: string;
+  members: Member[];
+  value: string;
+  inputProps: Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "list">;
+  datalistId: string;
+  badgeTestId: string;
+  error?: string;
+  extraOptions?: string[];
+}
+
+function MemberAutocompleteInput(props: MemberAutocompleteInputProps) {
+  const sortedMembers = useMemo(() => sortMembersForAutocomplete(props.members), [props.members]);
+  const matched = findMemberByName(props.value, props.members);
+  const optionValues = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const member of sortedMembers) {
+      const name = member.fullName.trim();
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      out.push(name);
+    }
+    for (const extra of props.extraOptions ?? []) {
+      const name = extra.trim();
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      out.push(name);
+    }
+    return out;
+  }, [sortedMembers, props.extraOptions]);
+
+  return (
+    <div className="member-field">
+      <Field
+        label={props.label}
+        list={props.datalistId}
+        placeholder={props.placeholder ?? props.label}
+        maxLength={TEXT_MAX}
+        error={props.error}
+        {...props.inputProps}
+      />
+      {matched && (
+        <span className="member-match-tag" data-testid={props.badgeTestId}>
+          Membro vinculado
+        </span>
+      )}
+      <datalist id={props.datalistId}>
+        {optionValues.map((value) => (
+          <option key={value} value={value} />
+        ))}
+      </datalist>
+    </div>
+  );
+}
+
 export function ScheduleForm(props: {
   snapshot: SiteSnapshot;
   editingId: string | null;
@@ -109,8 +168,8 @@ export function ScheduleForm(props: {
 }) {
   const saveMutation = useSaveScheduleItem();
   const updateMembersMutation = useUpdateScheduleItemMembers();
-  const membersQuery = useMembers({ isVolunteer: true });
-  const volunteerMembers = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
+  const membersQuery = useMembers();
+  const allMembers = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
   const { toast } = useToast();
 
   const {
@@ -153,64 +212,31 @@ export function ScheduleForm(props: {
 
   const volunteers = useMemo(() => props.snapshot.volunteers ?? [], [props.snapshot]);
 
-  const memberNames = useMemo(
-    () => uniqueSorted(volunteerMembers.map((member) => member.fullName)),
-    [volunteerMembers]
-  );
-
   const generalVolunteerNames = useMemo(
     () => uniqueSorted(volunteers.filter((item) => item.role === "geral").map((item) => item.name)),
     [volunteers]
   );
 
   const soundVolunteerNames = useMemo(
-    () =>
-      uniqueSorted([
-        ...volunteers.filter((item) => item.role === "som").map((item) => item.name),
-        ...memberNames
-      ]),
-    [volunteers, memberNames]
+    () => uniqueSorted(volunteers.filter((item) => item.role === "som").map((item) => item.name)),
+    [volunteers]
   );
 
-  const schedulePreachers = useMemo(
-    () =>
-      uniqueSorted([
-        ...memberNames,
-        ...generalVolunteerNames,
-        ...props.snapshot.schedule.map((item) => item.preacher)
-      ]),
-    [props.snapshot, generalVolunteerNames, memberNames]
+  const preacherExtras = useMemo(
+    () => uniqueSorted([...generalVolunteerNames, ...props.snapshot.schedule.map((item) => item.preacher)]),
+    [props.snapshot, generalVolunteerNames]
   );
 
-  const scheduleDirectors = useMemo(
-    () =>
-      uniqueSorted([
-        ...memberNames,
-        ...generalVolunteerNames,
-        ...props.snapshot.schedule.map((item) => item.director)
-      ]),
-    [props.snapshot, generalVolunteerNames, memberNames]
+  const directorExtras = useMemo(
+    () => uniqueSorted([...generalVolunteerNames, ...props.snapshot.schedule.map((item) => item.director)]),
+    [props.snapshot, generalVolunteerNames]
   );
-
-  const memberIdByName = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const member of volunteerMembers) {
-      const key = member.fullName.trim().toLocaleLowerCase("pt-BR");
-      if (key) map.set(key, member.id);
-    }
-    return map;
-  }, [volunteerMembers]);
 
   function resolveMemberId(name: string): string | null {
-    const key = name.trim().toLocaleLowerCase("pt-BR");
-    if (!key) return null;
-    return memberIdByName.get(key) ?? null;
+    return findMemberByName(name, allMembers)?.id ?? null;
   }
 
-  const preacherMatched = resolveMemberId(preacherValue ?? "") !== null;
-  const directorMatched = resolveMemberId(directorValue ?? "") !== null;
   const soundFirstName = (soundTeamValue ?? "").split(",")[0] ?? "";
-  const soundMatched = resolveMemberId(soundFirstName) !== null;
 
   const schedulePassages = useMemo(
     () => uniqueSorted(props.snapshot.schedule.map((item) => item.passage)),
@@ -336,57 +362,38 @@ export function ScheduleForm(props: {
         </SelectField>
       </div>
       <div className="form-grid">
-        <div className="member-field">
-          <Field
-            label="Pregador"
-            list="schedule-preachers"
-            placeholder="Pregador"
-            maxLength={TEXT_MAX}
-            error={errors.preacher?.message}
-            {...register("preacher")}
-          />
-          {preacherMatched && (
-            <span className="member-match-tag" data-testid="preacher-member-tag">
-              Membro
-            </span>
-          )}
-        </div>
-        <div className="member-field">
-          <Field
-            label="Dirigente"
-            list="schedule-directors"
-            placeholder="Dirigente"
-            maxLength={TEXT_MAX}
-            error={errors.director?.message}
-            {...register("director")}
-          />
-          {directorMatched && (
-            <span className="member-match-tag" data-testid="director-member-tag">
-              Membro
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="member-field">
-        <Field
-          label="Equipe de som"
-          list="schedule-sound-team"
-          placeholder="Miguel, Brainer (separe com virgula)"
-          maxLength={TEXT_MAX}
-          error={errors.soundTeam?.message}
-          {...register("soundTeam")}
+        <MemberAutocompleteInput
+          label="Pregador"
+          members={allMembers}
+          value={preacherValue ?? ""}
+          inputProps={register("preacher")}
+          datalistId="schedule-preachers"
+          badgeTestId="preacher-member-tag"
+          error={errors.preacher?.message}
+          extraOptions={preacherExtras}
         />
-        {soundMatched && (
-          <span className="member-match-tag" data-testid="sound-member-tag">
-            Membro
-          </span>
-        )}
+        <MemberAutocompleteInput
+          label="Dirigente"
+          members={allMembers}
+          value={directorValue ?? ""}
+          inputProps={register("director")}
+          datalistId="schedule-directors"
+          badgeTestId="director-member-tag"
+          error={errors.director?.message}
+          extraOptions={directorExtras}
+        />
       </div>
-      <datalist id="schedule-sound-team">
-        {soundVolunteerNames.map((value) => (
-          <option key={value} value={value} />
-        ))}
-      </datalist>
+      <MemberAutocompleteInput
+        label="Equipe de som"
+        placeholder="Miguel, Brainer (separe com virgula)"
+        members={allMembers}
+        value={soundFirstName}
+        inputProps={register("soundTeam")}
+        datalistId="schedule-sound-team"
+        badgeTestId="sound-member-tag"
+        error={errors.soundTeam?.message}
+        extraOptions={soundVolunteerNames}
+      />
       <div className="form-grid">
         <Field
           label="Passagem biblica"
@@ -407,16 +414,6 @@ export function ScheduleForm(props: {
       </div>
       <datalist id="schedule-locations">
         {scheduleLocations.map((value) => (
-          <option key={value} value={value} />
-        ))}
-      </datalist>
-      <datalist id="schedule-preachers">
-        {schedulePreachers.map((value) => (
-          <option key={value} value={value} />
-        ))}
-      </datalist>
-      <datalist id="schedule-directors">
-        {scheduleDirectors.map((value) => (
           <option key={value} value={value} />
         ))}
       </datalist>
