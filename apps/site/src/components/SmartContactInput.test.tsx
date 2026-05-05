@@ -58,9 +58,9 @@ describe("validateContact", () => {
 });
 
 describe("SmartContactInput component", () => {
-  it("renders default hint when empty", () => {
-    render(<SmartContactInput name="contact" maxLength={180} />);
-    expect(screen.getByText("Email ou WhatsApp com DDD")).toBeInTheDocument();
+  it("renders no hint when empty and untouched", () => {
+    const { container } = render(<SmartContactInput name="contact" maxLength={180} />);
+    expect(container.querySelector(".form-hint")).toBeNull();
   });
   it("masks phone digits as user types", () => {
     render(<SmartContactInput name="contact" maxLength={180} />);
@@ -80,5 +80,10 @@ describe("SmartContactInput component", () => {
     fireEvent.change(input, { target: { value: "ana" } });
     fireEvent.blur(input);
     expect(screen.getByText(/email parece incompleto/i)).toBeInTheDocument();
+  });
+  it("does not show error after blur when value is empty", () => {
+    const { container } = render(<SmartContactInput name="contact" maxLength={180} />);
+    fireEvent.blur(screen.getByRole("textbox"));
+    expect(container.querySelector(".form-hint")).toBeNull();
   });
 });
