@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { backend } from "./backend";
 import Gallery from "./components/Gallery";
+import PictureSet from "./components/PictureSet";
 import PrivacyPolicy from "./components/PrivacyPolicy";
 import SchedulePage from "./components/SchedulePage";
 import SmartContactInput, { detectContactMode, validateContact } from "./components/SmartContactInput";
@@ -159,7 +160,11 @@ function SiteHome({
 
       <section className="section intro">
         <div className="intro-image">
-          <img src="/intro.jpg" alt="Membro da congregacao em momento de leitura biblica" loading="lazy" />
+          <PictureSet
+            src="/intro.jpg"
+            alt="Membro da congregacao em momento de leitura biblica"
+            loading="lazy"
+          />
         </div>
         <div className="intro-text">
           <p className="eyebrow">Nossa missao</p>
