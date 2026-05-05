@@ -139,6 +139,19 @@ p {
       rgba(28, 24, 20, 0.55) 100%
     ),
     url("/hero-mobile.jpg");
+  background-image:
+    linear-gradient(
+      105deg,
+      rgba(28, 24, 20, 0.95) 0%,
+      rgba(28, 24, 20, 0.7) 35%,
+      rgba(28, 24, 20, 0.35) 65%,
+      rgba(28, 24, 20, 0.55) 100%
+    ),
+    image-set(
+      url("/hero-mobile.avif") type("image/avif"),
+      url("/hero-mobile.webp") type("image/webp"),
+      url("/hero-mobile.jpg") type("image/jpeg")
+    );
   background-size: cover;
   background-position: center 30%;
   filter: saturate(0.85) contrast(1.05);
@@ -156,6 +169,19 @@ p {
         rgba(28, 24, 20, 0.45) 100%
       ),
       url("/hero.jpg");
+    background-image:
+      linear-gradient(
+        100deg,
+        rgba(28, 24, 20, 0.92) 0%,
+        rgba(28, 24, 20, 0.55) 40%,
+        rgba(28, 24, 20, 0.18) 70%,
+        rgba(28, 24, 20, 0.45) 100%
+      ),
+      image-set(
+        url("/hero.avif") type("image/avif"),
+        url("/hero.webp") type("image/webp"),
+        url("/hero.jpg") type("image/jpeg")
+      );
     background-position: center 28%;
   }
 }
