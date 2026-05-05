@@ -1,0 +1,72 @@
+name: db-validate
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/seed.sql"
+      - ".github/workflows/db-validate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/seed.sql"
+
+jobs:
+  apply-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: supabase/postgres:15.6.1.146
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - name: Wait for Postgres
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done
+      - name: Apply migrations
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          for migration in supabase/migrations/*.sql; do
+            echo "applying $migration"
+            psql -v ON_ERROR_STOP=1 -f "$migration"
+          done
+      - name: Apply seed
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          if [ -f supabase/seed.sql ]; then
+            psql -v ON_ERROR_STOP=1 -f supabase/seed.sql
+          fi
+      - name: Smoke test queries
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          psql -c "select count(*) as members from public.members;"
+          psql -c "select count(*) as schedule_items from public.schedule_items;"
+          psql -c "select count(*) as ministries from public.ministries;"
+          psql -c "select 1 from pg_proc where proname = 'is_admin';"
+          psql -c "select 1 from pg_proc where proname = 'archive_member';"
+          psql -c "select 1 from pg_proc where proname = 'create_reverse_relationship';"
