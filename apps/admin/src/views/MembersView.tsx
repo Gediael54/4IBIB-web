@@ -47,9 +47,7 @@ import {
   GENDER_OPTIONS,
   MARITAL_STATUS_OPTIONS,
   MEMBERSHIP_STATUS_OPTIONS,
-  MEMBERSHIP_STATUS_LABELS,
-  RELATIONSHIP_TYPE_LABELS,
-  RELATIONSHIP_TYPE_OPTIONS
+  MEMBERSHIP_STATUS_LABELS
 } from "../lib/labels";
 import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "../lib/limits";
 import {
@@ -239,20 +237,136 @@ function buildMemberPayload(
 }
 
 interface RelationshipsPanelProps {
-  memberId: string | null;
+  editingMember: Member | null;
   membersAll: Member[];
 }
 
-function RelationshipsPanel({ memberId, membersAll }: RelationshipsPanelProps) {
+type CategoryKey =
+  | "conjuge"
+  | "pai"
+  | "mae"
+  | "filhos"
+  | "irmaos"
+  | "avos"
+  | "netos"
+  | "tios"
+  | "sobrinhos"
+  | "responsavel";
+
+interface CategoryDef {
+  key: CategoryKey;
+  label: string;
+  describe: (rel: MemberRelationship, memberId: string) => boolean;
+  otherSide: (rel: MemberRelationship, memberId: string) => string;
+}
+
+const CATEGORIES: CategoryDef[] = [
+  {
+    key: "conjuge",
+    label: "Conjuge",
+    describe: (rel) => rel.type === "conjuge",
+    otherSide: (rel, memberId) => (rel.fromMemberId === memberId ? rel.toMemberId : rel.fromMemberId)
+  },
+  {
+    key: "pai",
+    label: "Pai",
+    describe: (rel, memberId) => rel.toMemberId === memberId && rel.type === "pai",
+    otherSide: (rel) => rel.fromMemberId
+  },
+  {
+    key: "mae",
+    label: "Mae",
+    describe: (rel, memberId) => rel.toMemberId === memberId && rel.type === "mae",
+    otherSide: (rel) => rel.fromMemberId
+  },
+  {
+    key: "filhos",
+    label: "Filhos",
+    describe: (rel, memberId) => rel.fromMemberId === memberId && (rel.type === "pai" || rel.type === "mae"),
+    otherSide: (rel) => rel.toMemberId
+  },
+  {
+    key: "irmaos",
+    label: "Irmaos",
+    describe: (rel) => rel.type === "irmao",
+    otherSide: (rel, memberId) => (rel.fromMemberId === memberId ? rel.toMemberId : rel.fromMemberId)
+  },
+  {
+    key: "avos",
+    label: "Avos",
+    describe: (rel, memberId) => rel.toMemberId === memberId && rel.type === "avo",
+    otherSide: (rel) => rel.fromMemberId
+  },
+  {
+    key: "netos",
+    label: "Netos",
+    describe: (rel, memberId) => rel.fromMemberId === memberId && rel.type === "avo",
+    otherSide: (rel) => rel.toMemberId
+  },
+  {
+    key: "tios",
+    label: "Tios",
+    describe: (rel, memberId) => rel.toMemberId === memberId && rel.type === "tio",
+    otherSide: (rel) => rel.fromMemberId
+  },
+  {
+    key: "sobrinhos",
+    label: "Sobrinhos",
+    describe: (rel, memberId) => rel.fromMemberId === memberId && rel.type === "tio",
+    otherSide: (rel) => rel.toMemberId
+  },
+  {
+    key: "responsavel",
+    label: "Responsavel",
+    describe: (rel, memberId) => rel.toMemberId === memberId && rel.type === "responsavel",
+    otherSide: (rel) => rel.fromMemberId
+  }
+];
+
+function buildInsertPayload(
+  category: CategoryKey,
+  editingMember: Member,
+  targetId: string
+): { fromMemberId: string; toMemberId: string; type: RelationshipType } {
+  const X = editingMember.id;
+  switch (category) {
+    case "conjuge":
+      return { fromMemberId: X, toMemberId: targetId, type: "conjuge" };
+    case "pai":
+      return { fromMemberId: targetId, toMemberId: X, type: "pai" };
+    case "mae":
+      return { fromMemberId: targetId, toMemberId: X, type: "mae" };
+    case "filhos":
+      return {
+        fromMemberId: X,
+        toMemberId: targetId,
+        type: editingMember.gender === "feminino" ? "mae" : "pai"
+      };
+    case "irmaos":
+      return { fromMemberId: X, toMemberId: targetId, type: "irmao" };
+    case "avos":
+      return { fromMemberId: targetId, toMemberId: X, type: "avo" };
+    case "netos":
+      return { fromMemberId: X, toMemberId: targetId, type: "avo" };
+    case "tios":
+      return { fromMemberId: targetId, toMemberId: X, type: "tio" };
+    case "sobrinhos":
+      return { fromMemberId: X, toMemberId: targetId, type: "tio" };
+    case "responsavel":
+      return { fromMemberId: targetId, toMemberId: X, type: "responsavel" };
+  }
+}
+
+function RelationshipsPanel({ editingMember, membersAll }: RelationshipsPanelProps) {
+  const memberId = editingMember?.id ?? null;
   const relationshipsQuery = useRelationships(memberId);
   const saveRelationship = useSaveRelationship();
   const deleteRelationship = useDeleteRelationship();
   const { toast } = useToast();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [linkType, setLinkType] = useState<RelationshipType>("conjuge");
+  const [activeCategory, setActiveCategory] = useState<CategoryKey | null>(null);
   const [linkTarget, setLinkTarget] = useState<string>("");
 
-  if (!memberId) {
+  if (!memberId || !editingMember) {
     return <p className="empty-note">Salve o membro primeiro para registrar vinculos familiares.</p>;
   }
 
@@ -263,23 +377,33 @@ function RelationshipsPanel({ memberId, membersAll }: RelationshipsPanelProps) {
     return found?.fullName ?? "(removido)";
   }
 
-  async function addLink() {
-    if (!memberId) return;
-    if (!linkTarget) return;
+  function uniqueOtherIds(category: CategoryDef): { relId: string; otherId: string }[] {
+    const seen = new Set<string>();
+    const out: { relId: string; otherId: string }[] = [];
+    for (const rel of items) {
+      if (!category.describe(rel, memberId!)) continue;
+      const otherId = category.otherSide(rel, memberId!);
+      if (seen.has(otherId)) continue;
+      seen.add(otherId);
+      out.push({ relId: rel.id, otherId });
+    }
+    return out;
+  }
+
+  async function addToCategory(category: CategoryKey) {
+    if (!linkTarget || !editingMember) return;
     if (linkTarget === memberId) {
       toast("Selecione outro membro.", { variant: "warning" });
       return;
     }
     try {
       await saveRelationship.mutateAsync({
-        fromMemberId: memberId,
-        toMemberId: linkTarget,
-        type: linkType,
+        ...buildInsertPayload(category, editingMember, linkTarget),
         startDate: null,
         endDate: null
       });
       toast("Vinculo adicionado.", { variant: "success" });
-      setModalOpen(false);
+      setActiveCategory(null);
       setLinkTarget("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Falha ao salvar vinculo.";
@@ -287,9 +411,9 @@ function RelationshipsPanel({ memberId, membersAll }: RelationshipsPanelProps) {
     }
   }
 
-  async function removeLink(item: MemberRelationship) {
+  async function removeLink(relId: string) {
     try {
-      await deleteRelationship.mutateAsync(item.id);
+      await deleteRelationship.mutateAsync(relId);
       toast("Vinculo removido.", { variant: "success" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Falha ao remover.";
@@ -299,70 +423,68 @@ function RelationshipsPanel({ memberId, membersAll }: RelationshipsPanelProps) {
 
   return (
     <div className="relationships-panel">
-      <div className="relationships-header">
-        <span className="field-label">Vinculos familiares</span>
-        <button type="button" className="button ghost" onClick={() => setModalOpen(true)}>
-          <UserPlus size={14} /> Adicionar vinculo
-        </button>
-      </div>
-      {items.length === 0 ? (
-        <p className="empty-note">Sem vinculos cadastrados.</p>
-      ) : (
-        <ul className="relationships-list">
-          {items.map((item) => {
-            const otherId = item.fromMemberId === memberId ? item.toMemberId : item.fromMemberId;
-            return (
-              <li key={item.id} className="relationship-row">
-                <span>
-                  <strong>{RELATIONSHIP_TYPE_LABELS[item.type]}</strong> - {memberName(otherId)}
-                </span>
+      <span className="field-label">Vinculos familiares</span>
+      <div className="relationships-grid">
+        {CATEGORIES.map((category) => {
+          const entries = uniqueOtherIds(category);
+          return (
+            <section key={category.key} className="relationship-category">
+              <h4 className="relationship-category-title">{category.label}</h4>
+              <div className="relationship-chips">
+                {entries.map(({ relId, otherId }) => (
+                  <span key={relId} className="relationship-chip">
+                    <span className="relationship-chip-name">{memberName(otherId)}</span>
+                    <button
+                      type="button"
+                      className="relationship-chip-remove"
+                      onClick={() => removeLink(relId)}
+                      aria-label={`Remover ${memberName(otherId)} de ${category.label}`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
                 <button
                   type="button"
-                  aria-label="Remover vinculo"
-                  onClick={() => removeLink(item)}
-                  className="relationship-remove"
+                  className="relationship-chip-add"
+                  onClick={() => {
+                    setActiveCategory(category.key);
+                    setLinkTarget("");
+                  }}
+                  aria-label={`Adicionar em ${category.label}`}
                 >
-                  <X size={14} />
+                  <UserPlus size={14} />
                 </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+              </div>
+            </section>
+          );
+        })}
+      </div>
       <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title="Adicionar vinculo familiar"
+        open={activeCategory !== null}
+        onClose={() => setActiveCategory(null)}
+        title={
+          activeCategory ? `Adicionar em ${CATEGORIES.find((c) => c.key === activeCategory)?.label}` : ""
+        }
         size="sm"
         footer={
           <>
             <button
               type="button"
               className="button primary"
-              onClick={addLink}
+              onClick={() => activeCategory && addToCategory(activeCategory)}
               disabled={!linkTarget || saveRelationship.isPending}
             >
               Adicionar
             </button>
-            <button type="button" className="button ghost" onClick={() => setModalOpen(false)}>
+            <button type="button" className="button ghost" onClick={() => setActiveCategory(null)}>
               Cancelar
             </button>
           </>
         }
       >
         <SelectField
-          label="Tipo de vinculo"
-          value={linkType}
-          onChange={(event) => setLinkType(event.currentTarget.value as RelationshipType)}
-        >
-          {RELATIONSHIP_TYPE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          label="Outro membro"
+          label="Membro"
           value={linkTarget}
           onChange={(event) => setLinkTarget(event.currentTarget.value)}
         >
@@ -888,7 +1010,7 @@ export default function MembersView({
           </option>
         ))}
       </SelectField>
-      <RelationshipsPanel memberId={editingId} membersAll={membersAll} />
+      <RelationshipsPanel editingMember={editingItem} membersAll={membersAll} />
     </>
   );
 
