@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/Gediael54/4IBIB-web/compare/v1.0.0...v1.0.1) (2026-05-05)
+
+### Bug Fixes
+
+- **test:** use session-scoped jwt config and supabase_auth_admin role ([a027f43](https://github.com/Gediael54/4IBIB-web/commit/a027f43178f09bb9aab000559a8194acff6a264c))
+
 # 1.0.0 (2026-05-05)
 
 ### Bug Fixes
