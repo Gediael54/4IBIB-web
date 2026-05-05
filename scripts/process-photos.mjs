@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import sharp from "sharp";
-import { mkdir } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -142,12 +142,30 @@ for (const job of jobs) {
 
     pipe = job.grade === "vibrant" ? vibrantGrade(pipe) : baseGrade(pipe);
 
-    const outFile = resolve(out, `${job.name}${suffix}.jpg`);
-    await pipe.jpeg({ quality: 84, progressive: true, mozjpeg: true }).toFile(outFile);
-    const outMeta = await sharp(outFile).metadata();
-    console.log(
-      `  -> ${outFile.replace(root + "/", "")} (${outMeta.width}x${outMeta.height}, ${(outMeta.size / 1024).toFixed(0)} KB)`
-    );
+    const buffer = await pipe.toBuffer();
+
+    const outBase = resolve(out, `${job.name}${suffix}`);
+    const outJpg = `${outBase}.jpg`;
+    const outWebp = `${outBase}.webp`;
+    const outAvif = `${outBase}.avif`;
+
+    await Promise.all([
+      sharp(buffer).jpeg({ quality: 84, progressive: true, mozjpeg: true }).toFile(outJpg),
+      sharp(buffer).webp({ quality: 80 }).toFile(outWebp),
+      sharp(buffer).avif({ quality: 65 }).toFile(outAvif)
+    ]);
+
+    const [jpgMeta, jpgStat, webpStat, avifStat] = await Promise.all([
+      sharp(outJpg).metadata(),
+      stat(outJpg),
+      stat(outWebp),
+      stat(outAvif)
+    ]);
+    const rel = (p) => p.replace(root + "/", "");
+    const kb = (n) => (n / 1024).toFixed(0);
+    console.log(`  -> ${rel(outJpg)} (${jpgMeta.width}x${jpgMeta.height}, ${kb(jpgStat.size)} KB)`);
+    console.log(`     ${rel(outWebp)} (${kb(webpStat.size)} KB)`);
+    console.log(`     ${rel(outAvif)} (${kb(avifStat.size)} KB)`);
   }
 }
 
