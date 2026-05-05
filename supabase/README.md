@@ -48,6 +48,17 @@ supabase/
    ```
    Ou cola o conteudo da migration nova no SQL Editor do Supabase manualmente.
 
+### Regenerar types TypeScript do schema
+
+Apos qualquer migration aplicada, atualiza `packages/db/types.ts` (source of truth dos types do banco):
+
+```bash
+npm run db:types
+```
+
+Os tipos sao consumidos por `@4ibib/supabase` adapter. Detecta divergencia
+entre TS e SQL automaticamente — se um campo some do banco, build quebra.
+
 ### Atualizar seed (members + schedule)
 
 ```bash
