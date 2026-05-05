@@ -88,6 +88,7 @@ npm run typecheck
 - Ao criar commits via Claude, usar a skill em `~/.claude/skills/commit/SKILL.md`.
 - Strings em PT-BR sem acentos (convencao do projeto, compatibilidade mais ampla).
 - Sem comentarios explicando WHAT — codigo auto-explicativo. Comentario so pra WHY nao-obvio.
+- Commits seguindo conventional commits geram releases automaticas via semantic-release: cada push em `main` aciona o workflow `release` que calcula a proxima versao, atualiza `CHANGELOG.md`, cria a tag e publica a release no GitHub.
 
 ## Links
 
