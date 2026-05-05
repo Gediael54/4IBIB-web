@@ -1,3 +1,13 @@
+# [1.1.0](https://github.com/Gediael54/4IBIB-web/compare/v1.0.1...v1.1.0) (2026-05-05)
+
+### Bug Fixes
+
+- **site:** show contact error only after blur with content ([1b74aa3](https://github.com/Gediael54/4IBIB-web/commit/1b74aa3edf3c7f346abdc3f4c3341470bf313333))
+
+### Features
+
+- **site:** allow prayer submit with empty or invalid contact ([55bce60](https://github.com/Gediael54/4IBIB-web/commit/55bce60e427ae3422af042d032ef3cc567672959))
+
 ## [1.0.1](https://github.com/Gediael54/4IBIB-web/compare/v1.0.0...v1.0.1) (2026-05-05)
 
 ### Bug Fixes
