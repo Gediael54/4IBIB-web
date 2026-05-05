@@ -49,8 +49,7 @@ export default function SmartContactInput({ name, maxLength, required }: SmartCo
   const [value, setValue] = useState("");
   const [touched, setTouched] = useState(false);
   const mode = useMemo(() => detectContactMode(value), [value]);
-  const error = touched ? validateContact(mode, value) : null;
-  const hint = mode === "email" ? "Email" : mode === "phone" ? "WhatsApp" : "Email ou WhatsApp com DDD";
+  const error = touched && value.trim() ? validateContact(mode, value) : null;
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
@@ -74,11 +73,13 @@ export default function SmartContactInput({ name, maxLength, required }: SmartCo
         inputMode={mode === "phone" ? "tel" : mode === "email" ? "email" : "text"}
         autoComplete={mode === "email" ? "email" : mode === "phone" ? "tel" : "off"}
         aria-invalid={Boolean(error)}
-        aria-describedby={`${name}-hint`}
+        aria-describedby={error ? `${name}-error` : undefined}
       />
-      <span id={`${name}-hint`} className={`form-hint${error ? " danger" : ""}`}>
-        {error ?? hint}
-      </span>
+      {error && (
+        <span id={`${name}-error`} className="form-hint danger" role="alert">
+          {error}
+        </span>
+      )}
     </>
   );
 }
