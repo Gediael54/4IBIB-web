@@ -28,15 +28,15 @@ export function validateContact(mode: Mode, value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   if (mode === "email") {
-    return EMAIL_RE.test(trimmed) ? null : "Informe um email valido (com @ e dominio).";
+    return EMAIL_RE.test(trimmed) ? null : "Esse email parece incompleto.";
   }
   if (mode === "phone") {
     const digits = trimmed.replace(/\D/g, "");
-    if (digits.length < 10) return "Telefone precisa de DDD + numero (minimo 10 digitos).";
-    if (digits.length > 11) return "Numero de telefone tem no maximo 11 digitos.";
+    if (digits.length < 10) return "Faltou o DDD ou alguns digitos.";
+    if (digits.length > 11) return "Numero longo demais.";
     return null;
   }
-  return "Comece com letra (email) ou numero (telefone).";
+  return "Use email ou WhatsApp com DDD.";
 }
 
 interface SmartContactInputProps {
@@ -50,12 +50,7 @@ export default function SmartContactInput({ name, maxLength, required }: SmartCo
   const [touched, setTouched] = useState(false);
   const mode = useMemo(() => detectContactMode(value), [value]);
   const error = touched ? validateContact(mode, value) : null;
-  const hint =
-    mode === "email"
-      ? "Detectado: email"
-      : mode === "phone"
-        ? "Detectado: telefone"
-        : "Comece com letra para email ou numero para telefone";
+  const hint = mode === "email" ? "Email" : mode === "phone" ? "WhatsApp" : "Email ou WhatsApp com DDD";
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
