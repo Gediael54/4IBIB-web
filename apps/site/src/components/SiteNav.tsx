@@ -3,17 +3,20 @@ import { ChevronDown, HeartHandshake, Menu, X } from "lucide-react";
 import { useChurchProfile } from "../lib/church-context";
 
 const QUEM_SOMOS_ITEMS = [
-  { href: "#confissao-de-fe", label: "Confissao de fe" },
-  { href: "#lideranca", label: "Lideranca" },
+  { href: "#confissao-de-fe", label: "Confissão de fé" },
+  { href: "#lideranca", label: "Liderança" },
   { href: "#primeira-vez", label: "Primeira vez aqui" }
 ];
 
 const PRIMARY_LINKS = [
-  { href: "#programacao", label: "Programacao" },
-  { href: "#ministerios", label: "Ministerios" },
-  { href: "#pregacoes", label: "Pregacoes" },
-  { href: "#doacoes", label: "Doacoes" }
+  { href: "#programacao", label: "Programação" },
+  { href: "#ministerios", label: "Ministérios" },
+  { href: "#pregacoes", label: "Pregações" },
+  { href: "#doacoes", label: "Doações" }
 ];
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export default function SiteNav() {
   const church = useChurchProfile();
@@ -22,6 +25,8 @@ export default function SiteNav() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quemSomosExpanded, setQuemSomosExpanded] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const drawerRef = useRef<HTMLElement | null>(null);
+  const burgerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     function handleScroll() {
@@ -52,11 +57,57 @@ export default function SiteNav() {
 
   useEffect(() => {
     if (!drawerOpen) return;
-    function handleKey(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") setDrawerOpen(false);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function getFocusable(): HTMLElement[] {
+      if (!drawerRef.current) return [];
+      return Array.from(drawerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+        (el) => !el.hasAttribute("disabled")
+      );
     }
+
+    const focusables = getFocusable();
+    if (focusables.length > 0) {
+      focusables[0].focus();
+    } else if (drawerRef.current) {
+      drawerRef.current.focus();
+    }
+
+    function handleKey(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        setDrawerOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = getFocusable();
+      if (items.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (active === first || !drawerRef.current?.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
     document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = previousOverflow;
+      burgerRef.current?.focus();
+    };
   }, [drawerOpen]);
 
   function handleNavigate() {
@@ -73,13 +124,14 @@ export default function SiteNav() {
   }
 
   return (
-    <nav className={`site-nav${scrolled ? " scrolled" : ""}`} aria-label="Navegacao principal">
+    <nav className={`site-nav${scrolled ? " scrolled" : ""}`} aria-label="Navegação principal">
       <a className="brand" href="#inicio" onClick={handleNavigate}>
         <img src="/logo.png" alt="" className="brand-logo" />
         <span>{church.shortName}</span>
       </a>
 
       <button
+        ref={burgerRef}
         type="button"
         className="site-nav-burger"
         aria-label="Abrir menu"
@@ -91,7 +143,7 @@ export default function SiteNav() {
 
       <div className="site-nav-links">
         <a href="#inicio" onClick={handleNavigate}>
-          Inicio
+          Início
         </a>
         <div className="site-nav-dropdown" ref={dropdownRef}>
           <button
@@ -125,15 +177,18 @@ export default function SiteNav() {
       </div>
 
       <a href="#contato" className="site-nav-cta button primary" onClick={handleNavigate}>
-        <HeartHandshake size={16} /> Pedido de oracao
+        <HeartHandshake size={16} /> Pedido de oração
       </a>
 
       {drawerOpen && (
         <div className="site-nav-drawer-overlay" onClick={() => setDrawerOpen(false)}>
           <aside
+            ref={drawerRef}
             className="site-nav-drawer"
             role="dialog"
-            aria-label="Menu de navegacao"
+            aria-modal="true"
+            aria-label="Menu de navegação"
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
           >
             <header className="site-nav-drawer-header">
@@ -149,7 +204,7 @@ export default function SiteNav() {
             </header>
             <div className="site-nav-drawer-links">
               <a href="#inicio" onClick={handleNavigate}>
-                Inicio
+                Início
               </a>
               <button
                 type="button"
@@ -175,7 +230,7 @@ export default function SiteNav() {
                 </a>
               ))}
               <a href="#contato" onClick={handleNavigate} className="site-nav-drawer-cta">
-                <HeartHandshake size={16} /> Pedido de oracao
+                <HeartHandshake size={16} /> Pedido de oração
               </a>
               <a href="/admin" className="site-nav-admin" onClick={handleNavigate}>
                 Admin
