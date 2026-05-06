@@ -158,6 +158,7 @@ function mapSchedule(row: JsonObject): ScheduleItem {
     status: row.status as ScheduleItem["status"],
     featured: Boolean(row.featured),
     seriesId: nullableId(row.series_id),
+    youtubeUrl: asString(row.youtube_url),
     preacherMemberId: nullableId(row.preacher_member_id),
     directorMemberId: nullableId(row.director_member_id),
     soundMemberId: nullableId(row.sound_member_id)
@@ -181,6 +182,7 @@ function toScheduleRow(input: ScheduleItem): JsonObject {
     status: input.status,
     featured: input.featured,
     series_id: input.seriesId,
+    youtube_url: input.youtubeUrl,
     preacher_member_id: input.preacherMemberId ?? null,
     director_member_id: input.directorMemberId ?? null,
     sound_member_id: input.soundMemberId ?? null
@@ -283,6 +285,7 @@ function mapMember(row: JsonObject): Member {
         : String(row.consent_given_at),
     consentVersion: asString(row.consent_version),
     publicDirectory: Boolean(row.public_directory),
+    publicBio: asString(row.public_bio),
     dataRetentionUntil:
       row.data_retention_until === null || row.data_retention_until === undefined
         ? null
@@ -338,6 +341,7 @@ function toMemberRow(input: Member): JsonObject {
     consent_given_at: input.consentGivenAt,
     consent_version: input.consentVersion,
     public_directory: input.publicDirectory,
+    public_bio: input.publicBio,
     data_retention_until: input.dataRetentionUntil
   };
 }
@@ -389,6 +393,7 @@ function memberPatchToRow(patch: Partial<Member>): JsonObject {
   if (patch.consentGivenAt !== undefined) row.consent_given_at = patch.consentGivenAt;
   if (patch.consentVersion !== undefined) row.consent_version = patch.consentVersion;
   if (patch.publicDirectory !== undefined) row.public_directory = patch.publicDirectory;
+  if (patch.publicBio !== undefined) row.public_bio = patch.publicBio;
   if (patch.dataRetentionUntil !== undefined) row.data_retention_until = patch.dataRetentionUntil;
   return row;
 }
@@ -690,7 +695,8 @@ class SupabaseContentRepository implements ContentRepository {
       occasionLabel: input.occasionLabel,
       status: input.status,
       featured: input.featured,
-      seriesId: input.seriesId ?? null
+      seriesId: input.seriesId ?? null,
+      youtubeUrl: input.youtubeUrl ?? ""
     };
     const { data, error } = await this.client
       .from("schedule_items")
