@@ -1,3 +1,9 @@
+# [1.8.0](https://github.com/Gediael54/4IBIB-web/compare/v1.7.1...v1.8.0) (2026-05-06)
+
+### Features
+
+- **admin:** inline suspend + restore + whatsapp share on annual grid ([c7c28ac](https://github.com/Gediael54/4IBIB-web/commit/c7c28ac6bcb390dc6f2bc914607debeb1e52da01))
+
 ## [1.7.1](https://github.com/Gediael54/4IBIB-web/compare/v1.7.0...v1.7.1) (2026-05-06)
 
 ### Bug Fixes
