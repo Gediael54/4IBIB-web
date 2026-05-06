@@ -37,7 +37,7 @@ import {
 import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
 import { scheduleSchema, type ScheduleFormValues } from "../schemas";
 import { formatScheduleDetail } from "../lib/format";
-import { TEXT_MAX, TEXTAREA_MAX } from "../lib/limits";
+import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "../lib/limits";
 import { findMemberByName, sortMembersForAutocomplete } from "../lib/members";
 import {
   compareText,
@@ -77,7 +77,8 @@ function emptyScheduleValues(): ScheduleFormValues {
     passage: "",
     occasionLabel: "",
     status: "scheduled",
-    featured: false
+    featured: false,
+    youtubeUrl: ""
   };
 }
 
@@ -95,7 +96,8 @@ function scheduleToFormValues(item: ScheduleItem): ScheduleFormValues {
     passage: item.passage,
     occasionLabel: item.occasionLabel,
     status: item.status,
-    featured: item.featured
+    featured: item.featured,
+    youtubeUrl: item.youtubeUrl ?? ""
   };
 }
 
@@ -279,7 +281,8 @@ export function ScheduleForm(props: {
         passage: values.passage,
         occasionLabel: values.occasionLabel,
         status: values.status,
-        featured: values.featured
+        featured: values.featured,
+        youtubeUrl: values.youtubeUrl?.trim() ?? ""
       });
       const preacherMemberId = resolveMemberId(values.preacher);
       const directorMemberId = resolveMemberId(values.director);
@@ -427,6 +430,14 @@ export function ScheduleForm(props: {
           <option key={value} value={value} />
         ))}
       </datalist>
+      <Field
+        label="Link YouTube"
+        type="url"
+        placeholder="https://youtu.be/... (opcional)"
+        maxLength={URL_MAX}
+        error={errors.youtubeUrl?.message}
+        {...register("youtubeUrl")}
+      />
       <TextAreaField
         label="Resumo"
         placeholder="Resumo"
