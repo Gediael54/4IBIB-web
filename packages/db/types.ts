@@ -352,6 +352,7 @@ export type Database = {
           prayer_topics: string[];
           preferred_name: string;
           profession: string;
+          public_bio: string;
           public_directory: boolean;
           rg: string;
           rg_issuer: string;
@@ -401,6 +402,7 @@ export type Database = {
           prayer_topics?: string[];
           preferred_name?: string;
           profession?: string;
+          public_bio?: string;
           public_directory?: boolean;
           rg?: string;
           rg_issuer?: string;
@@ -450,6 +452,7 @@ export type Database = {
           prayer_topics?: string[];
           preferred_name?: string;
           profession?: string;
+          public_bio?: string;
           public_directory?: boolean;
           rg?: string;
           rg_issuer?: string;
@@ -651,6 +654,7 @@ export type Database = {
           summary: string;
           title: string;
           updated_at: string;
+          youtube_url: string;
         };
         Insert: {
           created_at?: string;
@@ -674,6 +678,7 @@ export type Database = {
           summary: string;
           title: string;
           updated_at?: string;
+          youtube_url?: string;
         };
         Update: {
           created_at?: string;
@@ -697,6 +702,7 @@ export type Database = {
           summary?: string;
           title?: string;
           updated_at?: string;
+          youtube_url?: string;
         };
         Relationships: [
           {
@@ -822,6 +828,7 @@ export type Database = {
           user_id: string;
         }[];
       };
+      purge_old_audit: { Args: never; Returns: number };
       purge_old_prayers: { Args: never; Returns: number };
       restore_announcement: { Args: { p_id: string }; Returns: undefined };
       restore_member: { Args: { p_id: string }; Returns: undefined };
