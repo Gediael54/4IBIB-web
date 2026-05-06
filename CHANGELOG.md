@@ -1,3 +1,14 @@
+# [1.11.0](https://github.com/Gediael54/4IBIB-web/compare/v1.10.0...v1.11.0) (2026-05-06)
+
+### Features
+
+- **admin:** apple-style HouseholdsView with avatar stack ([c336f51](https://github.com/Gediael54/4IBIB-web/commit/c336f51ff1abb67da8356e9b3c87bd2eb8a2414b))
+- **admin:** apple-style redesign of AnnouncementsView ([2190d95](https://github.com/Gediael54/4IBIB-web/commit/2190d95188973f2d83982fda7407e751cadabc2b))
+- **admin:** apple-style ScheduleView with weekly groups ([c312901](https://github.com/Gediael54/4IBIB-web/commit/c312901d958aa5328ecf665082d33c73e4512424))
+- **admin:** kanban PrayersView with drag-and-drop ([ab623f8](https://github.com/Gediael54/4IBIB-web/commit/ab623f88a7a04e1303464e8d55887961f4cda609))
+- **admin:** timeline-style AuditLogView with relative time ([8549ee6](https://github.com/Gediael54/4IBIB-web/commit/8549ee6902bec109e93ad9abb250753a407c8fa9))
+- **core:** rotation_rules schema, types and adapter ([d34214f](https://github.com/Gediael54/4IBIB-web/commit/d34214fb36387ee40b933897328c7056b9b9e98b))
+
 # [1.10.0](https://github.com/Gediael54/4IBIB-web/compare/v1.9.0...v1.10.0) (2026-05-06)
 
 ### Features
