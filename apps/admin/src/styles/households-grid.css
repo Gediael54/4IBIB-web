@@ -1,0 +1,192 @@
+/* === Households view — Apple-style grid + avatar stack === */
+
+.households-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.households-toolbar .search-field {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.households-toolbar .search-field input {
+  width: 100%;
+}
+
+.households-count {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin-left: auto;
+}
+
+.household-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.household-card-footer-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+
+.household-avatar-stack {
+  display: inline-flex;
+  align-items: center;
+}
+
+.household-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  border: 2px solid var(--bg-elevated);
+  margin-left: -8px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.household-avatar:first-child {
+  margin-left: 0;
+}
+
+.household-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.household-avatar-overflow {
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.household-form-tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.household-form-tab {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.household-form-tab:hover {
+  color: var(--text-primary);
+}
+
+.household-form-tab.selected {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.household-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+@media (min-width: 540px) {
+  .household-form-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.household-members-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.household-members-empty {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.household-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.household-member-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.household-member-row .household-avatar {
+  margin-left: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.household-member-row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.household-member-row-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.household-member-row-role {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.household-member-row-badge {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+}

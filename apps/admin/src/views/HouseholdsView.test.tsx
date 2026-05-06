@@ -167,9 +167,15 @@ describe("HouseholdsView", () => {
   it("creates a new household when the form is submitted", async () => {
     renderView();
 
+    const novaButtons = screen.getAllByRole("button", { name: /Nova fam.lia/i });
+    fireEvent.click(novaButtons[0]!);
+
     fireEvent.change(screen.getByLabelText("Nome da familia"), {
       target: { value: "Familia Nova" }
     });
+
+    fireEvent.click(screen.getByRole("tab", { name: /endere/i }));
+
     fireEvent.change(screen.getByLabelText("Rua"), {
       target: { value: "Rua das Flores" }
     });
@@ -194,6 +200,9 @@ describe("HouseholdsView", () => {
   it("shows a danger toast when save fails", async () => {
     mocks.createHousehold.mockRejectedValue(new Error("Falha rede"));
     renderView();
+
+    const novaButtons = screen.getAllByRole("button", { name: /Nova fam.lia/i });
+    fireEvent.click(novaButtons[0]!);
 
     fireEvent.change(screen.getByLabelText("Nome da familia"), {
       target: { value: "Familia Erro" }
