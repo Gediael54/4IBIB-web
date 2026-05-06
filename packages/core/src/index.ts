@@ -165,6 +165,17 @@ export interface MemberDuplicateMatch {
   matchReason: "cpf_match" | "email_match" | "phone_match" | "name_similar";
 }
 
+export interface PublicMember {
+  id: string;
+  fullName: string;
+  preferredName: string;
+  photoUrl: string;
+  churchRole: ChurchRole;
+  publicBio: string;
+  isVolunteer: boolean;
+  householdId: string | null;
+}
+
 export type PrayerStatus = "novo" | "em_oracao" | "concluido";
 
 export interface PrayerRequest {
@@ -403,6 +414,7 @@ export interface MemberRepo {
     isVolunteer?: boolean;
     householdId?: string;
   }): Promise<Member[]>;
+  listPublicMembers(): Promise<PublicMember[]>;
   findMemberDuplicates(input: {
     fullName: string;
     cpf: string | null;

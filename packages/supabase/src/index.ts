@@ -17,6 +17,7 @@ import {
   type Member,
   type MemberDuplicateMatch,
   type MemberRelationship,
+  type PublicMember,
   type MinistryInput,
   type MinistryRecord,
   type PrayerRequest,
@@ -343,6 +344,19 @@ function toMemberRow(input: Member): JsonObject {
     public_directory: input.publicDirectory,
     public_bio: input.publicBio,
     data_retention_until: input.dataRetentionUntil
+  };
+}
+
+function mapPublicMember(row: JsonObject): PublicMember {
+  return {
+    id: String(row.id),
+    fullName: String(row.full_name),
+    preferredName: asString(row.preferred_name),
+    photoUrl: asString(row.photo_url),
+    churchRole: (row.church_role as PublicMember["churchRole"] | undefined) ?? "membro_comum",
+    publicBio: asString(row.public_bio),
+    isVolunteer: Boolean(row.is_volunteer),
+    householdId: nullableId(row.household_id)
   };
 }
 
@@ -1139,6 +1153,14 @@ class SupabaseContentRepository implements ContentRepository {
     }
     const { data, error } = await query;
     return requireData(data as JsonObject[] | null, error).map(mapMember);
+  }
+
+  async listPublicMembers(): Promise<PublicMember[]> {
+    const { data, error } = await this.client
+      .from("members_public")
+      .select("*")
+      .order("full_name", { ascending: true });
+    return requireData(data as JsonObject[] | null, error).map(mapPublicMember);
   }
 
   async findMemberDuplicates(input: {

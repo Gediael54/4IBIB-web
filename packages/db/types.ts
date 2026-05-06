@@ -751,6 +751,47 @@ export type Database = {
       };
     };
     Views: {
+      members_public: {
+        Row: {
+          church_role: Database["public"]["Enums"]["church_role"] | null;
+          full_name: string | null;
+          household_id: string | null;
+          id: string | null;
+          is_volunteer: boolean | null;
+          photo_url: string | null;
+          preferred_name: string | null;
+          public_bio: string | null;
+        };
+        Insert: {
+          church_role?: Database["public"]["Enums"]["church_role"] | null;
+          full_name?: string | null;
+          household_id?: string | null;
+          id?: string | null;
+          is_volunteer?: boolean | null;
+          photo_url?: string | null;
+          preferred_name?: string | null;
+          public_bio?: string | null;
+        };
+        Update: {
+          church_role?: Database["public"]["Enums"]["church_role"] | null;
+          full_name?: string | null;
+          household_id?: string | null;
+          id?: string | null;
+          is_volunteer?: boolean | null;
+          photo_url?: string | null;
+          preferred_name?: string | null;
+          public_bio?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "members_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       volunteers: {
         Row: {
           contact: string | null;

@@ -1987,6 +1987,59 @@ describe("SupabaseContentRepository", () => {
     await expect(backend().content.listMembers()).rejects.toThrow("mem-list");
   });
 
+  it("listPublicMembers maps rows from members_public view", async () => {
+    const publicRow = {
+      id: "mem-1",
+      full_name: "Joao Silva",
+      preferred_name: "Joao",
+      photo_url: "https://photo",
+      church_role: "diacono",
+      public_bio: "Pastor da igreja desde 2015.",
+      is_volunteer: true,
+      household_id: "house-1"
+    };
+    client.setNext({ data: [publicRow], error: null });
+    const items = await backend().content.listPublicMembers();
+    expect(items).toHaveLength(1);
+    expect(items[0]?.id).toBe("mem-1");
+    expect(items[0]?.fullName).toBe("Joao Silva");
+    expect(items[0]?.churchRole).toBe("diacono");
+    expect(items[0]?.publicBio).toBe("Pastor da igreja desde 2015.");
+    expect(items[0]?.isVolunteer).toBe(true);
+    expect(items[0]?.householdId).toBe("house-1");
+    expect(client.from).toHaveBeenCalledWith("members_public");
+    expect(client.queries[0]?.order).toHaveBeenCalledWith("full_name", { ascending: true });
+  });
+
+  it("listPublicMembers applies fallbacks for missing optional fields", async () => {
+    client.setNext({
+      data: [
+        {
+          id: "mem-2",
+          full_name: "Sem Bio",
+          preferred_name: null,
+          photo_url: null,
+          church_role: undefined,
+          public_bio: null,
+          is_volunteer: false,
+          household_id: null
+        }
+      ],
+      error: null
+    });
+    const items = await backend().content.listPublicMembers();
+    expect(items[0]?.preferredName).toBe("");
+    expect(items[0]?.photoUrl).toBe("");
+    expect(items[0]?.churchRole).toBe("membro_comum");
+    expect(items[0]?.publicBio).toBe("");
+    expect(items[0]?.householdId).toBeNull();
+  });
+
+  it("propagates supabase error on listPublicMembers", async () => {
+    client.setNext({ data: null, error: { message: "pub-list" } });
+    await expect(backend().content.listPublicMembers()).rejects.toThrow("pub-list");
+  });
+
   it("findMemberDuplicates calls rpc and maps rows", async () => {
     client.setNextRpc({ data: [duplicateMatchRow], error: null });
     const matches = await backend().content.findMemberDuplicates({
