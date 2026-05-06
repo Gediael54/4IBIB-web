@@ -1,3 +1,9 @@
+# [1.6.0](https://github.com/Gediael54/4IBIB-web/compare/v1.5.1...v1.6.0) (2026-05-06)
+
+### Features
+
+- **admin:** brand loader with church logo and clearer mfa scan hint ([56222ad](https://github.com/Gediael54/4IBIB-web/commit/56222ad493e650704a545d34095208dc8c61b7ff))
+
 ## [1.5.1](https://github.com/Gediael54/4IBIB-web/compare/v1.5.0...v1.5.1) (2026-05-06)
 
 ### Bug Fixes
