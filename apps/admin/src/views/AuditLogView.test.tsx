@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import type { AuditLogEntry } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -65,21 +65,32 @@ describe("AuditLogView", () => {
     });
   });
 
-  it("renders audit rows when data is available", async () => {
+  it("renders timeline entries when data is available", async () => {
     mocks.listAuditLog.mockResolvedValue([
-      makeAuditEntry({ id: "a1", tableName: "announcements", rowId: "row-aviso" }),
-      makeAuditEntry({ id: "a2", tableName: "schedule_items", rowId: "row-schedule" })
+      makeAuditEntry({
+        id: "a1",
+        tableName: "announcements",
+        rowId: "row-aviso",
+        newRow: { title: "Reuniao de oracao" }
+      }),
+      makeAuditEntry({
+        id: "a2",
+        tableName: "schedule_items",
+        rowId: "row-schedule",
+        newRow: { title: "Culto Solene" }
+      })
     ]);
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText(/announcements/)).toBeInTheDocument();
+      expect(screen.getByText(/Aviso foi criado/)).toBeInTheDocument();
     });
-    expect(screen.getByText(/schedule_items/)).toBeInTheDocument();
-    expect(screen.getByText("Row row-aviso")).toBeInTheDocument();
+    expect(screen.getByText(/Item de programacao foi criado/)).toBeInTheDocument();
+    expect(screen.getByText('"Reuniao de oracao"')).toBeInTheDocument();
+    expect(screen.getByText("row-aviso")).toBeInTheDocument();
   });
 
-  it("filters by table when select is changed", async () => {
+  it("filters by table when chip is clicked", async () => {
     renderView();
 
     await waitFor(() => {
@@ -87,8 +98,8 @@ describe("AuditLogView", () => {
     });
 
     mocks.listAuditLog.mockClear();
-    const tableSelect = screen.getAllByLabelText("Tabela")[0] as HTMLSelectElement;
-    fireEvent.change(tableSelect, { target: { value: "announcements" } });
+    const tableGroup = screen.getByRole("radiogroup", { name: "Tabela" });
+    fireEvent.click(within(tableGroup).getByRole("radio", { name: "Avisos" }));
 
     await waitFor(() => {
       expect(mocks.listAuditLog).toHaveBeenCalledWith(
@@ -97,7 +108,7 @@ describe("AuditLogView", () => {
     });
   });
 
-  it("filters by action when select is changed", async () => {
+  it("filters by action when chip is clicked", async () => {
     renderView();
 
     await waitFor(() => {
@@ -105,8 +116,8 @@ describe("AuditLogView", () => {
     });
 
     mocks.listAuditLog.mockClear();
-    const actionSelect = screen.getAllByLabelText("Acao")[0] as HTMLSelectElement;
-    fireEvent.change(actionSelect, { target: { value: "DELETE" } });
+    const actionGroup = screen.getByRole("radiogroup", { name: "Acao" });
+    fireEvent.click(within(actionGroup).getByRole("radio", { name: "Exclusao" }));
 
     await waitFor(() => {
       expect(mocks.listAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "DELETE" }));
@@ -122,7 +133,7 @@ describe("AuditLogView", () => {
     const { onStateChange } = renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Row row-0")).toBeInTheDocument();
+      expect(screen.getByText("row-0")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Proxima" }));
@@ -134,7 +145,7 @@ describe("AuditLogView", () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("Row row-1")).toBeInTheDocument();
+      expect(screen.getByText("row-1")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Reverter" }));
