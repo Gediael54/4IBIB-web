@@ -1,3 +1,9 @@
+# [1.14.0](https://github.com/Gediael54/4IBIB-web/compare/v1.13.0...v1.14.0) (2026-05-06)
+
+### Features
+
+- **admin:** apple-style MembersView with avatar cards and detail sheet ([25cd5c6](https://github.com/Gediael54/4IBIB-web/commit/25cd5c6b49350aa50b7a3d3437ce5da1a5bdf00a))
+
 # [1.13.0](https://github.com/Gediael54/4IBIB-web/compare/v1.12.0...v1.13.0) (2026-05-06)
 
 ### Features
