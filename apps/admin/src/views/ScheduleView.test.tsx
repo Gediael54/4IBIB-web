@@ -41,7 +41,8 @@ function buildSnapshot(volunteers: Volunteer[] = [], schedule: ScheduleItem[] = 
     profile: null,
     ministries: [],
     recurringMeetings: [],
-    commemorations: []
+    commemorations: [],
+    rotationRules: []
   };
 }
 
@@ -160,6 +161,10 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   );
 }
 
+function openCreateSheet() {
+  fireEvent.click(screen.getByRole("button", { name: /Novo evento/i }));
+}
+
 describe("ScheduleView form", () => {
   afterEach(() => {
     cleanup();
@@ -172,6 +177,7 @@ describe("ScheduleView form", () => {
 
   it("renders inline errors when required fields are empty", async () => {
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "" } });
     fireEvent.change(screen.getByLabelText("Ministerio"), { target: { value: "" } });
@@ -191,6 +197,7 @@ describe("ScheduleView form", () => {
 
   it("submits the form when all required fields are valid", async () => {
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Culto solene" } });
     fireEvent.change(screen.getByLabelText("Ministerio"), { target: { value: "Louvor" } });
@@ -223,6 +230,7 @@ describe("ScheduleView form", () => {
   it("shows a danger toast when save fails", async () => {
     mocks.saveScheduleItem.mockRejectedValue(new Error("Conflito de horario"));
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Outro culto" } });
     fireEvent.change(screen.getByLabelText("Ministerio"), { target: { value: "Louvor" } });
@@ -245,6 +253,7 @@ describe("ScheduleView form", () => {
       makeVolunteer({ id: "v3", name: "Pastor Joao", role: "geral", sortOrder: 0 })
     ]);
     renderView(snapshot);
+    openCreateSheet();
 
     const soundField = screen.getByLabelText("Equipe de som") as HTMLInputElement;
     expect(soundField).toBeInTheDocument();
@@ -287,6 +296,7 @@ describe("ScheduleView form", () => {
     ]);
     mocks.saveScheduleItem.mockResolvedValue({ id: "saved-1" });
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(mocks.listMembers).toHaveBeenCalled();
@@ -325,6 +335,7 @@ describe("ScheduleView form", () => {
     ]);
     mocks.saveScheduleItem.mockResolvedValue({ id: "saved-2" });
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(mocks.listMembers).toHaveBeenCalled();
@@ -356,6 +367,7 @@ describe("ScheduleView form", () => {
       makeMember({ id: "m-pregador", fullName: "Pastor Joao", isVolunteer: true })
     ]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(mocks.listMembers).toHaveBeenCalled();
@@ -373,6 +385,7 @@ describe("ScheduleView form", () => {
       makeMember({ id: "m-pregador", fullName: "Pastor Joao", isVolunteer: true })
     ]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(mocks.listMembers).toHaveBeenCalled();
@@ -391,6 +404,7 @@ describe("ScheduleView form", () => {
       makeMember({ id: "m4", fullName: "Diego Mello", isVolunteer: true })
     ]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(mocks.listMembers).toHaveBeenCalled();
@@ -420,6 +434,7 @@ describe("ScheduleView form", () => {
       makeMember({ id: "m-som", fullName: "Miguel Lima", isVolunteer: true })
     ]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(mocks.listMembers).toHaveBeenCalled();

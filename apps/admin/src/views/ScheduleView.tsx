@@ -1,5 +1,7 @@
 import {
+  formatDateLabel,
   formatInputDateTime,
+  formatTimeRange,
   inputDateTimeToIso,
   type Member,
   type ScheduleBulkPatch,
@@ -8,37 +10,29 @@ import {
   type SiteSnapshot
 } from "@4ibib/core";
 import { valibotResolver } from "@hookform/resolvers/valibot";
-import { CalendarDays, Copy, ExternalLink, Trash2 } from "lucide-react";
+import { CalendarDays, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState, type InputHTMLAttributes } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useConfirm } from "../components/ConfirmDialog";
-import { EmptyState } from "../components/EmptyState";
-import { ListView } from "../components/ListView";
+import DataCard from "../components/Layout/DataCard";
+import DetailSheet from "../components/Layout/DetailSheet";
+import FilterChips, { type ChipOption } from "../components/Layout/FilterChips";
+import ViewHeader from "../components/Layout/ViewHeader";
+import RescheduleDialog from "../components/Schedule/RescheduleDialog";
+import SuspendScheduleDialog from "../components/Schedule/SuspendScheduleDialog";
 import { useToast } from "../components/Toast";
-import {
-  Field,
-  FormActions,
-  ItemRow,
-  ListToolbar,
-  Pagination,
-  SelectField,
-  TextAreaField
-} from "../components/ui";
+import { Field, FormActions, ListToolbar, Pagination, SelectField, TextAreaField } from "../components/ui";
+import WhatsAppShareButton from "../components/WhatsAppShareButton";
 import { MINISTRIES } from "../config/church";
 import {
   useArchiveScheduleItem,
   useBulkUpdateScheduleItems,
-  useDuplicateScheduleItem,
   useMembers,
   useRestoreScheduleItem,
   useSaveScheduleItem,
   useUpdateScheduleItemMembers
 } from "../hooks";
-import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
-import { scheduleSchema, type ScheduleFormValues } from "../schemas";
-import { formatScheduleDetail } from "../lib/format";
 import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "../lib/limits";
-import { findMemberByName, sortMembersForAutocomplete } from "../lib/members";
 import {
   compareText,
   matchesSearch,
@@ -47,7 +41,12 @@ import {
   uniqueSorted,
   type ListState
 } from "../lib/list-state";
+import { findMemberByName, sortMembersForAutocomplete } from "../lib/members";
+import { withSchedule, withStatus } from "../lib/schedule-actions";
+import { scheduleSchema, type ScheduleFormValues } from "../schemas";
 import { SCHEDULE_SORT_OPTIONS } from "../lib/sort-options";
+import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
+import { buildScheduleMessage } from "../lib/whatsapp-share";
 
 interface ScheduleViewProps {
   snapshot: SiteSnapshot;
@@ -56,6 +55,34 @@ interface ScheduleViewProps {
 }
 
 type BulkMode = "preacher" | "director" | "status" | "featured" | null;
+type StatusFilter = "all" | "scheduled" | "suspended" | "free";
+
+const SCHEDULE_DRAFT_KEY = "schedule-draft";
+
+const STATUS_LABELS: Record<ScheduleStatus, string> = {
+  scheduled: "Programado",
+  suspended: "Suspenso",
+  free: "Livre"
+};
+
+const MINISTRY_PALETTE: Array<{ background: string; color: string }> = [
+  { background: "rgba(0, 122, 255, 0.14)", color: "#0a59c5" },
+  { background: "rgba(175, 82, 222, 0.14)", color: "#7b2da3" },
+  { background: "rgba(255, 149, 0, 0.16)", color: "#a85b00" },
+  { background: "rgba(48, 209, 88, 0.16)", color: "#1f7a3a" },
+  { background: "rgba(255, 45, 85, 0.14)", color: "#a51b3b" },
+  { background: "rgba(0, 199, 190, 0.16)", color: "#0a7873" }
+];
+
+function ministryAccent(ministry: string): { background: string; color: string } {
+  const key = ministry.trim().toLocaleLowerCase("pt-BR");
+  if (!key) return MINISTRY_PALETTE[0];
+  let hash = 0;
+  for (let index = 0; index < key.length; index += 1) {
+    hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
+  }
+  return MINISTRY_PALETTE[hash % MINISTRY_PALETTE.length];
+}
 
 function emptyScheduleValues(): ScheduleFormValues {
   const start = new Date();
@@ -100,8 +127,6 @@ function scheduleToFormValues(item: ScheduleItem): ScheduleFormValues {
     youtubeUrl: item.youtubeUrl ?? ""
   };
 }
-
-const SCHEDULE_DRAFT_KEY = "schedule-draft";
 
 interface MemberAutocompleteInputProps {
   label: string;
@@ -454,51 +479,236 @@ export function ScheduleForm(props: {
   );
 }
 
+function startOfWeekIso(value: string): string {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  const day = date.getDay();
+  date.setDate(date.getDate() - day);
+  return date.toISOString();
+}
+
+function endOfWeekIso(start: string): string {
+  const date = new Date(start);
+  date.setDate(date.getDate() + 6);
+  return date.toISOString();
+}
+
+function shortDayLabel(value: string): string {
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(new Date(value));
+}
+
+interface WeekGroup {
+  start: string;
+  end: string;
+  items: ScheduleItem[];
+}
+
+function groupByWeek(items: ScheduleItem[]): WeekGroup[] {
+  const map = new Map<string, WeekGroup>();
+  for (const item of items) {
+    const start = startOfWeekIso(item.startsAt);
+    const existing = map.get(start);
+    if (existing) {
+      existing.items.push(item);
+    } else {
+      map.set(start, { start, end: endOfWeekIso(start), items: [item] });
+    }
+  }
+  return Array.from(map.values());
+}
+
+function StatusPill({ status }: { status: ScheduleStatus }) {
+  return (
+    <span className={`schedule-status-pill schedule-status-pill-${status}`}>{STATUS_LABELS[status]}</span>
+  );
+}
+
+interface ScheduleCardProps {
+  item: ScheduleItem;
+  selected: boolean;
+  onToggleSelected: () => void;
+  onEdit: () => void;
+  onSuspend: () => void;
+  onReschedule: () => void;
+  onRestore: () => void;
+  onDelete: () => void;
+  restoring: boolean;
+}
+
+function ScheduleCard(props: ScheduleCardProps) {
+  const { item } = props;
+  const accent = ministryAccent(item.ministry);
+  const dateLabel = formatDateLabel(item.startsAt);
+  const timeLabel = formatTimeRange(item.startsAt, item.endsAt);
+
+  const metaParts: string[] = [];
+  if (item.preacher) metaParts.push(`Pregador: ${item.preacher}`);
+  if (item.director) metaParts.push(`Dirigente: ${item.director}`);
+  if (item.soundTeam) metaParts.push(`Som: ${item.soundTeam}`);
+
+  const description = [item.passage, item.summary].filter((value) => value && value.trim()).join(" — ");
+  const cardStatus = item.status === "suspended" ? "danger" : item.status === "free" ? "muted" : "default";
+
+  return (
+    <DataCard
+      icon={<CalendarDays size={20} />}
+      iconBackground={accent.background}
+      iconColor={accent.color}
+      status={cardStatus}
+      title={
+        <span className="schedule-card-title-wrap">
+          <label
+            className="schedule-card-checkbox"
+            aria-label={`Selecionar ${item.title}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <input type="checkbox" checked={props.selected} onChange={props.onToggleSelected} />
+          </label>
+          {item.title}
+        </span>
+      }
+      badge={<StatusPill status={item.status} />}
+      subtitle={
+        <>
+          <span className="schedule-card-meta-item">{dateLabel}</span>
+          <span> · </span>
+          <span className="schedule-card-meta-item">{timeLabel}</span>
+          {item.location && (
+            <>
+              <span> · </span>
+              <span className="schedule-card-meta-item">{item.location}</span>
+            </>
+          )}
+        </>
+      }
+      meta={
+        metaParts.length > 0 ? (
+          <>
+            {metaParts.map((value) => (
+              <span key={value} className="schedule-card-meta-item">
+                {value}
+              </span>
+            ))}
+          </>
+        ) : undefined
+      }
+      description={description ? description : undefined}
+      secondaryActions={
+        <div className="schedule-card-actions-row">
+          <button
+            type="button"
+            className="schedule-card-action"
+            onClick={props.onEdit}
+            aria-label={`Editar ${item.title}`}
+          >
+            Editar
+          </button>
+          {item.status === "scheduled" && (
+            <>
+              <button
+                type="button"
+                className="schedule-card-action"
+                onClick={props.onReschedule}
+                aria-label={`Remarcar ${item.title}`}
+              >
+                Remarcar
+              </button>
+              <button
+                type="button"
+                className="schedule-card-action"
+                onClick={props.onSuspend}
+                aria-label={`Suspender ${item.title}`}
+              >
+                Suspender
+              </button>
+              <WhatsAppShareButton message={buildScheduleMessage(item)} size="sm" label="Avisar grupo" />
+            </>
+          )}
+          {item.status === "suspended" && (
+            <button
+              type="button"
+              className="schedule-card-action"
+              onClick={props.onRestore}
+              disabled={props.restoring}
+              aria-label={`Restaurar ${item.title}`}
+            >
+              Restaurar
+            </button>
+          )}
+          <button
+            type="button"
+            className="schedule-card-action danger"
+            onClick={props.onDelete}
+            aria-label={`Excluir ${item.title}`}
+            title="Excluir"
+          >
+            <Trash2 size={14} aria-hidden="true" />
+          </button>
+        </div>
+      }
+    />
+  );
+}
+
 export default function ScheduleView({ snapshot, state, onStateChange }: ScheduleViewProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [initialValues, setInitialValues] = useState<ScheduleFormValues>(() => emptyScheduleValues());
   const [resetSignal, setResetSignal] = useState(0);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [bulkMode, setBulkMode] = useState<BulkMode>(null);
   const [bulkText, setBulkText] = useState("");
   const [bulkStatus, setBulkStatus] = useState<ScheduleStatus>("scheduled");
+  const [suspendTarget, setSuspendTarget] = useState<ScheduleItem | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<ScheduleItem | null>(null);
 
+  const saveMutation = useSaveScheduleItem();
   const archiveMutation = useArchiveScheduleItem();
   const restoreMutation = useRestoreScheduleItem();
-  const duplicateMutation = useDuplicateScheduleItem();
   const bulkMutation = useBulkUpdateScheduleItems();
   const { toast } = useToast();
   const confirm = useConfirm();
 
+  const statusCounts = useMemo(() => {
+    const counts: Record<StatusFilter, number> = {
+      all: snapshot.schedule.length,
+      scheduled: 0,
+      suspended: 0,
+      free: 0
+    };
+    for (const item of snapshot.schedule) {
+      counts[item.status] += 1;
+    }
+    return counts;
+  }, [snapshot.schedule]);
+
+  const statusChips: ReadonlyArray<ChipOption<StatusFilter>> = useMemo(
+    () => [
+      { value: "all", label: "Todos", count: statusCounts.all },
+      { value: "scheduled", label: "Programados", count: statusCounts.scheduled },
+      { value: "suspended", label: "Suspensos", count: statusCounts.suspended },
+      { value: "free", label: "Livres", count: statusCounts.free }
+    ],
+    [statusCounts]
+  );
+
   const list = useMemo(() => {
     const query = normalizeSearch(state.search);
-    const fromMs = fromDate ? Date.parse(inputDateTimeToIso(fromDate)) : null;
-    const toMs = toDate ? Date.parse(inputDateTimeToIso(toDate)) : null;
     const filtered = snapshot.schedule.filter((item) => {
-      if (
-        !matchesSearch(query, [
-          item.title,
-          item.ministry,
-          item.location,
-          item.preacher,
-          item.director,
-          item.passage,
-          item.occasionLabel,
-          item.status
-        ])
-      ) {
+      if (statusFilter !== "all" && item.status !== statusFilter) {
         return false;
       }
-      const startsAtMs = Date.parse(item.startsAt);
-      if (fromMs !== null && startsAtMs < fromMs) {
-        return false;
-      }
-      if (toMs !== null && startsAtMs > toMs) {
-        return false;
-      }
-      return true;
+      return matchesSearch(query, [
+        item.title,
+        item.ministry,
+        item.location,
+        item.preacher,
+        item.director,
+        item.passage,
+        item.occasionLabel,
+        item.status
+      ]);
     });
     const sorted = [...filtered].sort((left, right) => {
       if (state.sort === "startsDesc") {
@@ -516,10 +726,9 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
       return Date.parse(left.startsAt) - Date.parse(right.startsAt);
     });
     return paginateItems(sorted, state.page);
-  }, [snapshot, state, fromDate, toDate]);
+  }, [snapshot, state, statusFilter]);
 
-  const visibleIds = useMemo(() => list.items.map((item) => item.id), [list.items]);
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const weekGroups = useMemo(() => groupByWeek(list.items), [list.items]);
 
   function toggleSelected(id: string) {
     setSelectedIds((prev) => {
@@ -528,22 +737,6 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
         next.delete(id);
       } else {
         next.add(id);
-      }
-      return next;
-    });
-  }
-
-  function togglePageSelection() {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (allVisibleSelected) {
-        for (const id of visibleIds) {
-          next.delete(id);
-        }
-      } else {
-        for (const id of visibleIds) {
-          next.add(id);
-        }
       }
       return next;
     });
@@ -565,19 +758,28 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
     setBulkText("");
   }
 
+  function openCreateSheet() {
+    setEditingId(null);
+    setInitialValues(emptyScheduleValues());
+    setResetSignal((value) => value + 1);
+    setSheetOpen(true);
+  }
+
   function startEdit(item: ScheduleItem) {
     setEditingId(item.id);
     setInitialValues(scheduleToFormValues(item));
     setResetSignal((value) => value + 1);
+    setSheetOpen(true);
   }
 
-  function cancelEdit() {
+  function closeSheet() {
     if (editingId === null) {
       clearFormAutosave(SCHEDULE_DRAFT_KEY);
     }
     setEditingId(null);
     setInitialValues(emptyScheduleValues());
     setResetSignal((value) => value + 1);
+    setSheetOpen(false);
   }
 
   async function handleDelete(item: ScheduleItem) {
@@ -603,7 +805,7 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
         return next;
       });
       if (editingId === item.id) {
-        cancelEdit();
+        closeSheet();
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nao consegui excluir — tenta de novo?";
@@ -611,12 +813,46 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
     }
   }
 
-  async function handleDuplicate(item: ScheduleItem) {
+  async function handleRestore(item: ScheduleItem) {
     try {
-      await duplicateMutation.mutateAsync(item.id);
-      toast(`"${item.title}" duplicado.`, { variant: "success" });
+      await saveMutation.mutateAsync(withStatus(item, "scheduled"));
+      toast(`"${item.title}" voltou para programado.`, { variant: "success" });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Nao consegui duplicar — tenta de novo?";
+      const message = error instanceof Error ? error.message : "Nao consegui restaurar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
+  }
+
+  async function handleConfirmSuspend(reason: string) {
+    if (!suspendTarget) return;
+    try {
+      await saveMutation.mutateAsync(withStatus(suspendTarget, "suspended"));
+      toast(`"${suspendTarget.title}" marcado como SUSPENSO.`, { variant: "success" });
+      setSuspendTarget(null);
+      void reason;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui suspender — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
+  }
+
+  async function handleConfirmReschedule({
+    startsAt,
+    endsAt,
+    reason
+  }: {
+    startsAt: string;
+    endsAt: string;
+    reason: string;
+  }) {
+    if (!rescheduleTarget) return;
+    try {
+      await saveMutation.mutateAsync(withSchedule(rescheduleTarget, startsAt, endsAt));
+      toast(`"${rescheduleTarget.title}" remarcado.`, { variant: "success" });
+      setRescheduleTarget(null);
+      void reason;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui remarcar — tenta de novo?";
       toast(message, { variant: "danger" });
     }
   }
@@ -677,7 +913,7 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
         }
       });
       if (editingId && ids.includes(editingId)) {
-        cancelEdit();
+        closeSheet();
       }
       clearSelection();
     } catch (error) {
@@ -690,223 +926,220 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
   const bulkPending = bulkMutation.isPending || archiveMutation.isPending;
 
   return (
-    <div className="crud-layout">
-      <ListView
-        title="Programacao"
-        count={list.total}
-        toolbar={
-          <>
-            <ListToolbar
-              search={state.search}
-              searchLabel="Titulo, ministerio, local ou status"
-              sort={state.sort}
-              sortOptions={SCHEDULE_SORT_OPTIONS}
-              total={list.total}
-              onSearch={(search) => onStateChange({ search, page: 1 })}
-              onSort={(sort) => onStateChange({ sort, page: 1 })}
+    <div className="schedule-view">
+      <ViewHeader
+        eyebrow="Programacao"
+        title="Programação"
+        lead="Cultos, escola biblica e encontros da semana — agrupados pra facilitar a leitura."
+        primaryAction={
+          <button type="button" className="button primary" onClick={openCreateSheet}>
+            <Plus size={16} aria-hidden="true" />
+            <span>Novo evento</span>
+          </button>
+        }
+      />
+
+      <FilterChips<StatusFilter>
+        value={statusFilter}
+        onChange={(value) => {
+          setStatusFilter(value);
+          onStateChange({ page: 1 });
+        }}
+        options={statusChips}
+        ariaLabel="Filtrar por status"
+      />
+
+      <div className="schedule-view-toolbar">
+        <ListToolbar
+          search={state.search}
+          searchLabel="Titulo, ministerio, local ou status"
+          sort={state.sort}
+          sortOptions={SCHEDULE_SORT_OPTIONS}
+          total={list.total}
+          onSearch={(search) => onStateChange({ search, page: 1 })}
+          onSort={(sort) => onStateChange({ sort, page: 1 })}
+        />
+      </div>
+
+      {list.items.length === 0 ? (
+        <div className="schedule-empty">
+          <p className="schedule-empty-title">Nenhum evento encontrado.</p>
+          <p className="schedule-empty-desc">
+            Ajuste os filtros ou cadastre um novo culto, encontro ou evento.
+          </p>
+        </div>
+      ) : (
+        weekGroups.map((group) => (
+          <section
+            key={group.start}
+            className="schedule-week-group"
+            aria-label={`Semana de ${shortDayLabel(group.start)}`}
+          >
+            <header className="schedule-week-header">
+              <h2 className="schedule-week-title">
+                Semana de {shortDayLabel(group.start)} a {shortDayLabel(group.end)}
+              </h2>
+              <span className="schedule-week-count">{group.items.length} eventos</span>
+            </header>
+            <div className="data-cards-grid">
+              {group.items.map((item) => (
+                <ScheduleCard
+                  key={item.id}
+                  item={item}
+                  selected={selectedIds.has(item.id)}
+                  onToggleSelected={() => toggleSelected(item.id)}
+                  onEdit={() => startEdit(item)}
+                  onSuspend={() => setSuspendTarget(item)}
+                  onReschedule={() => setRescheduleTarget(item)}
+                  onRestore={() => handleRestore(item)}
+                  onDelete={() => handleDelete(item)}
+                  restoring={saveMutation.isPending}
+                />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
+
+      <Pagination list={list} onPageChange={(page) => onStateChange({ page })} />
+
+      {selectionCount > 0 && (
+        <div
+          className="sticky-action-bar bulk-action-bar schedule-bulk-bar"
+          role="region"
+          aria-label="Acoes em massa"
+        >
+          <span className="sticky-action-message bulk-action-bar-count">{selectionCount} selecionados</span>
+          <div className="sticky-action-buttons bulk-action-bar-buttons">
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => openBulkPanel("preacher")}
+              disabled={bulkPending}
             >
-              <Field
-                label="De"
-                type="datetime-local"
-                value={fromDate}
-                onChange={(event) => {
-                  setFromDate(event.currentTarget.value);
-                  onStateChange({ page: 1 });
-                }}
-              />
-              <Field
-                label="Ate"
-                type="datetime-local"
-                value={toDate}
-                onChange={(event) => {
-                  setToDate(event.currentTarget.value);
-                  onStateChange({ page: 1 });
-                }}
-              />
-            </ListToolbar>
-            {visibleIds.length > 0 && (
-              <div className="bulk-select-row">
-                <button type="button" className="button ghost" onClick={togglePageSelection}>
-                  {allVisibleSelected ? "Limpar pagina" : "Selecionar pagina"}
+              Mudar pregador
+            </button>
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => openBulkPanel("director")}
+              disabled={bulkPending}
+            >
+              Mudar dirigente
+            </button>
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => openBulkPanel("status")}
+              disabled={bulkPending}
+            >
+              Mudar status
+            </button>
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => openBulkPanel("featured")}
+              disabled={bulkPending}
+            >
+              Marcar destacado
+            </button>
+            <button
+              type="button"
+              className="button ghost danger"
+              onClick={handleBulkDelete}
+              disabled={bulkPending}
+            >
+              Excluir selecionados
+            </button>
+            <button type="button" className="button ghost" onClick={clearSelection} disabled={bulkPending}>
+              Limpar selecao
+            </button>
+          </div>
+          {bulkMode !== null && (
+            <div className="bulk-action-form schedule-bulk-bar-form">
+              {bulkMode === "preacher" && (
+                <Field
+                  label={`Novo pregador para ${selectionCount} itens`}
+                  placeholder="Nome do pregador"
+                  maxLength={TEXT_MAX}
+                  value={bulkText}
+                  onChange={(event) => setBulkText(event.currentTarget.value)}
+                />
+              )}
+              {bulkMode === "director" && (
+                <Field
+                  label={`Novo dirigente para ${selectionCount} itens`}
+                  placeholder="Nome do dirigente"
+                  maxLength={TEXT_MAX}
+                  value={bulkText}
+                  onChange={(event) => setBulkText(event.currentTarget.value)}
+                />
+              )}
+              {bulkMode === "status" && (
+                <SelectField
+                  label={`Novo status para ${selectionCount} itens`}
+                  value={bulkStatus}
+                  onChange={(event) => setBulkStatus(event.currentTarget.value as ScheduleStatus)}
+                >
+                  <option value="scheduled">Agendado</option>
+                  <option value="suspended">Suspenso</option>
+                  <option value="free">Livre</option>
+                </SelectField>
+              )}
+              {bulkMode === "featured" && (
+                <p className="bulk-action-info">Marcar {selectionCount} itens como destacados na agenda?</p>
+              )}
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={handleBulkSubmit}
+                  disabled={bulkPending}
+                >
+                  Aplicar
+                </button>
+                <button
+                  type="button"
+                  className="button ghost"
+                  onClick={closeBulkPanel}
+                  disabled={bulkPending}
+                >
+                  Cancelar
                 </button>
               </div>
-            )}
-            {selectionCount > 0 && (
-              <div className="sticky-action-bar bulk-action-bar" role="region" aria-label="Acoes em massa">
-                <span className="sticky-action-message bulk-action-bar-count">
-                  {selectionCount} selecionados
-                </span>
-                <div className="sticky-action-buttons bulk-action-bar-buttons">
-                  <button
-                    type="button"
-                    className="button ghost"
-                    onClick={() => openBulkPanel("preacher")}
-                    disabled={bulkPending}
-                  >
-                    Mudar pregador
-                  </button>
-                  <button
-                    type="button"
-                    className="button ghost"
-                    onClick={() => openBulkPanel("director")}
-                    disabled={bulkPending}
-                  >
-                    Mudar dirigente
-                  </button>
-                  <button
-                    type="button"
-                    className="button ghost"
-                    onClick={() => openBulkPanel("status")}
-                    disabled={bulkPending}
-                  >
-                    Mudar status
-                  </button>
-                  <button
-                    type="button"
-                    className="button ghost"
-                    onClick={() => openBulkPanel("featured")}
-                    disabled={bulkPending}
-                  >
-                    Marcar destacado
-                  </button>
-                  <button
-                    type="button"
-                    className="button ghost danger"
-                    onClick={handleBulkDelete}
-                    disabled={bulkPending}
-                  >
-                    Excluir selecionados
-                  </button>
-                  <button
-                    type="button"
-                    className="button ghost"
-                    onClick={clearSelection}
-                    disabled={bulkPending}
-                  >
-                    Limpar selecao
-                  </button>
-                </div>
-                {bulkMode !== null && (
-                  <div className="bulk-action-form">
-                    {bulkMode === "preacher" && (
-                      <Field
-                        label={`Novo pregador para ${selectionCount} itens`}
-                        placeholder="Nome do pregador"
-                        maxLength={TEXT_MAX}
-                        value={bulkText}
-                        onChange={(event) => setBulkText(event.currentTarget.value)}
-                      />
-                    )}
-                    {bulkMode === "director" && (
-                      <Field
-                        label={`Novo dirigente para ${selectionCount} itens`}
-                        placeholder="Nome do dirigente"
-                        maxLength={TEXT_MAX}
-                        value={bulkText}
-                        onChange={(event) => setBulkText(event.currentTarget.value)}
-                      />
-                    )}
-                    {bulkMode === "status" && (
-                      <SelectField
-                        label={`Novo status para ${selectionCount} itens`}
-                        value={bulkStatus}
-                        onChange={(event) => setBulkStatus(event.currentTarget.value as ScheduleStatus)}
-                      >
-                        <option value="scheduled">Agendado</option>
-                        <option value="suspended">Suspenso</option>
-                        <option value="free">Livre</option>
-                      </SelectField>
-                    )}
-                    {bulkMode === "featured" && (
-                      <p className="bulk-action-info">
-                        Marcar {selectionCount} itens como destacados na agenda?
-                      </p>
-                    )}
-                    <div className="form-actions">
-                      <button
-                        type="button"
-                        className="button primary"
-                        onClick={handleBulkSubmit}
-                        disabled={bulkPending}
-                      >
-                        Aplicar
-                      </button>
-                      <button
-                        type="button"
-                        className="button ghost"
-                        onClick={closeBulkPanel}
-                        disabled={bulkPending}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        }
-        items={list.items}
-        getId={(item) => item.id}
-        emptyState={
-          <EmptyState
-            icon={<CalendarDays size={32} />}
-            title="Agenda vazia."
-            description="Cadastre um culto, encontro ou evento no formulario ao lado pra comecar."
-          />
-        }
-        footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
-        renderItem={(item) => {
-          const checked = selectedIds.has(item.id);
-          return (
-            <ItemRow key={item.id} title={item.title} detail={formatScheduleDetail(item)}>
-              <label className="row-checkbox" aria-label={`Selecionar ${item.title}`}>
-                <input type="checkbox" checked={checked} onChange={() => toggleSelected(item.id)} />
-              </label>
-              <button onClick={() => startEdit(item)} type="button">
-                Editar
-              </button>
-              <button
-                onClick={() => handleDuplicate(item)}
-                type="button"
-                aria-label={`Duplicar ${item.title}`}
-                title="Duplicar"
-                disabled={duplicateMutation.isPending}
-              >
-                <Copy size={16} />
-              </button>
-              <a
-                href="/#agenda"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="row-action-link"
-                aria-label={`Ver ${item.title} no site`}
-                title="Ver no site"
-              >
-                <ExternalLink size={16} />
-              </a>
-              <button
-                onClick={() => handleDelete(item)}
-                type="button"
-                aria-label={`Excluir ${item.title}`}
-                title="Excluir"
-              >
-                <Trash2 size={16} />
-              </button>
-            </ItemRow>
-          );
-        }}
-      />
-      <div className="editor-panel">
+            </div>
+          )}
+        </div>
+      )}
+
+      <DetailSheet
+        open={sheetOpen}
+        title={editingId ? "Editar evento" : "Novo evento"}
+        subtitle={editingId ? "Ajuste os detalhes e salve." : "Preencha os campos e salve."}
+        onClose={closeSheet}
+      >
         <ScheduleForm
           snapshot={snapshot}
           editingId={editingId}
           initialValues={initialValues}
           resetSignal={resetSignal}
-          onSaved={cancelEdit}
-          onCancel={cancelEdit}
+          onSaved={closeSheet}
+          onCancel={closeSheet}
         />
-      </div>
+      </DetailSheet>
+
+      <SuspendScheduleDialog
+        item={suspendTarget}
+        saving={saveMutation.isPending}
+        onClose={() => setSuspendTarget(null)}
+        onConfirm={handleConfirmSuspend}
+      />
+      <RescheduleDialog
+        item={rescheduleTarget}
+        saving={saveMutation.isPending}
+        onClose={() => setRescheduleTarget(null)}
+        onConfirm={handleConfirmReschedule}
+      />
     </div>
   );
 }
