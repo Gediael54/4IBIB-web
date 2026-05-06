@@ -1,22 +1,25 @@
+import PageShell from "./PageShell";
+
 export default function ConfessionPage() {
   return (
-    <main className="page">
-      <header className="page-header">
-        <p className="eyebrow">Quem somos</p>
-        <h1>Confissao de fe</h1>
-        <p className="page-lead">
-          Cremos na Biblia como unica regra de fe e pratica. Esta pagina apresenta um sumario das conviccoes
-          doutrinarias da 4a IBIB.
-        </p>
-      </header>
+    <PageShell
+      eyebrow="Quem somos"
+      title="Confissão de fé"
+      lead="Cremos na Bíblia como única regra de fé e prática. Esta página apresenta um sumário das convicções doutrinárias da 4a IBIB."
+      breadcrumb={[
+        { href: "#inicio", label: "Início" },
+        { href: "#quem-somos", label: "Quem somos" },
+        { href: "#confissao-de-fe", label: "Confissão de fé" }
+      ]}
+    >
       <section className="page-section">
-        <h2>Em construcao</h2>
+        <h2>Em construção</h2>
         <p>
-          Estamos finalizando o texto. Em breve voce encontrara aqui nossas conviccoes detalhadas sobre a
-          Trindade, Escrituras, salvacao pela graca, igreja, batismo, ceia do Senhor e a esperanca da volta de
+          Estamos finalizando o texto. Em breve você encontrará aqui nossas convicções detalhadas sobre a
+          Trindade, Escrituras, salvação pela graça, igreja, batismo, ceia do Senhor e a esperança da volta de
           Cristo.
         </p>
       </section>
-    </main>
+    </PageShell>
   );
 }

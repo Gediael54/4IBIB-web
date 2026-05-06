@@ -43,10 +43,10 @@ export default function LatestTeaching({ schedule }: LatestTeachingProps) {
   const { item, videoId } = latest;
 
   return (
-    <section className="section latest-teaching" id="ultima-pregacao" aria-label="Ultima pregacao">
+    <section className="section latest-teaching" id="ultima-pregacao" aria-label="Última pregação">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Ultima pregacao</p>
+          <p className="eyebrow">Última pregação</p>
           <h2>{item.title}</h2>
         </div>
         <Youtube />

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { useChurchProfile } from "../lib/church-context";
+import { safeUrl } from "../lib/safe-url";
+import PageShell from "./PageShell";
 
 const PIX_KEY = "46.882.520/0001-76";
 
@@ -18,17 +20,18 @@ export default function DonationsPage() {
     }
   }
 
-  return (
-    <main className="page">
-      <header className="page-header">
-        <p className="eyebrow">Contribuicao</p>
-        <h1>Doacoes</h1>
-        <p className="page-lead">
-          Sua oferta sustenta a obra local: cultos, missoes, evangelismo e cuidado pastoral. Toda contribuicao
-          e voluntaria e tratada com transparencia.
-        </p>
-      </header>
+  const whatsappHref = church.whatsapp ? safeUrl(`https://wa.me/${church.whatsapp.replace(/\D/g, "")}`) : "";
 
+  return (
+    <PageShell
+      eyebrow="Contribuição"
+      title="Doações"
+      lead="Sua oferta sustenta a obra local: cultos, missões, evangelismo e cuidado pastoral. Toda contribuição é voluntária e tratada com transparência."
+      breadcrumb={[
+        { href: "#inicio", label: "Início" },
+        { href: "#doacoes", label: "Doações" }
+      ]}
+    >
       <section className="page-section">
         <h2>PIX da igreja</h2>
         <p>
@@ -48,19 +51,15 @@ export default function DonationsPage() {
       <section className="page-section">
         <h2>Outras formas</h2>
         <p>
-          Para entrega presencial de envelopes ou contribuicao recorrente, fale com a tesouraria via WhatsApp{" "}
+          Para entrega presencial de envelopes ou contribuição recorrente, fale com a tesouraria via WhatsApp{" "}
           {church.whatsapp && (
-            <a
-              href={`https://wa.me/${church.whatsapp.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
               {church.whatsapp}
             </a>
           )}
           .
         </p>
       </section>
-    </main>
+    </PageShell>
   );
 }

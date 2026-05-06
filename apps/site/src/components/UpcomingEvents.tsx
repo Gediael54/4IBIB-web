@@ -28,7 +28,7 @@ export default function UpcomingEvents({ schedule, limit = 5 }: UpcomingEventsPr
   return (
     <>
       {themes.length > 0 && (
-        <aside className="month-theme-banner" aria-label="Tema do mes">
+        <aside className="month-theme-banner" aria-label="Tema do mês">
           {themes.map((theme) => (
             <p key={theme.monthKey}>
               <span className="month-theme-banner-month">{theme.monthLabel}</span>
@@ -40,7 +40,7 @@ export default function UpcomingEvents({ schedule, limit = 5 }: UpcomingEventsPr
           ))}
         </aside>
       )}
-      <ul className="upcoming-events" aria-label="Proximos eventos">
+      <ul className="upcoming-events" aria-label="Próximos eventos">
         {upcoming.map((item) => (
           <li key={item.id}>
             <EventCard item={item} compact showDay dayLabel={buildDayLabel(item.startsAt)} />

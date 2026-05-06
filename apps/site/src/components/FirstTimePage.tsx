@@ -1,3 +1,5 @@
+import PageShell from "./PageShell";
+
 interface CardItem {
   title: string;
   body: string;
@@ -6,15 +8,15 @@ interface CardItem {
 const CARDS: CardItem[] = [
   {
     title: "O que esperar?",
-    body: "Cultos com canto congregacional, oracao, leitura biblica e pregacao centrada em Cristo. Duracao tipica de 90 minutos."
+    body: "Cultos com canto congregacional, oração, leitura bíblica e pregação centrada em Cristo. Duração típica de 90 minutos."
   },
   {
     title: "Como me visto?",
-    body: "Como se sentir a vontade. Nao ha codigo de vestimenta — venha como voce e."
+    body: "Como se sentir à vontade. Não há código de vestimenta — venha como você é."
   },
   {
-    title: "E para criancas?",
-    body: "Criancas sao bem-vindas no culto solene. Aos domingos pela manha temos escola biblica organizada por faixa etaria."
+    title: "E para crianças?",
+    body: "Crianças são bem-vindas no culto solene. Aos domingos pela manhã temos escola bíblica organizada por faixa etária."
   },
   {
     title: "Onde estacionar?",
@@ -22,20 +24,22 @@ const CARDS: CardItem[] = [
   },
   {
     title: "Como participo mais?",
-    body: "Procure um pastor ou lider apos o culto. Voce pode tambem mandar um pedido de oracao ou mensagem pelo WhatsApp."
+    body: "Procure um pastor ou líder após o culto. Você pode também mandar um pedido de oração ou mensagem pelo WhatsApp."
   }
 ];
 
 export default function FirstTimePage() {
   return (
-    <main className="page">
-      <header className="page-header">
-        <p className="eyebrow">Quem somos</p>
-        <h1>Primeira vez aqui?</h1>
-        <p className="page-lead">
-          Que alegria receber voce. Reunimos abaixo as duvidas mais comuns de quem nos visita.
-        </p>
-      </header>
+    <PageShell
+      eyebrow="Quem somos"
+      title="Primeira vez aqui?"
+      lead="Que alegria receber você. Reunimos abaixo as dúvidas mais comuns de quem nos visita."
+      breadcrumb={[
+        { href: "#inicio", label: "Início" },
+        { href: "#quem-somos", label: "Quem somos" },
+        { href: "#primeira-vez", label: "Primeira vez aqui" }
+      ]}
+    >
       <section className="page-section">
         <div className="first-time-grid">
           {CARDS.map((card) => (
@@ -46,6 +50,6 @@ export default function FirstTimePage() {
           ))}
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }
