@@ -40,7 +40,8 @@ function buildSnapshot(volunteers: Volunteer[] = [], schedule: ScheduleItem[] = 
     volunteers,
     profile: null,
     ministries: [],
-    recurringMeetings: []
+    recurringMeetings: [],
+    commemorations: []
   };
 }
 

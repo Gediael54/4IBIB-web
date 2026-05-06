@@ -49,7 +49,8 @@ function buildSnapshot(announcements: Announcement[] = []): SiteSnapshot {
     volunteers: [],
     profile: null,
     ministries: [],
-    recurringMeetings: []
+    recurringMeetings: [],
+    commemorations: []
   };
 }
 

@@ -46,7 +46,8 @@ describe("public site", () => {
       schedule: [],
       profile: null,
       ministries: [],
-      recurringMeetings: []
+      recurringMeetings: [],
+      commemorations: []
     });
     mocks.createPrayerRequest.mockReset();
     mocks.listPublicMembers.mockResolvedValue([]);

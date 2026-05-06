@@ -12,6 +12,7 @@ function emptySnapshot(overrides: Partial<SiteSnapshot> = {}): SiteSnapshot {
     profile: null,
     ministries: [],
     recurringMeetings: [],
+    commemorations: [],
     ...overrides
   };
 }

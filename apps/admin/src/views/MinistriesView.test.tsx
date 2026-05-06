@@ -46,7 +46,8 @@ function buildSnapshot(ministries: MinistryRecord[] = []): SiteSnapshot {
     volunteers: [],
     profile: null,
     ministries,
-    recurringMeetings: []
+    recurringMeetings: [],
+    commemorations: []
   };
 }
 
