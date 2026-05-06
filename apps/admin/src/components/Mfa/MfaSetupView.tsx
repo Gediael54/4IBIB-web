@@ -1,5 +1,5 @@
 import { Copy, ShieldCheck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MfaEnrollment } from "@4ibib/core";
 import { backend } from "../../backend";
 import { useToast } from "../Toast";
@@ -17,20 +17,27 @@ export default function MfaSetupView({ email, onCompleted, onSignOut }: MfaSetup
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
     let cancelled = false;
+
     async function start() {
       setLoadingEnroll(true);
       setError(null);
       try {
-        // Re-use unverified factor if exists, otherwise enroll new
+        // Limpa qualquer fator (verified ou nao) para evitar conflito de
+        // friendly_name e garantir um QR code novo a cada setup. Se houver
+        // fator verified, o usuario teria sido redirecionado pro Challenge,
+        // entao chegar aqui significa que pode resetar com seguranca.
         const factors = await backend.auth.listMfaFactors();
-        const existingUnverified = factors.find((f) => f.status === "unverified");
-        if (existingUnverified) {
-          await backend.auth.unenrollMfa(existingUnverified.id);
+        for (const factor of factors) {
+          await backend.auth.unenrollMfa(factor.id);
         }
-        const next = await backend.auth.enrollMfa(`4IBIB Admin (${email})`);
+        const friendlyName = `4IBIB ${email} ${Date.now()}`;
+        const next = await backend.auth.enrollMfa(friendlyName);
         if (!cancelled) setEnrollment(next);
       } catch (err) {
         if (!cancelled) {
@@ -40,7 +47,8 @@ export default function MfaSetupView({ email, onCompleted, onSignOut }: MfaSetup
         if (!cancelled) setLoadingEnroll(false);
       }
     }
-    start();
+
+    void start();
     return () => {
       cancelled = true;
     };

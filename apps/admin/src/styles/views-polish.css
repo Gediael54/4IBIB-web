@@ -22,20 +22,78 @@
 
 .list-panel-title,
 .editor-card h2,
-.list-view-title {
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
+.list-view-title,
+.listview-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
   line-height: var(--leading-tight);
   margin: 0 0 var(--space-2);
 }
 
+.editor-panel h2,
+.editor-card h2,
+.profile-form h2 {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  margin: 0 0 var(--space-3);
+}
+
+.editor-panel h3,
+.editor-card h3 {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
 .editor-card > .muted,
-.list-panel > .muted {
+.list-panel > .muted,
+.editor-panel > .muted {
   font-size: var(--text-sm);
   line-height: var(--leading-snug);
+  color: var(--text-tertiary);
   margin: 0 0 var(--space-4);
+}
+
+/* Workspace topbar / mobile header */
+
+.mobile-topbar h1,
+.workspace-header h1 {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  margin: 0;
+}
+
+/* Section headings dentro das views */
+
+.section-heading,
+.dashboard-section h2,
+.dashboard-section-heading {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-snug);
+  margin: 0 0 var(--space-3);
+}
+
+/* Eyebrow labels */
+
+.eyebrow {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-1);
 }
 
 /* List items */
