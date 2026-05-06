@@ -1,10 +1,11 @@
 import { type Commemoration, type ScheduleItem, type Volunteer } from "@4ibib/core";
-import { Ban, RotateCcw } from "lucide-react";
+import { Ban, CalendarClock, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
+import RescheduleDialog from "../../components/Schedule/RescheduleDialog";
 import SuspendScheduleDialog from "../../components/Schedule/SuspendScheduleDialog";
 import { useToast } from "../../components/Toast";
 import { useSaveScheduleItem } from "../../hooks";
-import { withStatus } from "../../lib/schedule-actions";
+import { withSchedule, withStatus } from "../../lib/schedule-actions";
 import { applyPending, getCurrentValue, ROLE_LABELS, type PendingState, type RoleColumn } from "./cadence";
 import { dayHighlightForIso, monthHighlightsForYear } from "./annual-commemoration";
 
@@ -46,6 +47,7 @@ export function AnnualGrid({
   const monthHighlights = useMemo(() => monthHighlightsForYear(commemorations, year), [commemorations, year]);
   const [activeCell, setActiveCell] = useState<{ id: string; role: RoleColumn } | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<ScheduleItem | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<ScheduleItem | null>(null);
   const saveMutation = useSaveScheduleItem();
   const { toast } = useToast();
 
@@ -68,6 +70,27 @@ export function AnnualGrid({
       toast(`"${item.title}" voltou para programado.`, { variant: "success" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nao consegui restaurar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
+  }
+
+  async function handleConfirmReschedule({
+    startsAt,
+    endsAt,
+    reason
+  }: {
+    startsAt: string;
+    endsAt: string;
+    reason: string;
+  }) {
+    if (!rescheduleTarget) return;
+    try {
+      await saveMutation.mutateAsync(withSchedule(rescheduleTarget, startsAt, endsAt));
+      toast(`"${rescheduleTarget.title}" remarcado.`, { variant: "success" });
+      setRescheduleTarget(null);
+      void reason;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui remarcar — tenta de novo?";
       toast(message, { variant: "danger" });
     }
   }
@@ -254,17 +277,30 @@ export function AnnualGrid({
                       <span>Restaurar</span>
                     </button>
                   ) : item.status === "scheduled" ? (
-                    <button
-                      type="button"
-                      className="button ghost annual-action-btn"
-                      onClick={() => setSuspendTarget(item)}
-                      disabled={saveMutation.isPending}
-                      title="Suspender e avisar grupo"
-                      aria-label={`Suspender ${item.title}`}
-                    >
-                      <Ban size={14} aria-hidden="true" />
-                      <span>Suspender</span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="button ghost annual-action-btn"
+                        onClick={() => setRescheduleTarget(item)}
+                        disabled={saveMutation.isPending}
+                        title="Remarcar para outro dia"
+                        aria-label={`Remarcar ${item.title}`}
+                      >
+                        <CalendarClock size={14} aria-hidden="true" />
+                        <span>Remarcar</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="button ghost annual-action-btn"
+                        onClick={() => setSuspendTarget(item)}
+                        disabled={saveMutation.isPending}
+                        title="Suspender e avisar grupo"
+                        aria-label={`Suspender ${item.title}`}
+                      >
+                        <Ban size={14} aria-hidden="true" />
+                        <span>Suspender</span>
+                      </button>
+                    </>
                   ) : null}
                 </td>
               </tr>
@@ -277,6 +313,12 @@ export function AnnualGrid({
         saving={saveMutation.isPending}
         onClose={() => setSuspendTarget(null)}
         onConfirm={handleConfirmSuspend}
+      />
+      <RescheduleDialog
+        item={rescheduleTarget}
+        saving={saveMutation.isPending}
+        onClose={() => setRescheduleTarget(null)}
+        onConfirm={handleConfirmReschedule}
       />
     </>
   );

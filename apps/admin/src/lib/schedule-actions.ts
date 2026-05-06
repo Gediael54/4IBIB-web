@@ -24,3 +24,7 @@ export function scheduleItemToInput(item: ScheduleItem): ScheduleItemInput {
 export function withStatus(item: ScheduleItem, status: ScheduleStatus): ScheduleItemInput {
   return { ...scheduleItemToInput(item), status };
 }
+
+export function withSchedule(item: ScheduleItem, startsAt: string, endsAt: string): ScheduleItemInput {
+  return { ...scheduleItemToInput(item), startsAt, endsAt };
+}

@@ -149,6 +149,32 @@
   margin: 0;
 }
 
+.reschedule-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.reschedule-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.reschedule-fields input,
+.reschedule-fields textarea {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  font: inherit;
+}
+
+.reschedule-fields textarea {
+  resize: vertical;
+}
+
 @media (max-width: 767px) {
   .annual-cell-actions {
     text-align: left;
