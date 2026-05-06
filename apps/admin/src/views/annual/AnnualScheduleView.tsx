@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { useToast } from "../../components/Toast";
 import { SelectField } from "../../components/ui";
 import { AnnualGrid } from "./AnnualGrid";
+import RotationGeneratorButton from "./RotationGeneratorButton";
 import { useAnnualSchedule } from "./use-annual-schedule";
 
 const AnnualAutoDistribute = lazy(() =>
@@ -110,6 +111,13 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
           </button>
         )}
       </div>
+
+      <RotationGeneratorButton
+        yearItems={yearItems}
+        rotationRules={snapshot.rotationRules}
+        pending={pending}
+        setPendingForCell={setPendingForCell}
+      />
 
       <Suspense fallback={<AnnualPanelFallback />}>
         {autoOpen && (

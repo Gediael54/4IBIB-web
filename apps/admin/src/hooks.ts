@@ -4,6 +4,7 @@ import type {
   AuditLogFilter,
   ChurchProfileInput,
   CommemorationInput,
+  RotationRuleInput,
   Household,
   InviteAdminInput,
   Member,
@@ -358,6 +359,40 @@ export function useRestoreCommemoration() {
     mutationFn: (id: string) => backend.content.restoreCommemoration(id),
     onMutate: (id) => {
       addMutationBreadcrumb("restore-commemoration", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useSaveRotationRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...CRITICAL_RETRY,
+    mutationFn: (input: RotationRuleInput) => backend.content.saveRotationRule(input),
+    onMutate: (input) => {
+      addMutationBreadcrumb("save-rotation-rule", { id: input.id ?? null });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useArchiveRotationRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.archiveRotationRule(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("archive-rotation-rule", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useRestoreRotationRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.restoreRotationRule(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("restore-rotation-rule", { id });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });

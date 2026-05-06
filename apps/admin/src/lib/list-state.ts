@@ -7,6 +7,7 @@ export type ListView =
   | "volunteers"
   | "ministries"
   | "commemorations"
+  | "rotation"
   | "audit"
   | "team"
   | "annual"
@@ -35,6 +36,7 @@ export const INITIAL_LIST_STATE: Record<ListView, ListState> = {
   volunteers: { search: "", sort: "nameAsc", page: 1 },
   ministries: { search: "", sort: "sortOrderAsc", page: 1 },
   commemorations: { search: "", sort: "monthAsc", page: 1 },
+  rotation: { search: "", sort: "priorityDesc", page: 1 },
   audit: { search: "", sort: "changedDesc", page: 1 },
   team: { search: "", sort: "roleAsc", page: 1 },
   annual: { search: "", sort: "startsAsc", page: 1 },

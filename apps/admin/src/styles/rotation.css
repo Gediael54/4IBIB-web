@@ -1,0 +1,38 @@
+/* === Rotation rules + generator === */
+
+.rotation-generator {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-3) 0;
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+}
+
+.rotation-generator-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.rotation-generator-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+@media (max-width: 540px) {
+  .rotation-generator {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .rotation-generator .button {
+    justify-content: center;
+  }
+}

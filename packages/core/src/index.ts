@@ -243,6 +243,17 @@ export interface Commemoration {
 
 export type RotationRole = "preacher" | "director" | "sound";
 
+export {
+  buildRotationContext,
+  frequencyMatches,
+  generateScheduleAssignments,
+  type GenerateInput,
+  type GenerateResult,
+  type MemberAvailability,
+  type RotationContext,
+  type ScheduleAssignment
+} from "./rotation-engine";
+
 export type RotationFrequency =
   | "every_week"
   | "every_2_weeks"

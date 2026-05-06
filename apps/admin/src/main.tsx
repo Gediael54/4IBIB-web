@@ -48,6 +48,7 @@ const PrayersView = lazy(() => import("./views/PrayersView"));
 const ProfileView = lazy(() => import("./views/ProfileView"));
 const MinistriesView = lazy(() => import("./views/MinistriesView"));
 const CommemorationsView = lazy(() => import("./views/CommemorationsView"));
+const RotationRulesView = lazy(() => import("./views/RotationRulesView"));
 const AuditLogView = lazy(() => import("./views/AuditLogView"));
 const TeamView = lazy(() => import("./views/TeamView"));
 
@@ -74,6 +75,7 @@ type AdminView =
   | "profile"
   | "ministries"
   | "commemorations"
+  | "rotation"
   | "audit"
   | "team";
 
@@ -89,6 +91,7 @@ const VIEW_TITLES: Record<AdminView, string> = {
   profile: "Perfil",
   ministries: "Ministerios",
   commemorations: "Datas comemorativas",
+  rotation: "Regras de rotação",
   audit: "Auditoria",
   team: "Equipe"
 };
@@ -428,6 +431,13 @@ export function App() {
               />
               <NavButton
                 current={view}
+                target="rotation"
+                icon={<UserCheck />}
+                label="Regras de rotação"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
                 target="profile"
                 icon={<Building2 />}
                 label="Perfil"
@@ -535,6 +545,13 @@ export function App() {
                     snapshot={snapshot}
                     state={listState.ministries}
                     onStateChange={(patch) => updateListState("ministries", patch)}
+                  />
+                )}
+                {view === "rotation" && (
+                  <RotationRulesView
+                    snapshot={snapshot}
+                    state={listState.rotation}
+                    onStateChange={(patch) => updateListState("rotation", patch)}
                   />
                 )}
                 {view === "commemorations" && (

@@ -189,6 +189,31 @@ export const commemorationSchema = v.pipe(
 
 export type CommemorationFormValues = v.InferOutput<typeof commemorationSchema>;
 
+export const rotationRuleSchema = v.object({
+  id: v.optional(v.string()),
+  memberId: requiredText(80, "Voluntario"),
+  role: v.picklist(["preacher", "director", "sound"]),
+  frequency: v.picklist([
+    "every_week",
+    "every_2_weeks",
+    "every_3_weeks",
+    "every_4_weeks",
+    "monthly_first",
+    "monthly_second",
+    "monthly_third",
+    "monthly_fourth",
+    "monthly_last",
+    "quarterly"
+  ]),
+  weekday: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(6)),
+  ministry: v.pipe(v.string(), v.maxLength(TEXT_MAX)),
+  priority: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  active: v.boolean(),
+  notes: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX))
+});
+
+export type RotationRuleFormValues = v.InferOutput<typeof rotationRuleSchema>;
+
 export const recurringMeetingSchema = v.pipe(
   v.object({
     id: v.optional(v.string()),
