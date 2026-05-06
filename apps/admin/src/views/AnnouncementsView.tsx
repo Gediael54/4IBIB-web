@@ -39,6 +39,14 @@ interface AnnouncementsViewProps {
 type StatusFilter = "all" | "draft" | "scheduled" | "published" | "archived";
 type StatusValue = "draft" | "scheduled" | "published" | "archived";
 
+const ANNOUNCEMENT_TAB_FIELDS: Record<string, ReadonlyArray<keyof AnnouncementFormValues>> = {
+  conteudo: ["title", "summary", "category", "ctaLabel", "ctaUrl", "pinned"],
+  publicacao: ["status", "publishedAt", "expiresAt"],
+  imagem: ["imageUrl"]
+};
+
+const ANNOUNCEMENT_TAB_ORDER = ["conteudo", "publicacao", "imagem"] as const;
+
 const CATEGORY_LABELS: Record<AnnouncementFormValues["category"], string> = {
   geral: "Geral",
   evento: "Evento",
@@ -81,6 +89,7 @@ const ANNOUNCEMENT_DRAFT_KEY = "announcement-draft";
 export default function AnnouncementsView({ snapshot, state, onStateChange }: AnnouncementsViewProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [activeTab, setActiveTab] = useState<string>("conteudo");
   const saveMutation = useSaveAnnouncement();
   const archiveMutation = useArchiveAnnouncement();
   const restoreMutation = useRestoreAnnouncement();
@@ -194,6 +203,25 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
   }
 
   const saving = isSubmitting || saveMutation.isPending;
+
+  const tabErrorCounts: Record<string, number> = {};
+  for (const tabId of ANNOUNCEMENT_TAB_ORDER) {
+    const fields = ANNOUNCEMENT_TAB_FIELDS[tabId] ?? [];
+    let count = 0;
+    for (const field of fields) {
+      if (errors[field as keyof typeof errors]) count += 1;
+    }
+    tabErrorCounts[tabId] = count;
+  }
+
+  function focusFirstTabWithErrors() {
+    for (const tabId of ANNOUNCEMENT_TAB_ORDER) {
+      if ((tabErrorCounts[tabId] ?? 0) > 0) {
+        setActiveTab(tabId);
+        return;
+      }
+    }
+  }
 
   const previewStatus: StatusValue = previewValues.status ?? "draft";
   const previewCategory = previewValues.category ?? "geral";
@@ -371,12 +399,33 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
       />
       <div className="editor-panel">
         <div className="announcement-editor">
-          <form className="editor-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+          <form
+            className="editor-form"
+            onSubmit={handleSubmit(onSubmit, () => focusFirstTabWithErrors())}
+            noValidate
+          >
             <FieldGroup
+              activeGroup={activeTab}
+              onActiveChange={setActiveTab}
               groups={[
-                { id: "conteudo", label: "Conteudo", content: conteudoPanel },
-                { id: "publicacao", label: "Publicacao", content: publicacaoPanel },
-                { id: "imagem", label: "Imagem", content: imagemPanel }
+                {
+                  id: "conteudo",
+                  label: "Conteudo",
+                  content: conteudoPanel,
+                  errorCount: tabErrorCounts.conteudo
+                },
+                {
+                  id: "publicacao",
+                  label: "Publicacao",
+                  content: publicacaoPanel,
+                  errorCount: tabErrorCounts.publicacao
+                },
+                {
+                  id: "imagem",
+                  label: "Imagem",
+                  content: imagemPanel,
+                  errorCount: tabErrorCounts.imagem
+                }
               ]}
             />
             <FormActions saving={saving} onCancel={cancelEdit} />
