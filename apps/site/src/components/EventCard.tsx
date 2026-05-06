@@ -4,8 +4,8 @@ import type { ScheduleItem } from "@4ibib/core";
 import { useChurchProfile } from "../lib/church-context";
 import { formatTime } from "../lib/date";
 import { displayLocation, getSoundTeam, occasionStyle, splitNames } from "../lib/event";
+import { useNow } from "../lib/use-now";
 import { extractYouTubeId } from "../lib/youtube";
-import EyebrowTag, { ministryToLabel, ministryToVariant } from "./EyebrowTag";
 
 export interface EventCardProps {
   item: ScheduleItem;
@@ -84,16 +84,14 @@ export default function EventCard({
   const location = displayLocation(item, church);
   const time = formatTime(item.startsAt);
   const soundTeam = getSoundTeam(item);
-  const ministryLabel = ministryToLabel(item.ministry);
-  const showMinistryTag = !occasion && item.status !== "free" && ministryLabel.length > 0;
   const youtubeId = extractYouTubeId(item.youtubeUrl);
-  // eslint-disable-next-line react-hooks/purity
-  const showYoutubeCta = item.status !== "free" && Date.parse(item.endsAt) < Date.now() && youtubeId !== null;
+  const now = useNow();
+  const showYoutubeCta = item.status !== "free" && Date.parse(item.endsAt) < now && youtubeId !== null;
 
   return (
     <article
       className={classNames(item, compact)}
-      aria-label={item.status === "free" ? "Sem programacao" : item.title}
+      aria-label={item.status === "free" ? "Sem programação" : item.title}
     >
       {occasion && (
         <span
@@ -107,7 +105,6 @@ export default function EventCard({
           {occasion.label}
         </span>
       )}
-      {showMinistryTag && <EyebrowTag label={ministryLabel} variant={ministryToVariant(item.ministry)} />}
       <div className="event-card-head">
         <time className="event-card-time" dateTime={item.startsAt}>
           {showDay && dayLabel ? (
