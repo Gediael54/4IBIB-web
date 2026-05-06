@@ -541,6 +541,7 @@ export interface ContentRepository
 
 export interface AuthGateway {
   getSession(): Promise<AdminSession | null>;
+  getAccessToken(): Promise<string | null>;
   subscribe(listener: (session: AdminSession | null) => void): () => void;
   signIn(email: string, password: string): Promise<AdminSession>;
   signOut(): Promise<void>;

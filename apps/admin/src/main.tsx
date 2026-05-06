@@ -114,11 +114,15 @@ async function verifyAdminTurnstile(token: string): Promise<{ ok: boolean; messa
   }
 }
 
-async function reportLoginAlert(session: AdminSession) {
+async function reportLoginAlert(session: AdminSession, accessToken: string | null) {
+  if (!accessToken) return;
   try {
     await fetch("/api/login-alert", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${accessToken}`
+      },
       body: JSON.stringify({
         user_id: session.uid,
         email: session.email,
@@ -192,7 +196,7 @@ export function App() {
       setAuthReady(true);
       setSentryUser(nextSession ? { id: nextSession.uid } : null);
       if (nextSession && nextSession.uid !== previousUid) {
-        reportLoginAlert(nextSession);
+        backend.auth.getAccessToken().then((token) => reportLoginAlert(nextSession, token));
       }
       previousUid = nextSession?.uid ?? null;
     });

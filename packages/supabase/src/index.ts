@@ -1354,6 +1354,12 @@ class SupabaseAuthGateway implements AuthGateway {
     return mapUser(data.session?.user ?? null);
   }
 
+  async getAccessToken(): Promise<string | null> {
+    const { data, error } = await this.client.auth.getSession();
+    if (error) return null;
+    return data.session?.access_token ?? null;
+  }
+
   subscribe(listener: (session: AdminSession | null) => void) {
     const {
       data: { subscription }
