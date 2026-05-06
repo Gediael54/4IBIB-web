@@ -13,7 +13,7 @@ import {
   UsersRound,
   Youtube
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { backend } from "./backend";
 import EyebrowTag, { categoryToVariant } from "./components/EyebrowTag";
@@ -23,6 +23,13 @@ import Leadership from "./components/Leadership";
 import PictureSet from "./components/PictureSet";
 import PrivacyPolicy from "./components/PrivacyPolicy";
 import SchedulePage from "./components/SchedulePage";
+import SiteNav from "./components/SiteNav";
+
+const ConfessionPage = lazy(() => import("./components/ConfessionPage"));
+const FirstTimePage = lazy(() => import("./components/FirstTimePage"));
+const DonationsPage = lazy(() => import("./components/DonationsPage"));
+const TeachingsPage = lazy(() => import("./components/TeachingsPage"));
+const QuemSomosPage = lazy(() => import("./components/QuemSomosPage"));
 import SmartContactInput from "./components/SmartContactInput";
 import TurnstileWidget from "./components/TurnstileWidget";
 import UpcomingEvents from "./components/UpcomingEvents";
@@ -62,6 +69,11 @@ const SECTION_TITLES: Record<string, string> = {
   agenda: `Agenda completa | ${SITE_TITLE}`,
   ministerios: `Ministerios | ${SITE_TITLE}`,
   lideranca: `Lideranca | ${SITE_TITLE}`,
+  "quem-somos": `Quem somos | ${SITE_TITLE}`,
+  "confissao-de-fe": `Confissao de fe | ${SITE_TITLE}`,
+  "primeira-vez": `Primeira vez aqui | ${SITE_TITLE}`,
+  pregacoes: `Pregacoes | ${SITE_TITLE}`,
+  doacoes: `Doacoes | ${SITE_TITLE}`,
   contato: `Pedido de oracao | ${SITE_TITLE}`,
   "politica-privacidade": `Politica de privacidade | ${SITE_TITLE}`,
   "meus-dados": `Meus dados | ${SITE_TITLE}`
@@ -114,19 +126,7 @@ function SiteHome({
       <a className="skip-link" href="#inicio">
         Pular para o conteudo
       </a>
-      <nav className="nav" aria-label="Navegacao principal">
-        <a className="brand" href="#inicio">
-          <img src="/logo.png" alt="" className="brand-logo" />
-          <span>{church.shortName}</span>
-        </a>
-        <div className="nav-links">
-          <a href="#avisos">Avisos</a>
-          <a href="#programacao">Programacao</a>
-          <a href="#ministerios">Ministerios</a>
-          <a href="#lideranca">Lideranca</a>
-          <a href="/admin">Admin</a>
-        </div>
-      </nav>
+      <SiteNav />
 
       <header className="hero">
         <section className="hero-content" id="inicio">
@@ -439,21 +439,33 @@ export function App() {
       ministries={snapshot.ministries}
       recurringMeetings={snapshot.recurringMeetings}
     >
-      {route === "agenda" ? (
-        <SchedulePage schedule={schedule} />
-      ) : route === "politica-privacidade" ? (
-        <PrivacyPolicy />
-      ) : route === "meus-dados" ? (
-        <UserDataRequest />
-      ) : (
-        <SiteHome
-          pinnedAnnouncements={pinnedAnnouncements}
-          schedule={schedule}
-          prayerMutation={prayerMutation}
-          prayerFormError={prayerFormError}
-          onPrayerRequest={handlePrayerRequest}
-        />
-      )}
+      <Suspense fallback={<p className="state-screen">Carregando...</p>}>
+        {route === "agenda" ? (
+          <SchedulePage schedule={schedule} />
+        ) : route === "politica-privacidade" ? (
+          <PrivacyPolicy />
+        ) : route === "meus-dados" ? (
+          <UserDataRequest />
+        ) : route === "quem-somos" ? (
+          <QuemSomosPage />
+        ) : route === "confissao-de-fe" ? (
+          <ConfessionPage />
+        ) : route === "primeira-vez" ? (
+          <FirstTimePage />
+        ) : route === "pregacoes" ? (
+          <TeachingsPage schedule={schedule} />
+        ) : route === "doacoes" ? (
+          <DonationsPage />
+        ) : (
+          <SiteHome
+            pinnedAnnouncements={pinnedAnnouncements}
+            schedule={schedule}
+            prayerMutation={prayerMutation}
+            prayerFormError={prayerFormError}
+            onPrayerRequest={handlePrayerRequest}
+          />
+        )}
+      </Suspense>
     </ChurchProvider>
   );
 }
