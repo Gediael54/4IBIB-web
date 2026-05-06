@@ -1,3 +1,21 @@
+# [1.2.0](https://github.com/Gediael54/4IBIB-web/compare/v1.1.0...v1.2.0) (2026-05-06)
+
+### Features
+
+- **admin:** add public bio textarea on Igreja tab when public_directory is on ([d7b6087](https://github.com/Gediael54/4IBIB-web/commit/d7b608784f1ea63a03ea319c330930ae09be7045))
+- **admin:** add YouTube link field to schedule form ([c772b95](https://github.com/Gediael54/4IBIB-web/commit/c772b9552d4b9f81ef8493e449d5ff30d822238d))
+- **admin:** validate optional youtubeUrl and publicBio in form schemas ([4661ddd](https://github.com/Gediael54/4IBIB-web/commit/4661ddda522c4787be24f1a64872871611109e1a))
+- **core:** add publicBio to Member and youtubeUrl to ScheduleItem ([a0bc380](https://github.com/Gediael54/4IBIB-web/commit/a0bc380774cd6270d93bcc7226d2a051739f31b9))
+- **db:** add members.public_bio for opt-in public leadership pages ([d6f6820](https://github.com/Gediael54/4IBIB-web/commit/d6f6820fa9a8e3d15ae1f6a1b68cf01998c24ed3))
+- **db:** add schedule_items.youtube_url to link recordings ([6df00ac](https://github.com/Gediael54/4IBIB-web/commit/6df00acb98d3945b31429be13f022d3c1fe3691e))
+- **site:** add EyebrowTag component with category and ministry helpers ([a6ac344](https://github.com/Gediael54/4IBIB-web/commit/a6ac344163cc9a4c9d8ada6ee843e11780c607a7))
+- **site:** add LatestTeaching highlighting last broadcast in home ([88c4be6](https://github.com/Gediael54/4IBIB-web/commit/88c4be60f70f8b9bb843d17a698961cddf2cc101))
+- **site:** add Leadership section listing pastors and presbyters opted in ([a0a64fc](https://github.com/Gediael54/4IBIB-web/commit/a0a64fc5d5caacd408d76abf6031088c0c784019))
+- **site:** add YouTube id extractor and thumbnail helper ([b024af9](https://github.com/Gediael54/4IBIB-web/commit/b024af97fa4659451a7c2e5750a625c8ef3f975d))
+- **site:** show YouTube CTA on EventCard for past events with recording ([fe27e44](https://github.com/Gediael54/4IBIB-web/commit/fe27e4412923d6d42d5024d273e1efe6eb09c7bd))
+- **site:** wire EyebrowTag, Leadership and LatestTeaching into home ([4ccef78](https://github.com/Gediael54/4IBIB-web/commit/4ccef7872874d5a6fd9c7c4aee8c4eb25339d182))
+- **supabase:** map publicBio and youtubeUrl in adapter ([97ea0fd](https://github.com/Gediael54/4IBIB-web/commit/97ea0fde687b67081c9d065349c99e5939baa404))
+
 # [1.1.0](https://github.com/Gediael54/4IBIB-web/compare/v1.0.1...v1.1.0) (2026-05-05)
 
 ### Bug Fixes
