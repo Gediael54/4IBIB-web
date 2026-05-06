@@ -34,6 +34,7 @@ export interface ScheduleItem {
   status: ScheduleStatus;
   featured: boolean;
   seriesId: string | null;
+  youtubeUrl: string;
   preacherMemberId?: string | null;
   directorMemberId?: string | null;
   soundMemberId?: string | null;
@@ -129,6 +130,7 @@ export interface Member {
   consentGivenAt: string | null;
   consentVersion: string;
   publicDirectory: boolean;
+  publicBio: string;
   dataRetentionUntil: string | null;
   deletedAt: string | null;
   createdAt: string;
@@ -278,6 +280,7 @@ export type ScheduleItemInput = {
   status: ScheduleStatus;
   featured: boolean;
   seriesId?: string | null;
+  youtubeUrl?: string;
 };
 
 export type ScheduleBulkPatch = Partial<
