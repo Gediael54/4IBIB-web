@@ -62,14 +62,35 @@
 
 /* Workspace topbar / mobile header */
 
+.mobile-topbar,
+.mobile-topbar .mobile-topbar-title,
 .mobile-topbar h1,
 .workspace-header h1 {
+  color: var(--text-primary);
+}
+
+.mobile-topbar h1,
+.workspace-header h1,
+.mobile-topbar .mobile-topbar-title {
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
-  color: var(--text-primary);
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
   margin: 0;
+}
+
+/* Sidebar header text */
+
+.sidebar-brand strong {
+  color: var(--text-primary);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-md);
+  letter-spacing: var(--tracking-tight);
+}
+
+.sidebar-brand span {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
 }
 
 /* Section headings dentro das views */

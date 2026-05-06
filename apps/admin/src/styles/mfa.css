@@ -90,10 +90,15 @@
   margin: var(--space-2) 0;
 }
 
-.mfa-qrcode svg {
+.mfa-qrcode svg,
+.mfa-qrcode-img {
   display: block;
   width: 200px;
   height: 200px;
+}
+
+.mfa-qrcode-img {
+  image-rendering: pixelated;
 }
 
 .mfa-secret {

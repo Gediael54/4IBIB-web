@@ -10,6 +10,21 @@ interface MfaSetupViewProps {
   onSignOut: () => void;
 }
 
+function QrCodeImage({ qrCode }: { qrCode: string }) {
+  const trimmed = qrCode.trim();
+  const isDataUri = trimmed.startsWith("data:");
+  if (isDataUri) {
+    return <img className="mfa-qrcode mfa-qrcode-img" src={trimmed} alt="QR code para configurar MFA" />;
+  }
+  return (
+    <div
+      className="mfa-qrcode"
+      aria-label="QR code para configurar MFA"
+      dangerouslySetInnerHTML={{ __html: trimmed }}
+    />
+  );
+}
+
 export default function MfaSetupView({ email, onCompleted, onSignOut }: MfaSetupViewProps) {
   const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
   const [code, setCode] = useState("");
@@ -101,13 +116,7 @@ export default function MfaSetupView({ email, onCompleted, onSignOut }: MfaSetup
           <li>
             <strong>2. Escaneie o QR code abaixo</strong>
             {loadingEnroll && <p className="muted">Gerando QR code...</p>}
-            {enrollment && (
-              <div
-                className="mfa-qrcode"
-                aria-label="QR code para configurar MFA"
-                dangerouslySetInnerHTML={{ __html: enrollment.qrCodeSvg }}
-              />
-            )}
+            {enrollment && <QrCodeImage qrCode={enrollment.qrCodeSvg} />}
             {enrollment && (
               <details className="mfa-secret">
                 <summary>Nao consegue escanear? Use o codigo</summary>
