@@ -51,6 +51,8 @@ function buildSnapshot(overrides: Partial<SiteSnapshot> = {}): SiteSnapshot {
     ministries: [],
     recurringMeetings: [],
     commemorations: [],
+
+    rotationRules: [],
     ...overrides
   };
 }

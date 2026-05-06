@@ -27,6 +27,8 @@ function snapshot(overrides: Partial<SiteSnapshot> = {}): SiteSnapshot {
     ministries: [],
     recurringMeetings: [],
     commemorations: [],
+
+    rotationRules: [],
     ...overrides
   };
 }
