@@ -48,6 +48,14 @@ interface FakeClient {
     signInWithPassword: ReturnType<typeof vi.fn>;
     signOut: ReturnType<typeof vi.fn>;
     onAuthStateChange: ReturnType<typeof vi.fn>;
+    mfa: {
+      listFactors: ReturnType<typeof vi.fn>;
+      enroll: ReturnType<typeof vi.fn>;
+      challenge: ReturnType<typeof vi.fn>;
+      verify: ReturnType<typeof vi.fn>;
+      unenroll: ReturnType<typeof vi.fn>;
+      getAuthenticatorAssuranceLevel: ReturnType<typeof vi.fn>;
+    };
   };
   authSubscriptionUnsubscribe: ReturnType<typeof vi.fn>;
 }
@@ -78,7 +86,15 @@ function createFakeClient(): FakeClient {
     onAuthStateChange: vi.fn((callback: (event: string, session: unknown) => void) => {
       auth._lastCallback = callback;
       return { data: { subscription: { unsubscribe } } };
-    })
+    }),
+    mfa: {
+      listFactors: vi.fn(),
+      enroll: vi.fn(),
+      challenge: vi.fn(),
+      verify: vi.fn(),
+      unenroll: vi.fn(),
+      getAuthenticatorAssuranceLevel: vi.fn()
+    }
   } as FakeClient["auth"] & { _lastCallback?: (event: string, session: unknown) => void };
 
   return {
@@ -1512,6 +1528,26 @@ describe("SupabaseContentRepository", () => {
     expect(client.queries[0]?.is).toHaveBeenCalledWith("deleted_at", null);
   });
 
+  it("maps commemoration with missing month defaulting to 1", async () => {
+    client.setNext({
+      data: [
+        {
+          id: "c-no-month",
+          name: "X",
+          type: "month",
+          month: null,
+          day_of_month: null,
+          description: null,
+          color: null,
+          sort_order: null
+        }
+      ],
+      error: null
+    });
+    const [item] = await backend().content.listCommemorations();
+    expect(item?.month).toBe(1);
+  });
+
   it("maps commemoration day type and null fields", async () => {
     client.setNext({
       data: [
@@ -2578,5 +2614,205 @@ describe("SupabaseAuthGateway", () => {
   it("propagates supabase error on signOut", async () => {
     client.auth.signOut.mockResolvedValue({ error: { message: "out-fail" } });
     await expect(backend().auth.signOut()).rejects.toThrow("out-fail");
+  });
+
+  it("returns access token from session", async () => {
+    client.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: "tok-1", user: { id: "u1", email: "a@b.c" } } },
+      error: null
+    });
+    expect(await backend().auth.getAccessToken()).toBe("tok-1");
+  });
+
+  it("returns null access token when no session", async () => {
+    client.auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+    expect(await backend().auth.getAccessToken()).toBeNull();
+  });
+
+  it("returns null access token on error", async () => {
+    client.auth.getSession.mockResolvedValue({ data: { session: null }, error: { message: "x" } });
+    expect(await backend().auth.getAccessToken()).toBeNull();
+  });
+
+  it("lists MFA factors mapping verified status", async () => {
+    client.auth.mfa.listFactors.mockResolvedValue({
+      data: {
+        totp: [
+          {
+            id: "f1",
+            status: "verified",
+            friendly_name: "Authenticator",
+            created_at: "2026-05-06T00:00:00Z"
+          },
+          { id: "f2", status: "unverified", friendly_name: null, created_at: null }
+        ]
+      },
+      error: null
+    });
+    const factors = await backend().auth.listMfaFactors();
+    expect(factors).toEqual([
+      {
+        id: "f1",
+        status: "verified",
+        factorType: "totp",
+        friendlyName: "Authenticator",
+        createdAt: "2026-05-06T00:00:00Z"
+      },
+      {
+        id: "f2",
+        status: "unverified",
+        factorType: "totp",
+        friendlyName: "Authenticator",
+        createdAt: ""
+      }
+    ]);
+  });
+
+  it("returns empty list when no MFA factors", async () => {
+    client.auth.mfa.listFactors.mockResolvedValue({ data: { totp: null }, error: null });
+    expect(await backend().auth.listMfaFactors()).toEqual([]);
+  });
+
+  it("propagates error on listMfaFactors", async () => {
+    client.auth.mfa.listFactors.mockResolvedValue({ data: null, error: { message: "list-mfa" } });
+    await expect(backend().auth.listMfaFactors()).rejects.toThrow("list-mfa");
+  });
+
+  it("enrolls MFA returning factor + qr code + secret", async () => {
+    client.auth.mfa.enroll.mockResolvedValue({
+      data: {
+        id: "f1",
+        totp: { qr_code: "<svg></svg>", uri: "otpauth://x", secret: "SECRET" }
+      },
+      error: null
+    });
+    const result = await backend().auth.enrollMfa("My device");
+    expect(result).toEqual({
+      factorId: "f1",
+      qrCodeSvg: "<svg></svg>",
+      uri: "otpauth://x",
+      secret: "SECRET"
+    });
+    expect(client.auth.mfa.enroll).toHaveBeenCalledWith({
+      factorType: "totp",
+      friendlyName: "My device"
+    });
+  });
+
+  it("uses default friendly name when omitted", async () => {
+    client.auth.mfa.enroll.mockResolvedValue({
+      data: { id: "f1", totp: { qr_code: "x", uri: "y", secret: "z" } },
+      error: null
+    });
+    await backend().auth.enrollMfa();
+    expect(client.auth.mfa.enroll).toHaveBeenCalledWith({
+      factorType: "totp",
+      friendlyName: "Authenticator"
+    });
+  });
+
+  it("propagates error on enrollMfa", async () => {
+    client.auth.mfa.enroll.mockResolvedValue({ data: null, error: { message: "enroll-fail" } });
+    await expect(backend().auth.enrollMfa()).rejects.toThrow("enroll-fail");
+  });
+
+  it("rejects enrollMfa when totp data is missing", async () => {
+    client.auth.mfa.enroll.mockResolvedValue({ data: { id: "f1", totp: null }, error: null });
+    await expect(backend().auth.enrollMfa()).rejects.toThrow(/Resposta invalida/);
+  });
+
+  it("verifies enrollment via challenge + verify", async () => {
+    client.auth.mfa.challenge.mockResolvedValue({ data: { id: "c1" }, error: null });
+    client.auth.mfa.verify.mockResolvedValue({ data: {}, error: null });
+    await backend().auth.verifyMfaEnrollment("f1", "123456");
+    expect(client.auth.mfa.challenge).toHaveBeenCalledWith({ factorId: "f1" });
+    expect(client.auth.mfa.verify).toHaveBeenCalledWith({
+      factorId: "f1",
+      challengeId: "c1",
+      code: "123456"
+    });
+  });
+
+  it("propagates challenge error during enrollment verify", async () => {
+    client.auth.mfa.challenge.mockResolvedValue({ data: null, error: { message: "chall-fail" } });
+    await expect(backend().auth.verifyMfaEnrollment("f1", "123456")).rejects.toThrow("chall-fail");
+  });
+
+  it("rejects enrollment verify when challenge has no id", async () => {
+    client.auth.mfa.challenge.mockResolvedValue({ data: { id: null }, error: null });
+    await expect(backend().auth.verifyMfaEnrollment("f1", "123456")).rejects.toThrow(
+      /Falha ao iniciar verificacao/
+    );
+  });
+
+  it("propagates verify error during enrollment verify", async () => {
+    client.auth.mfa.challenge.mockResolvedValue({ data: { id: "c1" }, error: null });
+    client.auth.mfa.verify.mockResolvedValue({ data: null, error: { message: "verify-fail" } });
+    await expect(backend().auth.verifyMfaEnrollment("f1", "123456")).rejects.toThrow("verify-fail");
+  });
+
+  it("issues a challenge", async () => {
+    client.auth.mfa.challenge.mockResolvedValue({ data: { id: "c1" }, error: null });
+    expect(await backend().auth.challengeMfa("f1")).toEqual({ challengeId: "c1" });
+  });
+
+  it("rejects challenge when id missing", async () => {
+    client.auth.mfa.challenge.mockResolvedValue({ data: { id: null }, error: null });
+    await expect(backend().auth.challengeMfa("f1")).rejects.toThrow(/Resposta invalida/);
+  });
+
+  it("propagates error on challengeMfa", async () => {
+    client.auth.mfa.challenge.mockResolvedValue({ data: null, error: { message: "chall-fail" } });
+    await expect(backend().auth.challengeMfa("f1")).rejects.toThrow("chall-fail");
+  });
+
+  it("verifies a challenge", async () => {
+    client.auth.mfa.verify.mockResolvedValue({ data: {}, error: null });
+    await backend().auth.verifyMfaChallenge("f1", "c1", "123456");
+    expect(client.auth.mfa.verify).toHaveBeenCalledWith({
+      factorId: "f1",
+      challengeId: "c1",
+      code: "123456"
+    });
+  });
+
+  it("propagates error on verifyMfaChallenge", async () => {
+    client.auth.mfa.verify.mockResolvedValue({ data: null, error: { message: "verify-fail" } });
+    await expect(backend().auth.verifyMfaChallenge("f1", "c1", "123456")).rejects.toThrow("verify-fail");
+  });
+
+  it("unenrolls a factor", async () => {
+    client.auth.mfa.unenroll.mockResolvedValue({ data: {}, error: null });
+    await backend().auth.unenrollMfa("f1");
+    expect(client.auth.mfa.unenroll).toHaveBeenCalledWith({ factorId: "f1" });
+  });
+
+  it("propagates error on unenrollMfa", async () => {
+    client.auth.mfa.unenroll.mockResolvedValue({ data: null, error: { message: "unenroll-fail" } });
+    await expect(backend().auth.unenrollMfa("f1")).rejects.toThrow("unenroll-fail");
+  });
+
+  it("returns assurance level mapped to aal2", async () => {
+    client.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: "aal2", nextLevel: "aal2" },
+      error: null
+    });
+    expect(await backend().auth.getAuthAssuranceLevel()).toEqual({ current: "aal2", next: "aal2" });
+  });
+
+  it("defaults assurance level to aal1 when missing", async () => {
+    client.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: undefined, nextLevel: undefined },
+      error: null
+    });
+    expect(await backend().auth.getAuthAssuranceLevel()).toEqual({ current: "aal1", next: "aal1" });
+  });
+
+  it("propagates error on getAuthAssuranceLevel", async () => {
+    client.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: null,
+      error: { message: "aal-fail" }
+    });
+    await expect(backend().auth.getAuthAssuranceLevel()).rejects.toThrow("aal-fail");
   });
 });

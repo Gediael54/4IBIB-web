@@ -401,6 +401,28 @@ export interface AdminSession {
   displayName: string;
 }
 
+export type AuthAssuranceLevel = "aal1" | "aal2";
+
+export interface MfaFactor {
+  id: string;
+  status: "verified" | "unverified";
+  factorType: "totp";
+  friendlyName: string;
+  createdAt: string;
+}
+
+export interface MfaEnrollment {
+  factorId: string;
+  qrCodeSvg: string;
+  uri: string;
+  secret: string;
+}
+
+export interface MfaAssurance {
+  current: AuthAssuranceLevel;
+  next: AuthAssuranceLevel;
+}
+
 export interface AnnouncementRepo {
   listAnnouncements(): Promise<Announcement[]>;
   saveAnnouncement(input: AnnouncementInput): Promise<Announcement>;
@@ -545,6 +567,13 @@ export interface AuthGateway {
   subscribe(listener: (session: AdminSession | null) => void): () => void;
   signIn(email: string, password: string): Promise<AdminSession>;
   signOut(): Promise<void>;
+  listMfaFactors(): Promise<MfaFactor[]>;
+  enrollMfa(friendlyName?: string): Promise<MfaEnrollment>;
+  verifyMfaEnrollment(factorId: string, code: string): Promise<void>;
+  challengeMfa(factorId: string): Promise<{ challengeId: string }>;
+  verifyMfaChallenge(factorId: string, challengeId: string, code: string): Promise<void>;
+  unenrollMfa(factorId: string): Promise<void>;
+  getAuthAssuranceLevel(): Promise<MfaAssurance>;
 }
 
 export interface ChurchBackend {

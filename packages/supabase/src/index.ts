@@ -14,6 +14,9 @@ import {
   type Commemoration,
   type CommemorationInput,
   type ContentRepository,
+  type MfaAssurance,
+  type MfaEnrollment,
+  type MfaFactor,
   type Household,
   type InviteAdminInput,
   type Member,
@@ -1392,6 +1395,74 @@ class SupabaseAuthGateway implements AuthGateway {
     if (error) {
       throw new Error(error.message);
     }
+  }
+
+  async listMfaFactors(): Promise<MfaFactor[]> {
+    const { data, error } = await this.client.auth.mfa.listFactors();
+    if (error) throw new Error(error.message);
+    const totp = data?.totp ?? [];
+    return totp.map((factor) => ({
+      id: factor.id,
+      status: factor.status === "verified" ? "verified" : "unverified",
+      factorType: "totp",
+      friendlyName: factor.friendly_name ?? "Authenticator",
+      createdAt: factor.created_at ?? ""
+    }));
+  }
+
+  async enrollMfa(friendlyName: string = "Authenticator"): Promise<MfaEnrollment> {
+    const { data, error } = await this.client.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName
+    });
+    if (error) throw new Error(error.message);
+    if (!data?.id || !data.totp) throw new Error("Resposta invalida ao enrolar MFA.");
+    return {
+      factorId: data.id,
+      qrCodeSvg: data.totp.qr_code,
+      uri: data.totp.uri,
+      secret: data.totp.secret
+    };
+  }
+
+  async verifyMfaEnrollment(factorId: string, code: string): Promise<void> {
+    const { data: challenge, error: challengeError } = await this.client.auth.mfa.challenge({
+      factorId
+    });
+    if (challengeError || !challenge?.id) {
+      throw new Error(challengeError?.message ?? "Falha ao iniciar verificacao.");
+    }
+    const { error } = await this.client.auth.mfa.verify({
+      factorId,
+      challengeId: challenge.id,
+      code
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  async challengeMfa(factorId: string): Promise<{ challengeId: string }> {
+    const { data, error } = await this.client.auth.mfa.challenge({ factorId });
+    if (error) throw new Error(error.message);
+    if (!data?.id) throw new Error("Resposta invalida ao desafiar MFA.");
+    return { challengeId: data.id };
+  }
+
+  async verifyMfaChallenge(factorId: string, challengeId: string, code: string): Promise<void> {
+    const { error } = await this.client.auth.mfa.verify({ factorId, challengeId, code });
+    if (error) throw new Error(error.message);
+  }
+
+  async unenrollMfa(factorId: string): Promise<void> {
+    const { error } = await this.client.auth.mfa.unenroll({ factorId });
+    if (error) throw new Error(error.message);
+  }
+
+  async getAuthAssuranceLevel(): Promise<MfaAssurance> {
+    const { data, error } = await this.client.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error) throw new Error(error.message);
+    const current = data?.currentLevel === "aal2" ? "aal2" : "aal1";
+    const next = data?.nextLevel === "aal2" ? "aal2" : "aal1";
+    return { current, next };
   }
 }
 

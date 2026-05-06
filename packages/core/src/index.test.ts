@@ -380,6 +380,15 @@ it("sorts commemorations by month, sortOrder, day, then name", () => {
   expect(sortCommemorations([])).toEqual([]);
 });
 
+it("sorts commemorations within the same month by sortOrder", () => {
+  const items: Commemoration[] = [
+    makeCommemoration({ id: "third", month: 5, sortOrder: 5, name: "C" }),
+    makeCommemoration({ id: "first", month: 5, sortOrder: 1, name: "A" }),
+    makeCommemoration({ id: "second", month: 5, sortOrder: 3, name: "B" })
+  ];
+  expect(sortCommemorations(items).map((item) => item.id)).toEqual(["first", "second", "third"]);
+});
+
 it("filters commemorations to month-type entries for the given month", () => {
   const items: Commemoration[] = [
     makeCommemoration({ id: "july", month: 7, name: "Mes de Missoes" }),
