@@ -1,3 +1,9 @@
+## [1.5.1](https://github.com/Gediael54/4IBIB-web/compare/v1.5.0...v1.5.1) (2026-05-06)
+
+### Bug Fixes
+
+- **admin:** render qr code as data URI image and reinforce header colors ([dff0d52](https://github.com/Gediael54/4IBIB-web/commit/dff0d52acc3fdace9589846015562c07af115908))
+
 # [1.5.0](https://github.com/Gediael54/4IBIB-web/compare/v1.4.0...v1.5.0) (2026-05-06)
 
 ### Bug Fixes
