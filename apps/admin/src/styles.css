@@ -13,6 +13,7 @@
 @import "./styles/schedule-cards.css";
 @import "./styles/ministries-grid.css";
 @import "./styles/rotation.css";
+@import "./styles/members-grid.css";
 
 * {
   box-sizing: border-box;

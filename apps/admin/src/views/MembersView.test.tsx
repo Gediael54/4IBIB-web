@@ -128,6 +128,10 @@ function renderView(opts: RenderOptions = {}) {
   return { ...utils, onStateChange };
 }
 
+function openCreateSheet() {
+  fireEvent.click(screen.getByRole("button", { name: /Nova pessoa/i }));
+}
+
 describe("MembersView", () => {
   afterEach(() => {
     cleanup();
@@ -146,6 +150,7 @@ describe("MembersView", () => {
 
   it("renders empty state when no members exist", async () => {
     renderView();
+    openCreateSheet();
     await waitFor(() => {
       expect(screen.getByText("Sem membros cadastrados.")).toBeInTheDocument();
     });
@@ -157,6 +162,7 @@ describe("MembersView", () => {
       makeMember({ id: "m2", fullName: "Maria Santos" })
     ]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(screen.getByText("Joao Silva")).toBeInTheDocument();
@@ -166,6 +172,7 @@ describe("MembersView", () => {
 
   it("opens the create form by default with empty fields", () => {
     renderView();
+    openCreateSheet();
     const fullNameField = screen.getByLabelText("Nome completo") as HTMLInputElement;
     expect(fullNameField).toBeInTheDocument();
     expect(fullNameField.value).toBe("");
@@ -173,6 +180,7 @@ describe("MembersView", () => {
 
   it("creates a new member when the form is submitted", async () => {
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Nome completo"), {
       target: { value: "Novo Membro" }
@@ -195,6 +203,7 @@ describe("MembersView", () => {
   it("shows danger toast when save fails", async () => {
     mocks.createMember.mockRejectedValue(new Error("Falha ao salvar"));
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Nome completo"), {
       target: { value: "Erro Membro" }
@@ -212,6 +221,7 @@ describe("MembersView", () => {
   it("starts editing when 'Editar' is clicked and updates on submit", async () => {
     mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Silva" })]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(screen.getByText("Joao Silva")).toBeInTheDocument();
@@ -240,6 +250,7 @@ describe("MembersView", () => {
   it("archives a member after confirmation", async () => {
     mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Silva" })]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(screen.getByText("Joao Silva")).toBeInTheDocument();
@@ -262,6 +273,7 @@ describe("MembersView", () => {
   it("does not archive when confirmation is denied", async () => {
     mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Silva" })]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(screen.getByText("Joao Silva")).toBeInTheDocument();
@@ -280,6 +292,7 @@ describe("MembersView", () => {
     mocks.archiveMember.mockRejectedValue(new Error("Falha arquivar"));
     mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Erro" })]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(screen.getByText("Joao Erro")).toBeInTheDocument();
@@ -306,6 +319,7 @@ describe("MembersView", () => {
       }
     ]);
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Nome completo"), {
       target: { value: "Joao Parecido" }
@@ -331,6 +345,7 @@ describe("MembersView", () => {
       }
     ]);
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Nome completo"), {
       target: { value: "Joao Duplicado" }
@@ -349,6 +364,7 @@ describe("MembersView", () => {
 
   it("shows volunteer extra fields when isVolunteer is checked", async () => {
     renderView();
+    openCreateSheet();
 
     fireEvent.click(screen.getByRole("tab", { name: "Voluntariado" }));
 
@@ -366,6 +382,7 @@ describe("MembersView", () => {
 
   it("records consent timestamp when consentMedicalDataChecked is true", async () => {
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Nome completo"), {
       target: { value: "Membro Saude" }
@@ -393,6 +410,7 @@ describe("MembersView", () => {
 
   it("clears medical consent timestamp when consent is unchecked", async () => {
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Nome completo"), {
       target: { value: "Sem Consentimento" }
@@ -412,6 +430,7 @@ describe("MembersView", () => {
   it("renders 'Atualizando dados de [nome]' hint when mode is update and a member is being edited", async () => {
     mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Atualizando" })]);
     renderView({ mode: "update" });
+    openCreateSheet();
 
     await waitFor(() => {
       expect(screen.getByText("Joao Atualizando")).toBeInTheDocument();
@@ -426,6 +445,7 @@ describe("MembersView", () => {
 
   it("renders custom title when provided", async () => {
     renderView({ title: "Membros Voluntarios" });
+    openCreateSheet();
     await waitFor(() => {
       expect(screen.getByText("Membros Voluntarios")).toBeInTheDocument();
     });
@@ -434,13 +454,14 @@ describe("MembersView", () => {
   it("invokes onStateChange when the search input changes", async () => {
     const { onStateChange } = renderView();
 
-    fireEvent.change(screen.getByLabelText("Buscar"), { target: { value: "joao" } });
+    fireEvent.change(screen.getByLabelText("Buscar membros"), { target: { value: "joao" } });
     expect(onStateChange).toHaveBeenCalledWith({ search: "joao", page: 1 });
   });
 
   it("anonymizes member after typing ANONIMIZAR confirmation", async () => {
     mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Silva" })]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(screen.getByText("Joao Silva")).toBeInTheDocument();
@@ -473,11 +494,13 @@ describe("MembersView", () => {
 
   it("does not show anonymize button when creating a new member", () => {
     renderView({ defaultTab: "lgpd" });
+    openCreateSheet();
     expect(screen.queryByRole("button", { name: "Anonimizar dados" })).not.toBeInTheDocument();
   });
 
   it("blocks submit when health data is filled without consent", async () => {
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Nome completo"), {
       target: { value: "Sem Consent" }
@@ -513,6 +536,7 @@ describe("MembersView", () => {
       })
     ]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(screen.getByText("Joao Expirado")).toBeInTheDocument();
@@ -528,6 +552,7 @@ describe("MembersView", () => {
   it("persists publicDirectory checkbox state when editing", async () => {
     mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Pub" })]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(screen.getByText("Joao Pub")).toBeInTheDocument();
@@ -555,6 +580,7 @@ describe("MembersView", () => {
   it("renders all relationship category titles when editing a member", async () => {
     mocks.listMembers.mockResolvedValue([makeMember({ id: "m1", fullName: "Joao Familia" })]);
     renderView();
+    openCreateSheet();
 
     await waitFor(() => {
       expect(screen.getByText("Joao Familia")).toBeInTheDocument();
@@ -597,6 +623,7 @@ describe("MembersView", () => {
       }
     ]);
     renderView();
+    openCreateSheet();
 
     const filhoRow = (await screen.findByText("Filho X")).closest("article");
     if (!filhoRow) throw new Error("row not found");
@@ -615,6 +642,7 @@ describe("MembersView", () => {
       makeMember({ id: "m2", fullName: "Filho Y" })
     ]);
     renderView();
+    openCreateSheet();
 
     const paiRow = (await screen.findByText("Pai X")).closest("article");
     if (!paiRow) throw new Error("row not found");
@@ -644,6 +672,7 @@ describe("MembersView", () => {
       makeMember({ id: "m2", fullName: "Filho Y" })
     ]);
     renderView();
+    openCreateSheet();
 
     const maeRow = (await screen.findByText("Mae X")).closest("article");
     if (!maeRow) throw new Error("row not found");
@@ -684,6 +713,7 @@ describe("MembersView", () => {
       }
     ]);
     renderView();
+    openCreateSheet();
 
     const filhoRow = (await screen.findByText("Filho X")).closest("article");
     if (!filhoRow) throw new Error("row not found");

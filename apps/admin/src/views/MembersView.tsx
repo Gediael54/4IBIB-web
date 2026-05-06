@@ -10,24 +10,19 @@ import {
   type RelationshipType
 } from "@4ibib/core";
 import { valibotResolver } from "@hookform/resolvers/valibot";
-import { Trash2, UserPlus, Users, X } from "lucide-react";
+import { Plus, Search, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { FieldGroup } from "../components/FieldGroup";
-import { ListView } from "../components/ListView";
+import DetailSheet from "../components/Layout/DetailSheet";
+import FilterChips, { type ChipOption } from "../components/Layout/FilterChips";
+import ViewHeader from "../components/Layout/ViewHeader";
 import { Modal } from "../components/Modal";
 import { useToast } from "../components/Toast";
-import {
-  Field,
-  FormActions,
-  ItemRow,
-  ListToolbar,
-  Pagination,
-  SelectField,
-  TextAreaField
-} from "../components/ui";
+import { Field, FormActions, Pagination, SelectField, TextAreaField } from "../components/ui";
+import MemberCard from "./members/MemberCard";
 import {
   useAnonymizeMember,
   useArchiveMember,
@@ -42,12 +37,10 @@ import {
 } from "../hooks";
 import {
   BR_STATES,
-  CHURCH_ROLE_LABELS,
   CHURCH_ROLE_OPTIONS,
   GENDER_OPTIONS,
   MARITAL_STATUS_OPTIONS,
-  MEMBERSHIP_STATUS_OPTIONS,
-  MEMBERSHIP_STATUS_LABELS
+  MEMBERSHIP_STATUS_OPTIONS
 } from "../lib/labels";
 import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "../lib/limits";
 import {
@@ -57,7 +50,6 @@ import {
   paginateItems,
   type ListState
 } from "../lib/list-state";
-import { MEMBER_SORT_OPTIONS } from "../lib/sort-options";
 import { maskCep, maskCpf, unmaskDigits } from "../lib/format";
 import { memberSchema, type MemberFormValues } from "../schemas";
 
@@ -646,6 +638,8 @@ export default function MembersView({
   const confirm = useConfirm();
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | "ativo" | "voluntario" | "lideranca">("all");
   const [duplicateBlocking, setDuplicateBlocking] = useState<MemberDuplicateMatch | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<MemberDuplicateMatch[]>([]);
   const [forceCreate, setForceCreate] = useState(false);
@@ -783,6 +777,18 @@ export default function MembersView({
     setDuplicateBlocking(null);
     setDuplicateWarning([]);
     reset(memberToFormValues(item));
+    setActiveTab(defaultTab ?? "identidade");
+    setSheetOpen(true);
+  }
+
+  function openCreate() {
+    setEditingId(null);
+    setForceCreate(false);
+    setDuplicateBlocking(null);
+    setDuplicateWarning([]);
+    reset(emptyMemberValues());
+    setActiveTab(defaultTab ?? "identidade");
+    setSheetOpen(true);
   }
 
   function cancelEdit() {
@@ -791,6 +797,7 @@ export default function MembersView({
     setDuplicateBlocking(null);
     setDuplicateWarning([]);
     reset(emptyMemberValues());
+    setSheetOpen(false);
   }
 
   async function onSubmit(values: MemberFormValues) {
@@ -854,20 +861,13 @@ export default function MembersView({
     if (!ok) return;
     try {
       await archiveMutation.mutateAsync(item.id);
-      toast(`"${item.fullName}" arquivado.`, { variant: "success" });
+      toast.undo({
+        message: `"${item.fullName}" arquivado.`,
+        onUndo: () => restoreMutation.mutate(item.id)
+      });
       if (editingId === item.id) cancelEdit();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nao consegui arquivar.";
-      toast(message, { variant: "danger" });
-    }
-  }
-
-  async function handleRestore(item: Member) {
-    try {
-      await restoreMutation.mutateAsync(item.id);
-      toast(`"${item.fullName}" restaurado.`, { variant: "success" });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Nao consegui restaurar.";
       toast(message, { variant: "danger" });
     }
   }
@@ -1354,58 +1354,85 @@ export default function MembersView({
     </>
   );
 
+  const filteredVisible = useMemo(() => {
+    if (statusFilter === "all") return list.items;
+    if (statusFilter === "ativo") return list.items.filter((item) => item.membershipStatus === "ativo");
+    if (statusFilter === "voluntario") return list.items.filter((item) => item.isVolunteer);
+    if (statusFilter === "lideranca") {
+      const leadership = new Set(["pastor", "pastor_auxiliar", "presbitero", "diacono"]);
+      return list.items.filter((item) => leadership.has(item.churchRole));
+    }
+    return list.items;
+  }, [list.items, statusFilter]);
+
+  const filterCounts = useMemo(() => {
+    const ativo = list.items.filter((i) => i.membershipStatus === "ativo").length;
+    const voluntario = list.items.filter((i) => i.isVolunteer).length;
+    const leadership = new Set(["pastor", "pastor_auxiliar", "presbitero", "diacono"]);
+    const lideranca = list.items.filter((i) => leadership.has(i.churchRole)).length;
+    return { all: list.items.length, ativo, voluntario, lideranca };
+  }, [list.items]);
+
+  const filterChipOptions: ReadonlyArray<ChipOption<typeof statusFilter>> = [
+    { value: "all", label: "Todos", count: filterCounts.all },
+    { value: "ativo", label: "Ativos", count: filterCounts.ativo },
+    { value: "voluntario", label: "Voluntários", count: filterCounts.voluntario },
+    { value: "lideranca", label: "Liderança", count: filterCounts.lideranca }
+  ];
+
   return (
-    <div className="crud-layout">
-      <ListView
+    <section className="apple-view">
+      <ViewHeader
+        eyebrow={defaultFilter?.isVolunteer ? "Equipe" : "Cadastro"}
         title={title}
-        count={list.total}
-        toolbar={
-          <ListToolbar
-            search={state.search}
-            searchLabel="Nome, email, CPF, telefone"
-            sort={state.sort}
-            sortOptions={MEMBER_SORT_OPTIONS}
-            total={list.total}
-            onSearch={(search) => onStateChange({ search, page: 1 })}
-            onSort={(sort) => onStateChange({ sort, page: 1 })}
-          />
+        lead="Cadastre membros, voluntários e liderança. Use os filtros para navegar."
+        primaryAction={
+          <button type="button" className="button primary" onClick={openCreate}>
+            <Plus size={16} aria-hidden="true" />
+            <span>Nova pessoa</span>
+          </button>
         }
-        items={list.items}
-        getId={(item) => item.id}
-        emptyState={
-          <EmptyState
-            icon={<Users size={32} />}
-            title="Sem membros cadastrados."
-            description="Cadastre o primeiro membro no formulario ao lado."
-          />
-        }
-        footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
-        renderItem={(item) => {
-          const detail = `${CHURCH_ROLE_LABELS[item.churchRole]} - ${MEMBERSHIP_STATUS_LABELS[item.membershipStatus]}`;
-          return (
-            <ItemRow key={item.id} title={item.fullName} detail={detail}>
-              <button onClick={() => startEdit(item)} type="button">
-                Editar
-              </button>
-              {item.deletedAt ? (
-                <button type="button" onClick={() => handleRestore(item)}>
-                  Restaurar
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleArchive(item)}
-                  aria-label={`Arquivar ${item.fullName}`}
-                  title="Arquivar"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </ItemRow>
-          );
-        }}
       />
-      <div className="editor-panel">
+
+      <div className="members-toolbar">
+        <div className="members-search">
+          <Search size={16} aria-hidden="true" className="members-search-icon" />
+          <input
+            type="search"
+            value={state.search}
+            placeholder="Buscar por nome, email, CPF ou telefone"
+            onChange={(event) => onStateChange({ search: event.target.value, page: 1 })}
+            aria-label="Buscar membros"
+          />
+        </div>
+      </div>
+
+      <FilterChips
+        value={statusFilter}
+        onChange={setStatusFilter}
+        options={filterChipOptions}
+        ariaLabel="Filtrar por situação"
+      />
+
+      {filteredVisible.length === 0 ? (
+        <EmptyState
+          icon={<Users size={32} aria-hidden="true" />}
+          title="Sem membros cadastrados."
+          description="Cadastre o primeiro membro clicando em Nova pessoa."
+        />
+      ) : (
+        <div className="members-grid">
+          {filteredVisible.map((item) => (
+            <MemberCard key={item.id} member={item} onEdit={startEdit} onDelete={handleArchive} />
+          ))}
+        </div>
+      )}
+
+      {list.total > list.items.length && (
+        <Pagination list={list} onPageChange={(page) => onStateChange({ page })} />
+      )}
+
+      <DetailSheet open={sheetOpen} title={editingId ? "Editar pessoa" : "Nova pessoa"} onClose={cancelEdit}>
         <form
           key={editingId ?? "new-member"}
           className="editor-form member-form"
@@ -1489,7 +1516,7 @@ export default function MembersView({
           />
           <FormActions saving={saving} onCancel={cancelEdit} />
         </form>
-      </div>
+      </DetailSheet>
 
       {duplicateBlocking && (
         <Modal
@@ -1527,6 +1554,6 @@ export default function MembersView({
           <p>Como prefere prosseguir?</p>
         </Modal>
       )}
-    </div>
+    </section>
   );
 }
