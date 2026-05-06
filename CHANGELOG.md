@@ -1,3 +1,9 @@
+# [1.9.0](https://github.com/Gediael54/4IBIB-web/compare/v1.8.0...v1.9.0) (2026-05-06)
+
+### Features
+
+- **admin:** inline reschedule with whatsapp share on annual grid ([d48ada8](https://github.com/Gediael54/4IBIB-web/commit/d48ada865bb9a0ae9f927a4d5b68ed510ebb0308))
+
 # [1.8.0](https://github.com/Gediael54/4IBIB-web/compare/v1.7.1...v1.8.0) (2026-05-06)
 
 ### Features
