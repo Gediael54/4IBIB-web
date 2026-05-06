@@ -1,5 +1,10 @@
 import { type Commemoration, type ScheduleItem, type Volunteer } from "@4ibib/core";
+import { Ban, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
+import SuspendScheduleDialog from "../../components/Schedule/SuspendScheduleDialog";
+import { useToast } from "../../components/Toast";
+import { useSaveScheduleItem } from "../../hooks";
+import { withStatus } from "../../lib/schedule-actions";
 import { applyPending, getCurrentValue, ROLE_LABELS, type PendingState, type RoleColumn } from "./cadence";
 import { dayHighlightForIso, monthHighlightsForYear } from "./annual-commemoration";
 
@@ -40,6 +45,32 @@ export function AnnualGrid({
 }: AnnualGridProps) {
   const monthHighlights = useMemo(() => monthHighlightsForYear(commemorations, year), [commemorations, year]);
   const [activeCell, setActiveCell] = useState<{ id: string; role: RoleColumn } | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<ScheduleItem | null>(null);
+  const saveMutation = useSaveScheduleItem();
+  const { toast } = useToast();
+
+  async function handleConfirmSuspend(reason: string) {
+    if (!suspendTarget) return;
+    try {
+      await saveMutation.mutateAsync(withStatus(suspendTarget, "suspended"));
+      toast(`"${suspendTarget.title}" marcado como SUSPENSO.`, { variant: "success" });
+      setSuspendTarget(null);
+      void reason; // reason is forwarded to the WhatsApp message via the dialog preview
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui suspender — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
+  }
+
+  async function handleRestore(item: ScheduleItem) {
+    try {
+      await saveMutation.mutateAsync(withStatus(item, "scheduled"));
+      toast(`"${item.title}" voltou para programado.`, { variant: "success" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao consegui restaurar — tenta de novo?";
+      toast(message, { variant: "danger" });
+    }
+  }
 
   function renderSoundTeam(value: string) {
     const names = value
@@ -170,6 +201,7 @@ export function AnnualGrid({
             <th>Pregador</th>
             <th>Dirigente</th>
             <th>Som</th>
+            <th aria-label="Acoes" />
           </tr>
         </thead>
         <tbody>
@@ -208,11 +240,44 @@ export function AnnualGrid({
                 {renderCell(item, "preacher")}
                 {renderCell(item, "director")}
                 {renderCell(item, "soundTeam")}
+                <td className="annual-cell-actions" data-label="Acoes">
+                  {item.status === "suspended" ? (
+                    <button
+                      type="button"
+                      className="button ghost annual-action-btn"
+                      onClick={() => handleRestore(item)}
+                      disabled={saveMutation.isPending}
+                      title="Restaurar para programado"
+                      aria-label={`Restaurar ${item.title}`}
+                    >
+                      <RotateCcw size={14} aria-hidden="true" />
+                      <span>Restaurar</span>
+                    </button>
+                  ) : item.status === "scheduled" ? (
+                    <button
+                      type="button"
+                      className="button ghost annual-action-btn"
+                      onClick={() => setSuspendTarget(item)}
+                      disabled={saveMutation.isPending}
+                      title="Suspender e avisar grupo"
+                      aria-label={`Suspender ${item.title}`}
+                    >
+                      <Ban size={14} aria-hidden="true" />
+                      <span>Suspender</span>
+                    </button>
+                  ) : null}
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      <SuspendScheduleDialog
+        item={suspendTarget}
+        saving={saveMutation.isPending}
+        onClose={() => setSuspendTarget(null)}
+        onConfirm={handleConfirmSuspend}
+      />
     </>
   );
 }
