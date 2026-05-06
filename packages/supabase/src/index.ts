@@ -13,6 +13,8 @@ import {
   type ChurchProfileInput,
   type Commemoration,
   type CommemorationInput,
+  type RotationRule,
+  type RotationRuleInput,
   type ContentRepository,
   type MfaAssurance,
   type MfaEnrollment,
@@ -43,6 +45,7 @@ import {
   sortAuditLog,
   sortCommemorations,
   sortMinistries,
+  sortRotationRules,
   sortRecurringMeetings,
   sortSchedule,
   sortVolunteers
@@ -631,6 +634,34 @@ function toCommemorationRow(input: Commemoration): JsonObject {
   };
 }
 
+function mapRotationRule(row: JsonObject): RotationRule {
+  return {
+    id: String(row.id),
+    memberId: String(row.member_id),
+    role: (row.role as RotationRule["role"]) ?? "preacher",
+    frequency: (row.frequency as RotationRule["frequency"]) ?? "every_week",
+    weekday: Number(row.weekday ?? 0),
+    ministry: asString(row.ministry),
+    priority: Number(row.priority ?? 0),
+    active: row.active === false ? false : true,
+    notes: asString(row.notes)
+  };
+}
+
+function toRotationRuleRow(input: RotationRule): JsonObject {
+  return {
+    id: input.id,
+    member_id: input.memberId,
+    role: input.role,
+    frequency: input.frequency,
+    weekday: input.weekday,
+    ministry: input.ministry,
+    priority: input.priority,
+    active: input.active,
+    notes: input.notes
+  };
+}
+
 function mapAdminUser(row: JsonObject): AdminUser {
   return {
     userId: String(row.user_id),
@@ -661,17 +692,43 @@ class SupabaseContentRepository implements ContentRepository {
   ) {}
 
   async getSnapshot(): Promise<SiteSnapshot> {
-    const [announcements, schedule, volunteers, profile, ministries, recurringMeetings, commemorations] =
-      await Promise.all([
-        this.listAnnouncements(),
-        this.listSchedule(),
-        this.listVolunteers(),
-        this.getProfile(),
-        this.listMinistries(),
-        this.listRecurringMeetings(),
-        this.listCommemorations()
-      ]);
-    return { announcements, schedule, volunteers, profile, ministries, recurringMeetings, commemorations };
+    const [
+      announcements,
+      schedule,
+      volunteers,
+      profile,
+      ministries,
+      recurringMeetings,
+      commemorations,
+      rotationRules
+    ] = await Promise.all([
+      this.listAnnouncements(),
+      this.listSchedule(),
+      this.listVolunteers(),
+      this.getProfile(),
+      this.listMinistries(),
+      this.listRecurringMeetings(),
+      this.listCommemorations(),
+      this.listRotationRulesSafely()
+    ]);
+    return {
+      announcements,
+      schedule,
+      volunteers,
+      profile,
+      ministries,
+      recurringMeetings,
+      commemorations,
+      rotationRules
+    };
+  }
+
+  private async listRotationRulesSafely(): Promise<RotationRule[]> {
+    try {
+      return await this.listRotationRules();
+    } catch {
+      return [];
+    }
   }
 
   async listAnnouncements() {
@@ -1077,6 +1134,45 @@ class SupabaseContentRepository implements ContentRepository {
 
   async restoreCommemoration(id: string) {
     const { error } = await this.client.rpc("restore_commemorative_date", { p_id: id });
+    requireOk(error);
+  }
+
+  async listRotationRules() {
+    const { data, error } = await this.client
+      .from("rotation_rules")
+      .select("*")
+      .is("deleted_at", null)
+      .order("priority", { ascending: false });
+    return sortRotationRules(requireData(data as JsonObject[] | null, error).map(mapRotationRule));
+  }
+
+  async saveRotationRule(input: RotationRuleInput) {
+    const item: RotationRule = {
+      id: input.id ?? crypto.randomUUID(),
+      memberId: input.memberId,
+      role: input.role,
+      frequency: input.frequency,
+      weekday: input.weekday,
+      ministry: input.ministry,
+      priority: input.priority,
+      active: input.active,
+      notes: input.notes
+    };
+    const { data, error } = await this.client
+      .from("rotation_rules")
+      .upsert(toRotationRuleRow(item))
+      .select("*")
+      .single();
+    return mapRotationRule(requireData(data as JsonObject | null, error));
+  }
+
+  async archiveRotationRule(id: string) {
+    const { error } = await this.client.rpc("archive_rotation_rule", { p_id: id });
+    requireOk(error);
+  }
+
+  async restoreRotationRule(id: string) {
+    const { error } = await this.client.rpc("restore_rotation_rule", { p_id: id });
     requireOk(error);
   }
 

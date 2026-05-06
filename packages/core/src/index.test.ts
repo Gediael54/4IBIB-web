@@ -7,6 +7,7 @@ import {
   formatDateTime,
   formatInputDateTime,
   formatTimeRange,
+  getActiveRotationRulesForRole,
   getDayCommemorations,
   getMonthCommemorations,
   getPinnedAnnouncements,
@@ -21,6 +22,7 @@ import {
   sortCommemorations,
   sortMinistries,
   sortRecurringMeetings,
+  sortRotationRules,
   sortSchedule,
   sortVolunteers,
   splitNames,
@@ -30,6 +32,7 @@ import {
   type Commemoration,
   type MinistryRecord,
   type RecurringMeetingRecord,
+  type RotationRule,
   type ScheduleItem,
   type Volunteer
 } from "./index";
@@ -520,4 +523,48 @@ it("creates ids when randomUUID is unavailable", () => {
   vi.stubGlobal("crypto", {});
 
   expect(createId("fallback")).toMatch(/^fallback-/);
+});
+
+function makeRotationRule(overrides: Partial<RotationRule> = {}): RotationRule {
+  return {
+    id: "rr1",
+    memberId: "m1",
+    role: "preacher",
+    frequency: "every_week",
+    weekday: 0,
+    ministry: "culto",
+    priority: 0,
+    active: true,
+    notes: "",
+    ...overrides
+  };
+}
+
+it("sorts rotation rules by priority desc, weekday asc, role", () => {
+  const items: RotationRule[] = [
+    makeRotationRule({ id: "low", priority: 1, weekday: 4, role: "sound" }),
+    makeRotationRule({ id: "high", priority: 10, weekday: 4 }),
+    makeRotationRule({ id: "mid", priority: 5, weekday: 0 }),
+    makeRotationRule({ id: "tied-day", priority: 1, weekday: 4, role: "director" }),
+    makeRotationRule({ id: "tied-priority-early", priority: 1, weekday: 0, role: "director" })
+  ];
+  expect(sortRotationRules(items).map((item) => item.id)).toEqual([
+    "high",
+    "mid",
+    "tied-priority-early",
+    "tied-day",
+    "low"
+  ]);
+  expect(sortRotationRules([])).toEqual([]);
+});
+
+it("returns only active rotation rules for a given role", () => {
+  const items: RotationRule[] = [
+    makeRotationRule({ id: "active-preach", role: "preacher", active: true, priority: 5 }),
+    makeRotationRule({ id: "inactive-preach", role: "preacher", active: false }),
+    makeRotationRule({ id: "active-sound", role: "sound", active: true })
+  ];
+  expect(getActiveRotationRulesForRole(items, "preacher").map((r) => r.id)).toEqual(["active-preach"]);
+  expect(getActiveRotationRulesForRole(items, "sound").map((r) => r.id)).toEqual(["active-sound"]);
+  expect(getActiveRotationRulesForRole(items, "director")).toEqual([]);
 });

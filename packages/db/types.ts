@@ -715,6 +715,80 @@ export type Database = {
           }
         ];
       };
+      rotation_rules: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          deleted_at: string | null;
+          frequency: Database["public"]["Enums"]["rotation_frequency"];
+          id: string;
+          member_id: string;
+          ministry: string;
+          notes: string;
+          priority: number;
+          role: Database["public"]["Enums"]["rotation_role"];
+          updated_at: string;
+          weekday: number;
+        };
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          deleted_at?: string | null;
+          frequency: Database["public"]["Enums"]["rotation_frequency"];
+          id?: string;
+          member_id: string;
+          ministry?: string;
+          notes?: string;
+          priority?: number;
+          role: Database["public"]["Enums"]["rotation_role"];
+          updated_at?: string;
+          weekday: number;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          deleted_at?: string | null;
+          frequency?: Database["public"]["Enums"]["rotation_frequency"];
+          id?: string;
+          member_id?: string;
+          ministry?: string;
+          notes?: string;
+          priority?: number;
+          role?: Database["public"]["Enums"]["rotation_role"];
+          updated_at?: string;
+          weekday?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rotation_rules_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rotation_rules_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members_public";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rotation_rules_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "volunteers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rotation_rules_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "volunteers_public";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       schedule_items: {
         Row: {
           created_at: string;
@@ -1007,6 +1081,7 @@ export type Database = {
       archive_member: { Args: { p_id: string }; Returns: undefined };
       archive_ministry: { Args: { p_id: string }; Returns: undefined };
       archive_prayer_request: { Args: { p_id: string }; Returns: undefined };
+      archive_rotation_rule: { Args: { p_id: string }; Returns: undefined };
       archive_schedule_item: { Args: { p_id: string }; Returns: undefined };
       check_admin_rate_limit: { Args: { p_action: string }; Returns: boolean };
       find_member_duplicates: {
@@ -1043,6 +1118,7 @@ export type Database = {
       restore_member: { Args: { p_id: string }; Returns: undefined };
       restore_ministry: { Args: { p_id: string }; Returns: undefined };
       restore_prayer_request: { Args: { p_id: string }; Returns: undefined };
+      restore_rotation_rule: { Args: { p_id: string }; Returns: undefined };
       restore_schedule_item: { Args: { p_id: string }; Returns: undefined };
       revert_audit_entry: { Args: { entry_id: string }; Returns: undefined };
       show_limit: { Args: never; Returns: number };
@@ -1077,6 +1153,18 @@ export type Database = {
         | "tio"
         | "sobrinho"
         | "responsavel";
+      rotation_frequency:
+        | "every_week"
+        | "every_2_weeks"
+        | "every_3_weeks"
+        | "every_4_weeks"
+        | "monthly_first"
+        | "monthly_second"
+        | "monthly_third"
+        | "monthly_fourth"
+        | "monthly_last"
+        | "quarterly";
+      rotation_role: "preacher" | "director" | "sound";
       schedule_status: "scheduled" | "suspended" | "free";
     };
     CompositeTypes: {
@@ -1233,6 +1321,19 @@ export const Constants = {
         "sobrinho",
         "responsavel"
       ],
+      rotation_frequency: [
+        "every_week",
+        "every_2_weeks",
+        "every_3_weeks",
+        "every_4_weeks",
+        "monthly_first",
+        "monthly_second",
+        "monthly_third",
+        "monthly_fourth",
+        "monthly_last",
+        "quarterly"
+      ],
+      rotation_role: ["preacher", "director", "sound"],
       schedule_status: ["scheduled", "suspended", "free"]
     }
   }

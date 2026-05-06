@@ -241,6 +241,32 @@ export interface Commemoration {
   sortOrder: number;
 }
 
+export type RotationRole = "preacher" | "director" | "sound";
+
+export type RotationFrequency =
+  | "every_week"
+  | "every_2_weeks"
+  | "every_3_weeks"
+  | "every_4_weeks"
+  | "monthly_first"
+  | "monthly_second"
+  | "monthly_third"
+  | "monthly_fourth"
+  | "monthly_last"
+  | "quarterly";
+
+export interface RotationRule {
+  id: string;
+  memberId: string;
+  role: RotationRole;
+  frequency: RotationFrequency;
+  weekday: number;
+  ministry: string;
+  priority: number;
+  active: boolean;
+  notes: string;
+}
+
 export type AdminRole = "owner" | "editor";
 
 export interface AdminUser {
@@ -380,6 +406,18 @@ export type CommemorationInput = {
   sortOrder: number;
 };
 
+export type RotationRuleInput = {
+  id?: string;
+  memberId: string;
+  role: RotationRole;
+  frequency: RotationFrequency;
+  weekday: number;
+  ministry: string;
+  priority: number;
+  active: boolean;
+  notes: string;
+};
+
 export interface InviteAdminInput {
   email: string;
   role: AdminRole;
@@ -393,6 +431,7 @@ export interface SiteSnapshot {
   ministries: MinistryRecord[];
   recurringMeetings: RecurringMeetingRecord[];
   commemorations: Commemoration[];
+  rotationRules: RotationRule[];
 }
 
 export interface AdminSession {
@@ -528,6 +567,13 @@ export interface CommemorationRepo {
   restoreCommemoration(id: string): Promise<void>;
 }
 
+export interface RotationRuleRepo {
+  listRotationRules(): Promise<RotationRule[]>;
+  saveRotationRule(input: RotationRuleInput): Promise<RotationRule>;
+  archiveRotationRule(id: string): Promise<void>;
+  restoreRotationRule(id: string): Promise<void>;
+}
+
 export interface AdminRepo {
   listAdmins(): Promise<AdminUser[]>;
   inviteAdmin(input: InviteAdminInput): Promise<AdminUser>;
@@ -559,7 +605,8 @@ export interface ContentRepository
     MemberRepo,
     HouseholdRepo,
     RelationshipRepo,
-    CommemorationRepo {}
+    CommemorationRepo,
+    RotationRuleRepo {}
 
 export interface AuthGateway {
   getSession(): Promise<AdminSession | null>;
@@ -693,6 +740,22 @@ export function getDayCommemorations(items: Commemoration[], month: number, day:
   return sortCommemorations(
     items.filter((item) => item.type === "day" && item.month === month && item.dayOfMonth === day)
   );
+}
+
+export function sortRotationRules(items: RotationRule[]): RotationRule[] {
+  return [...items].sort((left, right) => {
+    if (left.priority !== right.priority) {
+      return right.priority - left.priority;
+    }
+    if (left.weekday !== right.weekday) {
+      return left.weekday - right.weekday;
+    }
+    return left.role.localeCompare(right.role);
+  });
+}
+
+export function getActiveRotationRulesForRole(items: RotationRule[], role: RotationRole): RotationRule[] {
+  return sortRotationRules(items.filter((rule) => rule.active && rule.role === role));
 }
 
 export function sortAuditLog(items: AuditLogEntry[]): AuditLogEntry[] {

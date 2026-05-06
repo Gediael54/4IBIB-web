@@ -220,6 +220,18 @@ const commemorationRow = {
   sort_order: 0
 };
 
+const rotationRuleRow = {
+  id: "rr1",
+  member_id: "m1",
+  role: "preacher",
+  frequency: "every_week",
+  weekday: 0,
+  ministry: "culto",
+  priority: 10,
+  active: true,
+  notes: ""
+};
+
 const adminUserRow = {
   user_id: "u-1",
   role: "owner",
@@ -374,6 +386,7 @@ describe("SupabaseContentRepository", () => {
     client.setNext({ data: [ministryRow], error: null });
     client.setNext({ data: [recurringMeetingRow], error: null });
     client.setNext({ data: [commemorationRow], error: null });
+    client.setNext({ data: [rotationRuleRow], error: null });
 
     const snapshot = await backend().content.getSnapshot();
 
@@ -384,7 +397,22 @@ describe("SupabaseContentRepository", () => {
     expect(snapshot.ministries[0]?.id).toBe("m1");
     expect(snapshot.recurringMeetings[0]?.id).toBe("r1");
     expect(snapshot.commemorations[0]?.id).toBe("c1");
-    expect(client.from).toHaveBeenCalledTimes(7);
+    expect(snapshot.rotationRules[0]?.id).toBe("rr1");
+    expect(client.from).toHaveBeenCalledTimes(8);
+  });
+
+  it("falls back to empty rotation rules when listing fails", async () => {
+    client.setNext({ data: [announcementRow], error: null });
+    client.setNext({ data: [scheduleRow], error: null });
+    client.setNext({ data: [volunteerRow], error: null });
+    client.setNext({ data: profileRow, error: null });
+    client.setNext({ data: [ministryRow], error: null });
+    client.setNext({ data: [recurringMeetingRow], error: null });
+    client.setNext({ data: [commemorationRow], error: null });
+    client.setNext({ data: null, error: { message: "rotation-fail" } });
+
+    const snapshot = await backend().content.getSnapshot();
+    expect(snapshot.rotationRules).toEqual([]);
   });
 
   it("lists announcements with empty cta fallbacks and default status", async () => {
@@ -1665,6 +1693,122 @@ describe("SupabaseContentRepository", () => {
   it("propagates rpc error on restoreCommemoration", async () => {
     client.setNextRpc({ data: null, error: { message: "res-com-fail" } });
     await expect(backend().content.restoreCommemoration("c1")).rejects.toThrow("res-com-fail");
+  });
+
+  it("lists rotation rules sorted excluding deleted", async () => {
+    client.setNext({
+      data: [{ ...rotationRuleRow, id: "rr-low", priority: 1 }, rotationRuleRow],
+      error: null
+    });
+    const items = await backend().content.listRotationRules();
+    expect(items.map((r) => r.id)).toEqual(["rr1", "rr-low"]);
+    expect(client.queries[0]?.is).toHaveBeenCalledWith("deleted_at", null);
+  });
+
+  it("maps rotation rule with default fallbacks", async () => {
+    client.setNext({
+      data: [
+        {
+          id: "rr-defaults",
+          member_id: "m1",
+          role: undefined,
+          frequency: undefined,
+          weekday: null,
+          ministry: null,
+          priority: null,
+          active: false,
+          notes: null
+        }
+      ],
+      error: null
+    });
+    const [rule] = await backend().content.listRotationRules();
+    expect(rule?.role).toBe("preacher");
+    expect(rule?.frequency).toBe("every_week");
+    expect(rule?.weekday).toBe(0);
+    expect(rule?.ministry).toBe("");
+    expect(rule?.priority).toBe(0);
+    expect(rule?.active).toBe(false);
+    expect(rule?.notes).toBe("");
+  });
+
+  it("propagates supabase error on listRotationRules", async () => {
+    client.setNext({ data: null, error: { message: "rr-list" } });
+    await expect(backend().content.listRotationRules()).rejects.toThrow("rr-list");
+  });
+
+  it("saves rotation rule preserving id", async () => {
+    client.setNext({ data: rotationRuleRow, error: null });
+    const result = await backend().content.saveRotationRule({
+      id: "rr1",
+      memberId: "m1",
+      role: "preacher",
+      frequency: "every_week",
+      weekday: 0,
+      ministry: "culto",
+      priority: 10,
+      active: true,
+      notes: ""
+    });
+    expect(result.id).toBe("rr1");
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "rr1", member_id: "m1", role: "preacher" })
+    );
+  });
+
+  it("saves rotation rule generating id when missing", async () => {
+    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue("rr-uuid-1-2-3");
+    client.setNext({ data: { ...rotationRuleRow, id: "rr-uuid-1-2-3" }, error: null });
+    await backend().content.saveRotationRule({
+      memberId: "m1",
+      role: "sound",
+      frequency: "monthly_first",
+      weekday: 0,
+      ministry: "",
+      priority: 0,
+      active: true,
+      notes: ""
+    });
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(expect.objectContaining({ id: "rr-uuid-1-2-3" }));
+    uuid.mockRestore();
+  });
+
+  it("propagates supabase error on saveRotationRule", async () => {
+    client.setNext({ data: null, error: { message: "rr-save" } });
+    await expect(
+      backend().content.saveRotationRule({
+        memberId: "m1",
+        role: "preacher",
+        frequency: "every_week",
+        weekday: 0,
+        ministry: "",
+        priority: 0,
+        active: true,
+        notes: ""
+      })
+    ).rejects.toThrow("rr-save");
+  });
+
+  it("archives rotation rule through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.archiveRotationRule("rr1");
+    expect(client.rpc).toHaveBeenCalledWith("archive_rotation_rule", { p_id: "rr1" });
+  });
+
+  it("propagates rpc error on archiveRotationRule", async () => {
+    client.setNextRpc({ data: null, error: { message: "arc-rr-fail" } });
+    await expect(backend().content.archiveRotationRule("rr1")).rejects.toThrow("arc-rr-fail");
+  });
+
+  it("restores rotation rule through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.restoreRotationRule("rr1");
+    expect(client.rpc).toHaveBeenCalledWith("restore_rotation_rule", { p_id: "rr1" });
+  });
+
+  it("propagates rpc error on restoreRotationRule", async () => {
+    client.setNextRpc({ data: null, error: { message: "res-rr-fail" } });
+    await expect(backend().content.restoreRotationRule("rr1")).rejects.toThrow("res-rr-fail");
   });
 
   it("lists admins enriched via list_admins rpc", async () => {
