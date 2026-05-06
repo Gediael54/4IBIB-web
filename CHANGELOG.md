@@ -1,3 +1,9 @@
+# [1.12.0](https://github.com/Gediael54/4IBIB-web/compare/v1.11.0...v1.12.0) (2026-05-06)
+
+### Features
+
+- **admin:** apple-style MinistriesView with sortable cards ([0d54b40](https://github.com/Gediael54/4IBIB-web/commit/0d54b40769f8b62ac1081e7168618bac6d819864))
+
 # [1.11.0](https://github.com/Gediael54/4IBIB-web/compare/v1.10.0...v1.11.0) (2026-05-06)
 
 ### Features
