@@ -102,6 +102,7 @@ function getCurrentHash(): string {
 interface SiteHomeProps {
   pinnedAnnouncements: ReturnType<typeof getPinnedAnnouncements>;
   schedule: Parameters<typeof UpcomingEvents>[0]["schedule"];
+  commemorations: NonNullable<Parameters<typeof UpcomingEvents>[0]["commemorations"]>;
   prayerMutation: ReturnType<
     typeof useMutation<
       Awaited<ReturnType<typeof backend.content.createPrayerRequest>>,
@@ -116,6 +117,7 @@ interface SiteHomeProps {
 function SiteHome({
   pinnedAnnouncements,
   schedule,
+  commemorations,
   prayerMutation,
   prayerFormError,
   onPrayerRequest
@@ -224,7 +226,7 @@ function SiteHome({
           <CalendarDays />
         </div>
         <p className="schedule-subhead">Próximos eventos</p>
-        <UpcomingEvents schedule={schedule} />
+        <UpcomingEvents schedule={schedule} commemorations={commemorations} />
         <a href="#agenda" className="schedule-section-cta">
           <span>Ver agenda completa</span>
           <ArrowRight size={18} aria-hidden="true" />
@@ -480,6 +482,7 @@ export function App() {
     [snapshot]
   );
   const schedule = useMemo(() => snapshot?.schedule ?? [], [snapshot]);
+  const commemorations = useMemo(() => snapshot?.commemorations ?? [], [snapshot]);
 
   async function handlePrayerRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -531,7 +534,7 @@ export function App() {
     >
       <Suspense fallback={<p className="state-screen">Carregando...</p>}>
         {route === "agenda" ? (
-          <SchedulePage schedule={schedule} />
+          <SchedulePage schedule={schedule} commemorations={commemorations} />
         ) : route === "politica-privacidade" ? (
           <PrivacyPolicy />
         ) : route === "meus-dados" ? (
@@ -550,6 +553,7 @@ export function App() {
           <SiteHome
             pinnedAnnouncements={pinnedAnnouncements}
             schedule={schedule}
+            commemorations={commemorations}
             prayerMutation={prayerMutation}
             prayerFormError={prayerFormError}
             onPrayerRequest={handlePrayerRequest}

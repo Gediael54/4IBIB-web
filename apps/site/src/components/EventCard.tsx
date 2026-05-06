@@ -1,11 +1,13 @@
 import { Star, Youtube } from "lucide-react";
-import type { ReactNode } from "react";
-import type { ScheduleItem } from "@4ibib/core";
+import { useMemo, type ReactNode } from "react";
+import type { Commemoration, ScheduleItem } from "@4ibib/core";
 import { useChurchProfile } from "../lib/church-context";
+import { getCommemorationsForIso } from "../lib/commemoration";
 import { formatTime } from "../lib/date";
 import { displayLocation, getSoundTeam, occasionStyle, splitNames } from "../lib/event";
 import { useNow } from "../lib/use-now";
 import { extractYouTubeId } from "../lib/youtube";
+import CommemorationBadge from "./CommemorationBadge";
 
 export interface EventCardProps {
   item: ScheduleItem;
@@ -13,6 +15,7 @@ export interface EventCardProps {
   showDay?: boolean;
   dayLabel?: string;
   highlight?: string;
+  commemorations?: Commemoration[];
 }
 
 function classNames(item: ScheduleItem, compact: boolean): string {
@@ -77,7 +80,8 @@ export default function EventCard({
   compact = false,
   showDay = false,
   dayLabel,
-  highlight = ""
+  highlight = "",
+  commemorations = []
 }: EventCardProps) {
   const church = useChurchProfile();
   const occasion = occasionStyle(item.occasionLabel);
@@ -87,6 +91,10 @@ export default function EventCard({
   const youtubeId = extractYouTubeId(item.youtubeUrl);
   const now = useNow();
   const showYoutubeCta = item.status !== "free" && Date.parse(item.endsAt) < now && youtubeId !== null;
+  const dayHighlights = useMemo(
+    () => getCommemorationsForIso(commemorations, item.startsAt),
+    [commemorations, item.startsAt]
+  );
 
   return (
     <article
@@ -104,6 +112,13 @@ export default function EventCard({
         >
           {occasion.label}
         </span>
+      )}
+      {dayHighlights.length > 0 && (
+        <div className="commemoration-badges" aria-label="Datas comemorativas">
+          {dayHighlights.map((highlight) => (
+            <CommemorationBadge key={highlight.id} highlight={highlight} />
+          ))}
+        </div>
       )}
       <div className="event-card-head">
         <time className="event-card-time" dateTime={item.startsAt}>

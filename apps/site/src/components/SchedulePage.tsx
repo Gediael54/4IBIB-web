@@ -1,15 +1,18 @@
 import { ArrowLeft, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import type { ScheduleItem } from "@4ibib/core";
+import type { Commemoration, ScheduleItem } from "@4ibib/core";
 import { sortSchedule } from "@4ibib/core";
 import { useChurchProfile } from "../lib/church-context";
+import { getCommemorationsForMonth, monthLabelPt } from "../lib/commemoration";
 import { formatMonthShort, formatWeekdayLong, getDayKey, getMonthKey, getZonedParts } from "../lib/date";
 import { categoryOf, monthThemesFor, nameMatches, splitNames, type ScheduleCategory } from "../lib/event";
 import EventCard from "./EventCard";
+import MonthBanner from "./MonthBanner";
 
 export interface SchedulePageProps {
   schedule: ScheduleItem[];
+  commemorations?: Commemoration[];
 }
 
 interface DayGroup {
@@ -81,7 +84,7 @@ const TYPE_OPTIONS: { value: ScheduleCategory; label: string }[] = [
   { value: "especiais", label: "Eventos especiais" }
 ];
 
-export default function SchedulePage({ schedule }: SchedulePageProps) {
+export default function SchedulePage({ schedule, commemorations = [] }: SchedulePageProps) {
   const church = useChurchProfile();
   const [query, setQuery] = useState<string>(() => getInitialQuery());
   const monthOptions = useMemo(() => buildMonthOptions(schedule), [schedule]);
@@ -155,6 +158,18 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
 
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
   const monthThemes = useMemo(() => monthThemesFor(filtered), [filtered]);
+  const monthHighlights = useMemo(() => {
+    if (!monthValue) return [];
+    const monthNumber = Number(monthValue.split("-")[1]);
+    if (!Number.isFinite(monthNumber)) return [];
+    return getCommemorationsForMonth(commemorations, monthNumber);
+  }, [commemorations, monthValue]);
+  const selectedMonthLabel = useMemo(() => {
+    if (!monthValue) return undefined;
+    const monthNumber = Number(monthValue.split("-")[1]);
+    if (!Number.isFinite(monthNumber)) return undefined;
+    return monthLabelPt(monthNumber);
+  }, [monthValue]);
 
   function handleQueryChange(event: ChangeEvent<HTMLInputElement>) {
     setQuery(event.target.value);
@@ -312,6 +327,8 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
         </aside>
       )}
 
+      <MonthBanner highlights={monthHighlights} monthLabel={selectedMonthLabel} />
+
       <section className="schedule-page-list" aria-label="Lista de eventos">
         {grouped.length === 0 ? (
           <div className="schedule-page-empty">
@@ -329,7 +346,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
               <ul className="schedule-page-day-events">
                 {group.items.map((item) => (
                   <li key={item.id}>
-                    <EventCard item={item} highlight={query} />
+                    <EventCard item={item} highlight={query} commemorations={commemorations} />
                   </li>
                 ))}
               </ul>

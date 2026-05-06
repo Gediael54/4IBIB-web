@@ -1,12 +1,15 @@
 import { useMemo } from "react";
 import { getUpcomingSchedule } from "@4ibib/core";
-import type { ScheduleItem } from "@4ibib/core";
+import type { Commemoration, ScheduleItem } from "@4ibib/core";
 import { formatMonthShort, formatWeekdayShort, getZonedParts } from "../lib/date";
 import { monthThemesFor } from "../lib/event";
+import { getCurrentMonthCommemorations } from "../lib/commemoration";
 import EventCard from "./EventCard";
+import MonthBanner from "./MonthBanner";
 
 export interface UpcomingEventsProps {
   schedule: ScheduleItem[];
+  commemorations?: Commemoration[];
   limit?: number;
 }
 
@@ -17,9 +20,10 @@ function buildDayLabel(iso: string): string {
   return `${weekday} · ${parts.day} ${month}`;
 }
 
-export default function UpcomingEvents({ schedule, limit = 5 }: UpcomingEventsProps) {
+export default function UpcomingEvents({ schedule, commemorations = [], limit = 5 }: UpcomingEventsProps) {
   const upcoming = useMemo(() => getUpcomingSchedule(schedule, limit), [schedule, limit]);
   const themes = useMemo(() => monthThemesFor(upcoming), [upcoming]);
+  const monthHighlights = useMemo(() => getCurrentMonthCommemorations(commemorations), [commemorations]);
 
   if (upcoming.length === 0) {
     return null;
@@ -40,10 +44,17 @@ export default function UpcomingEvents({ schedule, limit = 5 }: UpcomingEventsPr
           ))}
         </aside>
       )}
+      <MonthBanner highlights={monthHighlights} />
       <ul className="upcoming-events" aria-label="Próximos eventos">
         {upcoming.map((item) => (
           <li key={item.id}>
-            <EventCard item={item} compact showDay dayLabel={buildDayLabel(item.startsAt)} />
+            <EventCard
+              item={item}
+              compact
+              showDay
+              dayLabel={buildDayLabel(item.startsAt)}
+              commemorations={commemorations}
+            />
           </li>
         ))}
       </ul>
