@@ -97,6 +97,7 @@ function makeMember(overrides: Partial<Member> = {}): Member {
     consentGivenAt: null,
     consentVersion: "1.0",
     publicDirectory: false,
+    publicBio: "",
     dataRetentionUntil: null,
     deletedAt: null,
     createdAt: "2026-01-01T00:00:00.000Z",
