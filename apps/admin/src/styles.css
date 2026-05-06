@@ -1,6 +1,7 @@
 @import "./styles/tokens.css";
 @import "./styles/commemoration.css";
 @import "./styles/views-polish.css";
+@import "./styles/mobile-polish.css";
 
 * {
   box-sizing: border-box;

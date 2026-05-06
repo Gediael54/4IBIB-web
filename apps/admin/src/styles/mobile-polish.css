@@ -1,0 +1,152 @@
+/* === Mobile polish for admin views === */
+/* Refinamentos visuais para AnnualGrid (table-as-cards) e AuditLog (filter drawer) no mobile */
+
+@media (max-width: 767px) {
+  /* AnnualGrid card polish */
+
+  .annual-grid tbody tr {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    background: var(--bg-elevated);
+    transition:
+      transform 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .annual-grid tbody tr:focus-within {
+    box-shadow:
+      0 0 0 3px var(--accent-ring),
+      var(--shadow-sm);
+    transform: translateY(-1px);
+  }
+
+  .annual-grid tbody tr td {
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .annual-grid td.annual-cell-date {
+    background: linear-gradient(180deg, var(--bg-sunken), transparent);
+    margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-4)) 0;
+    padding: var(--space-3) var(--space-4) var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .annual-grid td.annual-cell-date strong {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    text-transform: capitalize;
+    display: block;
+  }
+
+  .annual-grid td.annual-cell-date small {
+    color: var(--text-tertiary);
+    font-size: var(--text-xs);
+    display: block;
+    margin-top: 2px;
+  }
+
+  .annual-grid td.annual-cell-event {
+    padding-bottom: var(--space-3);
+  }
+
+  .annual-grid td.annual-cell-event strong {
+    font-size: var(--text-base);
+    color: var(--text-primary);
+  }
+
+  .annual-grid td.annual-cell-event small {
+    color: var(--text-tertiary);
+    font-size: var(--text-xs);
+    display: block;
+    margin-top: 2px;
+    text-transform: capitalize;
+  }
+
+  .annual-grid td::before {
+    color: var(--text-tertiary);
+    font-size: var(--text-xs);
+  }
+
+  .annual-grid .annual-cell-button {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease;
+    width: 100%;
+    text-align: right;
+  }
+
+  .annual-grid .annual-cell-button:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .annual-cell-empty .annual-cell-button {
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
+
+  .annual-cell-pending .annual-cell-button {
+    border-color: var(--warning);
+    background: var(--warning-soft);
+  }
+
+  /* AuditLog: drawer polish (filtros via Modal já existente, mas com cara de bottom sheet em mobile) */
+
+  .audit-filters-trigger {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-sm);
+  }
+
+  .audit-filters-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+  }
+
+  .audit-filters-modal {
+    gap: var(--space-4);
+  }
+
+  .audit-filters-modal label {
+    gap: var(--space-2);
+  }
+
+  .audit-filters-modal select,
+  .audit-filters-modal input {
+    padding: 12px;
+    font-size: var(--text-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated);
+  }
+
+  /* Audit row card */
+
+  .audit-row {
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    background: var(--bg-elevated);
+  }
+
+  .audit-row > div:first-child {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .audit-row strong {
+    font-size: var(--text-base);
+    color: var(--text-primary);
+  }
+}
