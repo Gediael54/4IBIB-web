@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSnapshot: vi.fn(),
-  createPrayerRequest: vi.fn()
+  createPrayerRequest: vi.fn(),
+  listMembers: vi.fn()
 }));
 
 vi.mock("./backend", () => ({
@@ -13,7 +14,8 @@ vi.mock("./backend", () => ({
     mode: "supabase",
     content: {
       getSnapshot: mocks.getSnapshot,
-      createPrayerRequest: mocks.createPrayerRequest
+      createPrayerRequest: mocks.createPrayerRequest,
+      listMembers: mocks.listMembers
     }
   }
 }));
@@ -47,6 +49,7 @@ describe("public site", () => {
       recurringMeetings: []
     });
     mocks.createPrayerRequest.mockReset();
+    mocks.listMembers.mockResolvedValue([]);
     window.location.hash = "";
   });
 
