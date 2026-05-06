@@ -1,30 +1,36 @@
-import { buildWhatsAppForContact, formatDateTime, type AdminUser, type PrayerRequest } from "@4ibib/core";
-import { HeartHandshake, Trash2 } from "lucide-react";
-import { useMemo } from "react";
+import { formatDateTime, type PrayerRequest, type PrayerStatus } from "@4ibib/core";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  pointerWithin,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent
+} from "@dnd-kit/core";
+import { HeartHandshake } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
-import { ListView } from "../components/ListView";
+import ViewHeader from "../components/Layout/ViewHeader";
 import { useToast } from "../components/Toast";
-import { ListToolbar, Pagination, SelectField, TextAreaField } from "../components/ui";
+import { ListToolbar, SelectField } from "../components/ui";
 import {
-  useAdmins,
   useArchivePrayerRequest,
   useRestorePrayerRequest,
   useUpdatePrayer,
   useUpdatePrayerStatus
 } from "../hooks";
 import { PRAYER_STATUS_OPTIONS } from "../lib/labels";
-import { TEXTAREA_MAX } from "../lib/limits";
-import {
-  compareText,
-  matchesSearch,
-  normalizeSearch,
-  paginateItems,
-  type ListState
-} from "../lib/list-state";
+import { matchesSearch, normalizeSearch, type ListState } from "../lib/list-state";
 import { PRAYER_SORT_OPTIONS } from "../lib/sort-options";
+import { PRAYER_COLUMNS } from "./prayers/columns";
+import PrayerCard from "./prayers/PrayerCard";
+import PrayerColumn from "./prayers/PrayerColumn";
+import PrayerDetailSheet from "./prayers/PrayerDetailSheet";
 
-const PRAYER_STATUS_CSV_LABELS: Record<PrayerRequest["status"], string> = {
+const PRAYER_STATUS_CSV_LABELS: Record<PrayerStatus, string> = {
   novo: "novo",
   em_oracao: "em oracao",
   concluido: "concluido"
@@ -77,15 +83,20 @@ interface PrayersViewProps {
   prayers: PrayerRequest[];
   state: ListState;
   onStateChange: (patch: Partial<ListState>) => void;
-  statusFilter: PrayerRequest["status"] | "all";
-  onStatusFilterChange: (value: PrayerRequest["status"] | "all") => void;
+  statusFilter: PrayerStatus | "all";
+  onStatusFilterChange: (value: PrayerStatus | "all") => void;
 }
 
-const WHATSAPP_DEFAULT_MESSAGE = "Ola, recebemos seu pedido de oracao na 4a Betel. Estamos orando por voce.";
-
-function formatAdminLabel(admin: AdminUser): string {
-  if (admin.email) return admin.email;
-  return `(sem email) - ${admin.userId.slice(0, 6)}`;
+function sortPrayers(items: PrayerRequest[], sort: ListState["sort"]): PrayerRequest[] {
+  return [...items].sort((left, right) => {
+    if (sort === "createdAsc") {
+      return Date.parse(left.createdAt) - Date.parse(right.createdAt);
+    }
+    if (sort === "nameAsc") {
+      return left.name.localeCompare(right.name, "pt-BR");
+    }
+    return Date.parse(right.createdAt) - Date.parse(left.createdAt);
+  });
 }
 
 export default function PrayersView({
@@ -99,15 +110,47 @@ export default function PrayersView({
   const updatePrayerMutation = useUpdatePrayer();
   const archiveMutation = useArchivePrayerRequest();
   const restoreMutation = useRestorePrayerRequest();
-  const adminsQuery = useAdmins();
-  const admins = adminsQuery.data ?? [];
   const { toast } = useToast();
   const confirm = useConfirm();
+
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const [draggingFromStatus, setDraggingFromStatus] = useState<PrayerStatus | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const filteredSorted = useMemo(() => {
+    const query = normalizeSearch(state.search);
+    const filtered = prayers.filter((item) => {
+      const statusMatches = statusFilter === "all" || item.status === statusFilter;
+      return statusMatches && matchesSearch(query, [item.name, item.contact, item.message, item.status]);
+    });
+    return sortPrayers(filtered, state.sort);
+  }, [prayers, state.search, state.sort, statusFilter]);
+
+  const itemsByStatus = useMemo(() => {
+    const buckets: Record<PrayerStatus, PrayerRequest[]> = {
+      novo: [],
+      em_oracao: [],
+      concluido: []
+    };
+    for (const request of filteredSorted) {
+      buckets[request.status].push(request);
+    }
+    return buckets;
+  }, [filteredSorted]);
+
+  const activeRequest = useMemo(
+    () => prayers.find((item) => item.id === activeRequestId) ?? null,
+    [prayers, activeRequestId]
+  );
 
   async function handleArchive(request: PrayerRequest) {
     const ok = await confirm({
       title: "Arquivar pedido?",
-      message: `O pedido de ${request.name} sera arquivado e some da lista. Voce pode desfazer.`,
+      message: `O pedido de ${request.name || "Anonimo"} sera arquivado e some da lista. Voce pode desfazer.`,
       confirmText: "Arquivar",
       destructive: true
     });
@@ -117,36 +160,58 @@ export default function PrayersView({
     try {
       await archiveMutation.mutateAsync(request.id);
       toast.undo({
-        message: `Pedido de ${request.name} arquivado.`,
+        message: `Pedido de ${request.name || "Anonimo"} arquivado.`,
         onUndo: () => restoreMutation.mutate(request.id)
       });
+      if (activeRequestId === request.id) {
+        setActiveRequestId(null);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nao consegui arquivar — tenta de novo?";
       toast(message, { variant: "danger" });
     }
   }
 
-  const filteredSorted = useMemo(() => {
-    const query = normalizeSearch(state.search);
-    const filtered = prayers.filter((item) => {
-      const statusMatches = statusFilter === "all" || item.status === statusFilter;
-      return statusMatches && matchesSearch(query, [item.name, item.contact, item.message, item.status]);
+  function handleMarkSeen(request: PrayerRequest) {
+    updatePrayerMutation.mutate({
+      id: request.id,
+      patch: { seenAt: new Date().toISOString() }
     });
-    return [...filtered].sort((left, right) => {
-      if (state.sort === "createdAsc") {
-        return Date.parse(left.createdAt) - Date.parse(right.createdAt);
-      }
-      if (state.sort === "statusAsc") {
-        return compareText(left.status, right.status);
-      }
-      if (state.sort === "nameAsc") {
-        return compareText(left.name, right.name);
-      }
-      return Date.parse(right.createdAt) - Date.parse(left.createdAt);
-    });
-  }, [prayers, state.search, state.sort, statusFilter]);
+  }
 
-  const list = useMemo(() => paginateItems(filteredSorted, state.page), [filteredSorted, state.page]);
+  function handleMoveStatus(request: PrayerRequest, status: PrayerStatus) {
+    if (request.status === status) return;
+    updateStatusMutation.mutate({ id: request.id, status });
+  }
+
+  function handleSaveNotes(id: string, pastoralNotes: string) {
+    updatePrayerMutation.mutate(
+      { id, patch: { pastoralNotes } },
+      {
+        onSuccess: () => toast("Notas pastorais salvas.", { variant: "success" }),
+        onError: (error) => {
+          const message =
+            error instanceof Error ? error.message : "Nao consegui salvar as notas — tenta de novo?";
+          toast(message, { variant: "danger" });
+        }
+      }
+    );
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    const status = event.active.data.current?.status as PrayerStatus | undefined;
+    setDraggingFromStatus(status ?? null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setDraggingFromStatus(null);
+    const { active, over } = event;
+    if (!over) return;
+    const targetStatus = over.data.current?.status as PrayerStatus | undefined;
+    const sourceStatus = active.data.current?.status as PrayerStatus | undefined;
+    if (!targetStatus || !sourceStatus || targetStatus === sourceStatus) return;
+    updateStatusMutation.mutate({ id: String(active.id), status: targetStatus });
+  }
 
   function handleExportCsv() {
     if (filteredSorted.length === 0) return;
@@ -154,34 +219,14 @@ export default function PrayersView({
     downloadCsv(`pedidos-oracao-${csvDateStamp(new Date())}.csv`, csv);
   }
 
+  const totalVisible = filteredSorted.length;
+
   return (
-    <ListView
-      title="Pedidos de oracao"
-      count={list.total}
-      toolbar={
-        <ListToolbar
-          search={state.search}
-          searchLabel="Nome, contato, pedido ou status"
-          sort={state.sort}
-          sortOptions={PRAYER_SORT_OPTIONS}
-          total={list.total}
-          onSearch={(search) => onStateChange({ search, page: 1 })}
-          onSort={(sort) => onStateChange({ sort, page: 1 })}
-        >
-          <SelectField
-            label="Status"
-            value={statusFilter}
-            onChange={(event) => {
-              onStatusFilterChange(event.currentTarget.value as PrayerRequest["status"] | "all");
-              onStateChange({ page: 1 });
-            }}
-          >
-            {PRAYER_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </SelectField>
+    <section className="prayers-kanban-view">
+      <ViewHeader
+        title="Pedidos de oração"
+        lead="Acompanhe quem pediu oração, mova entre etapas e registre o cuidado pastoral."
+        secondaryActions={
           <button
             type="button"
             className="button ghost"
@@ -190,120 +235,86 @@ export default function PrayersView({
           >
             Exportar CSV
           </button>
-        </ListToolbar>
-      }
-      items={list.items}
-      getId={(item) => item.id}
-      emptyState={
+        }
+      />
+
+      <ListToolbar
+        search={state.search}
+        searchLabel="Nome, contato, pedido ou status"
+        sort={state.sort}
+        sortOptions={PRAYER_SORT_OPTIONS}
+        total={totalVisible}
+        onSearch={(search) => onStateChange({ search, page: 1 })}
+        onSort={(sort) => onStateChange({ sort, page: 1 })}
+      >
+        <SelectField
+          label="Status"
+          value={statusFilter}
+          onChange={(event) => {
+            onStatusFilterChange(event.currentTarget.value as PrayerStatus | "all");
+            onStateChange({ page: 1 });
+          }}
+        >
+          {PRAYER_STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </SelectField>
+      </ListToolbar>
+
+      {totalVisible === 0 ? (
         <EmptyState
           icon={<HeartHandshake size={32} />}
           title="Nenhum pedido encontrado."
           description="Quando alguem enviar um pedido de oracao, ele aparece aqui."
         />
-      }
-      footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
-      renderItem={(request) => {
-        const whatsappUrl = request.contact
-          ? buildWhatsAppForContact(request.contact, WHATSAPP_DEFAULT_MESSAGE)
-          : null;
-        return (
-          <article className="prayer-row">
-            <div className="prayer-main">
-              <strong>{request.name}</strong>
-              <span>{formatDateTime(request.createdAt)}</span>
-              <span>{request.contact || "Sem contato"}</span>
-              <p>{request.message}</p>
-              <div className="prayer-meta">
-                {request.seenAt ? (
-                  <span className="prayer-seen">Visto em {formatDateTime(request.seenAt)}</span>
-                ) : (
-                  <button
-                    className="button ghost"
-                    type="button"
-                    onClick={() =>
-                      updatePrayerMutation.mutate({
-                        id: request.id,
-                        patch: { seenAt: new Date().toISOString() }
-                      })
-                    }
-                  >
-                    Marcar como visto
-                  </button>
-                )}
-                {whatsappUrl ? (
-                  <a className="button ghost" href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-                    Enviar mensagem
-                  </a>
-                ) : (
-                  <button className="button ghost" type="button" disabled title="Contato sem telefone">
-                    Enviar mensagem
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={() => handleArchive(request)}
-                  aria-label={`Arquivar pedido de ${request.name}`}
-                  title="Arquivar"
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setDraggingFromStatus(null)}
+        >
+          <div className="prayers-kanban-board">
+            {PRAYER_COLUMNS.map((column) => {
+              const columnItems = itemsByStatus[column.status];
+              return (
+                <PrayerColumn
+                  key={column.status}
+                  config={column}
+                  items={columnItems}
+                  isDropTarget={draggingFromStatus !== null && draggingFromStatus !== column.status}
+                  draggingFromStatus={draggingFromStatus}
                 >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-              <details className="prayer-notes">
-                <summary>Notas pastorais (admin)</summary>
-                <TextAreaField
-                  label="Notas pastorais"
-                  defaultValue={request.pastoralNotes}
-                  maxLength={TEXTAREA_MAX}
-                  key={request.pastoralNotes}
-                  onBlur={(event) => {
-                    const value = event.currentTarget.value;
-                    if (value !== request.pastoralNotes) {
-                      updatePrayerMutation.mutate({
-                        id: request.id,
-                        patch: { pastoralNotes: value }
-                      });
-                    }
-                  }}
-                />
-              </details>
-            </div>
-            <div className="prayer-controls">
-              <SelectField
-                label="Status"
-                value={request.status}
-                onChange={(event) =>
-                  updateStatusMutation.mutate({
-                    id: request.id,
-                    status: event.currentTarget.value as PrayerRequest["status"]
-                  })
-                }
-              >
-                <option value="novo">Novo</option>
-                <option value="em_oracao">Em oracao</option>
-                <option value="concluido">Concluido</option>
-              </SelectField>
-              <SelectField
-                label="Atribuido"
-                value={request.assignedTo ?? ""}
-                onChange={(event) =>
-                  updatePrayerMutation.mutate({
-                    id: request.id,
-                    patch: { assignedTo: event.currentTarget.value || null }
-                  })
-                }
-              >
-                <option value="">(nao atribuido)</option>
-                {admins.map((admin) => (
-                  <option key={admin.userId} value={admin.userId}>
-                    {formatAdminLabel(admin)}
-                  </option>
-                ))}
-              </SelectField>
-            </div>
-          </article>
-        );
-      }}
-    />
+                  {columnItems.length === 0 ? (
+                    <p className="prayer-kanban-empty">Sem pedidos nesta coluna.</p>
+                  ) : (
+                    columnItems.map((request) => (
+                      <PrayerCard
+                        key={request.id}
+                        request={request}
+                        onOpen={() => setActiveRequestId(request.id)}
+                        onMarkSeen={() => handleMarkSeen(request)}
+                        onMoveStatus={(status) => handleMoveStatus(request, status)}
+                        onArchive={() => handleArchive(request)}
+                      />
+                    ))
+                  )}
+                </PrayerColumn>
+              );
+            })}
+          </div>
+        </DndContext>
+      )}
+
+      <PrayerDetailSheet
+        request={activeRequest}
+        onClose={() => setActiveRequestId(null)}
+        onSaveNotes={handleSaveNotes}
+        saving={updatePrayerMutation.isPending}
+      />
+    </section>
   );
 }

@@ -83,9 +83,12 @@ describe("PrayersView", () => {
     expect(screen.getByText("Nenhum pedido encontrado.")).toBeInTheDocument();
   });
 
-  it("lists prayers when data is available", () => {
+  it("lists prayers in their kanban column when data is available", () => {
     renderView([makePrayer({ id: "p1", name: "Pedido Joao" })]);
     expect(screen.getByText("Pedido Joao")).toBeInTheDocument();
+    expect(screen.getByLabelText("Novos")).toBeInTheDocument();
+    expect(screen.getByLabelText("Em oração")).toBeInTheDocument();
+    expect(screen.getByLabelText("Concluídos")).toBeInTheDocument();
   });
 
   it("marks a prayer as visto when 'Marcar como visto' clicked", async () => {
@@ -136,25 +139,25 @@ describe("PrayersView", () => {
     expect(mocks.archivePrayerRequest).not.toHaveBeenCalled();
   });
 
-  it("changes status when select is updated", async () => {
+  it("changes status when a transition action is clicked", async () => {
     renderView([makePrayer({ id: "p1", name: "Joao Status" })]);
 
-    const statusSelect = screen.getAllByLabelText("Status")[1] as HTMLSelectElement;
-    fireEvent.change(statusSelect, { target: { value: "concluido" } });
+    fireEvent.click(screen.getByRole("button", { name: /Mover pedido de Joao Status para Concluído/i }));
 
     await waitFor(() => {
       expect(mocks.updatePrayerRequestStatus).toHaveBeenCalledWith("p1", "concluido");
     });
   });
 
-  it("updates pastoral notes on textarea blur", async () => {
+  it("updates pastoral notes through the detail sheet", async () => {
     renderView([makePrayer({ id: "p1", name: "Joao Notas" })]);
 
-    fireEvent.click(screen.getByText("Notas pastorais (admin)"));
+    fireEvent.click(screen.getByRole("button", { name: "Abrir pedido de Joao Notas" }));
 
-    const notesField = screen.getByLabelText("Notas pastorais") as HTMLTextAreaElement;
+    const notesField = await screen.findByLabelText("Notas pastorais");
     fireEvent.change(notesField, { target: { value: "Anotei observacao." } });
-    fireEvent.blur(notesField);
+
+    fireEvent.click(screen.getByRole("button", { name: /Salvar notas/i }));
 
     await waitFor(() => {
       expect(mocks.updatePrayerRequest).toHaveBeenCalledTimes(1);
