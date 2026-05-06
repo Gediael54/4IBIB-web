@@ -7,6 +7,8 @@ import {
   formatDateTime,
   formatInputDateTime,
   formatTimeRange,
+  getDayCommemorations,
+  getMonthCommemorations,
   getPinnedAnnouncements,
   getScheduleInRange,
   getUpcomingSchedule,
@@ -16,6 +18,7 @@ import {
   sortAdmins,
   sortAnnouncements,
   sortAuditLog,
+  sortCommemorations,
   sortMinistries,
   sortRecurringMeetings,
   sortSchedule,
@@ -24,6 +27,7 @@ import {
   type AdminUser,
   type Announcement,
   type AuditLogEntry,
+  type Commemoration,
   type MinistryRecord,
   type RecurringMeetingRecord,
   type ScheduleItem,
@@ -342,6 +346,60 @@ it("sorts recurring meetings by sortOrder then weekday then time", () => {
   ];
   expect(sortRecurringMeetings(items).map((item) => item.id)).toEqual(["d", "c", "b", "a"]);
   expect(sortRecurringMeetings([])).toEqual([]);
+});
+
+function makeCommemoration(overrides: Partial<Commemoration> = {}): Commemoration {
+  return {
+    id: "c1",
+    name: "Mes de Missoes",
+    type: "month",
+    month: 7,
+    dayOfMonth: null,
+    description: "",
+    color: "#0f766e",
+    sortOrder: 0,
+    ...overrides
+  };
+}
+
+it("sorts commemorations by month, sortOrder, day, then name", () => {
+  const items: Commemoration[] = [
+    makeCommemoration({ id: "later-month", month: 8, name: "Agosto" }),
+    makeCommemoration({ id: "may-day-late", month: 5, type: "day", dayOfMonth: 12, name: "Maes" }),
+    makeCommemoration({ id: "may-day-early", month: 5, type: "day", dayOfMonth: 1, name: "Trabalho" }),
+    makeCommemoration({ id: "may-month", month: 5, name: "Mes de Maio", sortOrder: 0 }),
+    makeCommemoration({ id: "may-tied-name-z", month: 5, type: "day", dayOfMonth: 1, name: "Zebra" })
+  ];
+  expect(sortCommemorations(items).map((item) => item.id)).toEqual([
+    "may-month",
+    "may-day-early",
+    "may-tied-name-z",
+    "may-day-late",
+    "later-month"
+  ]);
+  expect(sortCommemorations([])).toEqual([]);
+});
+
+it("filters commemorations to month-type entries for the given month", () => {
+  const items: Commemoration[] = [
+    makeCommemoration({ id: "july", month: 7, name: "Mes de Missoes" }),
+    makeCommemoration({ id: "may", month: 5, name: "Mes de Maio" }),
+    makeCommemoration({ id: "may-day", month: 5, type: "day", dayOfMonth: 10, name: "Dia das Maes" })
+  ];
+  expect(getMonthCommemorations(items, 7).map((item) => item.id)).toEqual(["july"]);
+  expect(getMonthCommemorations(items, 5).map((item) => item.id)).toEqual(["may"]);
+  expect(getMonthCommemorations(items, 12)).toEqual([]);
+});
+
+it("filters commemorations to day-type entries for the given month and day", () => {
+  const items: Commemoration[] = [
+    makeCommemoration({ id: "may-mothers", month: 5, type: "day", dayOfMonth: 10, name: "Maes" }),
+    makeCommemoration({ id: "may-month", month: 5, name: "Mes de Maio" }),
+    makeCommemoration({ id: "june-fathers", month: 6, type: "day", dayOfMonth: 12, name: "Pais" })
+  ];
+  expect(getDayCommemorations(items, 5, 10).map((item) => item.id)).toEqual(["may-mothers"]);
+  expect(getDayCommemorations(items, 5, 11)).toEqual([]);
+  expect(getDayCommemorations(items, 6, 12).map((item) => item.id)).toEqual(["june-fathers"]);
 });
 
 it("sorts audit log by changedAt descending", () => {

@@ -228,6 +228,19 @@ export interface RecurringMeetingRecord {
   sortOrder: number;
 }
 
+export type CommemorationType = "month" | "day";
+
+export interface Commemoration {
+  id: string;
+  name: string;
+  type: CommemorationType;
+  month: number;
+  dayOfMonth: number | null;
+  description: string;
+  color: string;
+  sortOrder: number;
+}
+
 export type AdminRole = "owner" | "editor";
 
 export interface AdminUser {
@@ -356,6 +369,17 @@ export type RecurringMeetingInput = {
   sortOrder: number;
 };
 
+export type CommemorationInput = {
+  id?: string;
+  name: string;
+  type: CommemorationType;
+  month: number;
+  dayOfMonth: number | null;
+  description: string;
+  color: string;
+  sortOrder: number;
+};
+
 export interface InviteAdminInput {
   email: string;
   role: AdminRole;
@@ -368,6 +392,7 @@ export interface SiteSnapshot {
   profile: ChurchProfile | null;
   ministries: MinistryRecord[];
   recurringMeetings: RecurringMeetingRecord[];
+  commemorations: Commemoration[];
 }
 
 export interface AdminSession {
@@ -474,6 +499,13 @@ export interface RecurringMeetingRepo {
   deleteRecurringMeeting(id: string): Promise<void>;
 }
 
+export interface CommemorationRepo {
+  listCommemorations(): Promise<Commemoration[]>;
+  saveCommemoration(input: CommemorationInput): Promise<Commemoration>;
+  archiveCommemoration(id: string): Promise<void>;
+  restoreCommemoration(id: string): Promise<void>;
+}
+
 export interface AdminRepo {
   listAdmins(): Promise<AdminUser[]>;
   inviteAdmin(input: InviteAdminInput): Promise<AdminUser>;
@@ -504,7 +536,8 @@ export interface ContentRepository
     SnapshotRepo,
     MemberRepo,
     HouseholdRepo,
-    RelationshipRepo {}
+    RelationshipRepo,
+    CommemorationRepo {}
 
 export interface AuthGateway {
   getSession(): Promise<AdminSession | null>;
@@ -600,6 +633,36 @@ export function sortRecurringMeetings(items: RecurringMeetingRecord[]): Recurrin
 
     return left.startsAt.localeCompare(right.startsAt);
   });
+}
+
+export function sortCommemorations(items: Commemoration[]): Commemoration[] {
+  return [...items].sort((left, right) => {
+    if (left.month !== right.month) {
+      return left.month - right.month;
+    }
+
+    if (left.sortOrder !== right.sortOrder) {
+      return left.sortOrder - right.sortOrder;
+    }
+
+    const leftDay = left.dayOfMonth ?? 0;
+    const rightDay = right.dayOfMonth ?? 0;
+    if (leftDay !== rightDay) {
+      return leftDay - rightDay;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
+}
+
+export function getMonthCommemorations(items: Commemoration[], month: number): Commemoration[] {
+  return sortCommemorations(items.filter((item) => item.type === "month" && item.month === month));
+}
+
+export function getDayCommemorations(items: Commemoration[], month: number, day: number): Commemoration[] {
+  return sortCommemorations(
+    items.filter((item) => item.type === "day" && item.month === month && item.dayOfMonth === day)
+  );
 }
 
 export function sortAuditLog(items: AuditLogEntry[]): AuditLogEntry[] {
