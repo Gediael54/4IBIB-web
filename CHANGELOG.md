@@ -1,3 +1,9 @@
+## [1.7.1](https://github.com/Gediael54/4IBIB-web/compare/v1.7.0...v1.7.1) (2026-05-06)
+
+### Bug Fixes
+
+- **site:** site nav always opaque with dark text for legibility ([55b5599](https://github.com/Gediael54/4IBIB-web/commit/55b559948b0ed657ac6c10cb59a0cfbe6962419f))
+
 # [1.7.0](https://github.com/Gediael54/4IBIB-web/compare/v1.6.0...v1.7.0) (2026-05-06)
 
 ### Features
