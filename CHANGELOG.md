@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/Gediael54/4IBIB-web/compare/v1.2.0...v1.3.0) (2026-05-06)
+
+### Features
+
+- **site:** add Confession of Faith page with placeholder content ([98f47ed](https://github.com/Gediael54/4IBIB-web/commit/98f47ed929060de28cd54edfa1767d29d85b6320))
+- **site:** add Donations page with PIX CNPJ and copy button ([e0b40d1](https://github.com/Gediael54/4IBIB-web/commit/e0b40d1e2a5906b429e9ed16f0a378191cf0eb7f))
+- **site:** add First Time page with 5 FAQ cards for visitors ([4aa2ab0](https://github.com/Gediael54/4IBIB-web/commit/4aa2ab0ba892c7e3ddfa768e4311086373c2fee6))
+- **site:** add Quem Somos landing with cards to sub-pages ([ad3f2b5](https://github.com/Gediael54/4IBIB-web/commit/ad3f2b5628ddf57bec96378bcf348ae892aab8ec))
+- **site:** add SiteNav with sticky scroll, dropdown and mobile drawer ([1615395](https://github.com/Gediael54/4IBIB-web/commit/1615395fe28d01946c3b7da806d41c78b62aca33))
+- **site:** add Teachings page listing past events with YouTube recording ([1a626eb](https://github.com/Gediael54/4IBIB-web/commit/1a626eb707c45fe1bb11048f156a6b69d999b8cc))
+- **site:** wire SiteNav and lazy multipage routes for new sections ([3b78a20](https://github.com/Gediael54/4IBIB-web/commit/3b78a203f04acf4c95bd9add1536c2dee24fe630))
+
 # [1.2.0](https://github.com/Gediael54/4IBIB-web/compare/v1.1.0...v1.2.0) (2026-05-06)
 
 ### Features
