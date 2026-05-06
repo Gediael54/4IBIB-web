@@ -1,8 +1,9 @@
-import type { PrayerRequest, ScheduleItem, SiteSnapshot } from "@4ibib/core";
+import { formatDateTime, type PrayerRequest, type ScheduleItem, type SiteSnapshot } from "@4ibib/core";
 
 type AdminView =
   | "announcements"
   | "schedule"
+  | "members"
   | "volunteers"
   | "prayers"
   | "profile"
@@ -17,6 +18,7 @@ interface DashboardViewProps {
 }
 
 type CardTone = "default" | "warning" | "alert";
+type Severity = 0 | 1 | 2 | 3;
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
@@ -56,15 +58,12 @@ function countStalePinned(snapshot: SiteSnapshot): number {
     if (!announcement.pinned) {
       return false;
     }
-
     if (announcement.status === "archived") {
       return true;
     }
-
     if (announcement.expiresAt && Date.parse(announcement.expiresAt) < now) {
       return true;
     }
-
     return false;
   }).length;
 }
@@ -78,7 +77,6 @@ function topVolunteer(schedule: ScheduleItem[]): { name: string; count: number }
 
   for (const item of upcoming) {
     const names = [item.preacher, item.director, ...item.soundTeam.split(",").map((entry) => entry.trim())];
-
     for (const rawName of names) {
       const name = rawName.trim();
       if (!name) {
@@ -104,28 +102,100 @@ function topVolunteer(schedule: ScheduleItem[]): { name: string; count: number }
   return { name: topName, count: topCount };
 }
 
-interface DashboardCardProps {
-  tone: CardTone;
+function nextSevenDaysEvents(schedule: ScheduleItem[]): ScheduleItem[] {
+  const now = Date.now();
+  return schedule
+    .filter((item) => item.status === "scheduled" && isWithinNextDays(item, now, SEVEN_DAYS_MS))
+    .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt));
+}
+
+interface MetricSummary {
+  id: string;
   title: string;
   count: number;
   description: string;
   emptyDescription: string;
+  ctaLabel: string;
+  navigateTo: AdminView;
+  severity: Severity;
+  tone: CardTone;
+}
+
+function buildMetrics(snapshot: SiteSnapshot, prayers: PrayerRequest[]): MetricSummary[] {
+  const newPrayersCount = countNewPrayers(prayers);
+  const servicesMissingPreacher = countServicesMissingRole(snapshot.schedule, "preacher");
+  const servicesMissingDirector = countServicesMissingRole(snapshot.schedule, "director");
+  const stalePinned = countStalePinned(snapshot);
+
+  return [
+    {
+      id: "prayers",
+      title: "Pedidos de oracao novos",
+      count: newPrayersCount,
+      description: "Pedidos com mais de 24h sem leitura. Priorize o cuidado pastoral.",
+      emptyDescription: "OK, nada pendente.",
+      ctaLabel: "Ver pedidos novos",
+      navigateTo: "prayers",
+      severity: newPrayersCount > 0 ? 3 : 0,
+      tone: "alert"
+    },
+    {
+      id: "preacher",
+      title: "Cultos solenes sem pregador",
+      count: servicesMissingPreacher,
+      description: "Cultos solenes nos proximos 7 dias ainda sem pregador definido.",
+      emptyDescription: "OK, nada pendente.",
+      ctaLabel: "Editar programacao",
+      navigateTo: "schedule",
+      severity: servicesMissingPreacher > 0 ? 2 : 0,
+      tone: "warning"
+    },
+    {
+      id: "director",
+      title: "Cultos solenes sem dirigente",
+      count: servicesMissingDirector,
+      description: "Cultos solenes nos proximos 7 dias ainda sem dirigente definido.",
+      emptyDescription: "OK, nada pendente.",
+      ctaLabel: "Editar programacao",
+      navigateTo: "schedule",
+      severity: servicesMissingDirector > 0 ? 2 : 0,
+      tone: "warning"
+    },
+    {
+      id: "pinned",
+      title: "Avisos fixados desatualizados",
+      count: stalePinned,
+      description: "Avisos fixados arquivados ou com data de expiracao no passado.",
+      emptyDescription: "OK, nada pendente.",
+      ctaLabel: "Ver avisos",
+      navigateTo: "announcements",
+      severity: stalePinned > 0 ? 1 : 0,
+      tone: "warning"
+    }
+  ];
+}
+
+interface SummaryCardProps {
+  title: string;
+  count: number;
+  description: string;
+  emptyDescription: string;
+  tone: CardTone;
   ctaLabel?: string;
   onAction?: () => void;
 }
 
-function DashboardCard({
-  tone,
+function SummaryCard({
   title,
   count,
   description,
   emptyDescription,
+  tone,
   ctaLabel,
   onAction
-}: DashboardCardProps) {
+}: SummaryCardProps) {
   const isEmpty = count === 0;
   const className = isEmpty ? "dashboard-card empty" : `dashboard-card ${tone}`;
-
   return (
     <article className={className}>
       <header>
@@ -142,64 +212,180 @@ function DashboardCard({
   );
 }
 
+interface DashboardCardProps extends SummaryCardProps {
+  // backwards-compatible alias for tests/external callers
+  tone: CardTone;
+}
+
+export function DashboardCard(props: DashboardCardProps) {
+  return <SummaryCard {...props} />;
+}
+
 export default function DashboardView({ snapshot, prayers, onNavigate }: DashboardViewProps) {
-  const newPrayersCount = countNewPrayers(prayers);
-  const servicesMissingPreacher = countServicesMissingRole(snapshot.schedule, "preacher");
-  const servicesMissingDirector = countServicesMissingRole(snapshot.schedule, "director");
-  const stalePinnedCount = countStalePinned(snapshot);
+  const metrics = buildMetrics(snapshot, prayers);
+  const hero = metrics
+    .filter((metric) => metric.count > 0)
+    .sort((left, right) => right.severity - left.severity)[0];
+  const upcomingEvents = nextSevenDaysEvents(snapshot.schedule).slice(0, 5);
   const top = topVolunteer(snapshot.schedule);
   const burnoutTone: CardTone = top && top.count >= BURNOUT_THRESHOLD ? "warning" : "default";
 
   return (
-    <section>
-      <header className="workspace-heading">
+    <section className="dashboard-view">
+      <header className="workspace-heading dashboard-heading">
         <div>
           <p className="eyebrow">Resumo</p>
           <h1>Dashboard</h1>
         </div>
+        {onNavigate && (
+          <div className="dashboard-quick-actions" role="toolbar" aria-label="Atalhos rapidos">
+            <button
+              className="button primary"
+              type="button"
+              onClick={() => onNavigate("announcements")}
+              data-testid="quick-new-announcement"
+            >
+              Novo aviso
+            </button>
+            <button
+              className="button ghost"
+              type="button"
+              onClick={() => onNavigate("members")}
+              data-testid="quick-new-member"
+            >
+              Cadastrar membro
+            </button>
+            <button
+              className="button ghost"
+              type="button"
+              onClick={() => onNavigate("prayers")}
+              data-testid="quick-view-prayers"
+            >
+              Ver oracao
+            </button>
+          </div>
+        )}
       </header>
 
+      {hero ? (
+        <article
+          className={`dashboard-hero dashboard-hero-${hero.tone}`}
+          role="region"
+          aria-label="Alerta priorizado"
+          data-testid="dashboard-hero"
+        >
+          <header>
+            <p className="eyebrow">Prioridade alta</p>
+            <h2 data-testid="dashboard-hero-title">Atencao: {hero.title}</h2>
+            <strong className="dashboard-hero-count">{hero.count}</strong>
+          </header>
+          <p>{hero.description}</p>
+          {onNavigate && (
+            <button
+              className="button primary"
+              type="button"
+              data-testid="dashboard-hero-cta"
+              onClick={() => onNavigate(hero.navigateTo)}
+            >
+              Ir para {hero.title.toLowerCase()}
+            </button>
+          )}
+        </article>
+      ) : (
+        <article className="dashboard-hero dashboard-hero-empty" role="region" aria-label="Sem alertas">
+          <header>
+            <p className="eyebrow">Tudo em dia</p>
+            <h2>Sem alertas pendentes</h2>
+          </header>
+          <p>Nenhuma metrica critica para tratar agora. Use os atalhos para criar conteudo novo.</p>
+        </article>
+      )}
+
       <div className="dashboard-grid">
-        <DashboardCard
+        <SummaryCard
+          tone="default"
+          title="Voluntarios cadastrados"
+          count={snapshot.volunteers.length}
+          description={`${snapshot.volunteers.length} voluntarios disponiveis para escalar.`}
+          emptyDescription="Nenhum voluntario cadastrado ainda."
+          ctaLabel={onNavigate ? "Ver membros" : undefined}
+          onAction={onNavigate ? () => onNavigate("members") : undefined}
+        />
+        <SummaryCard
+          tone="default"
+          title="Proximos eventos (7 dias)"
+          count={upcomingEvents.length}
+          description="Eventos agendados nos proximos 7 dias."
+          emptyDescription="Sem eventos nos proximos 7 dias."
+          ctaLabel={onNavigate ? "Ver programacao" : undefined}
+          onAction={onNavigate ? () => onNavigate("schedule") : undefined}
+        />
+        <SummaryCard
+          tone="default"
+          title="Avisos publicados"
+          count={snapshot.announcements.filter((announcement) => announcement.status === "published").length}
+          description="Avisos atualmente publicados no site."
+          emptyDescription="Nenhum aviso publicado."
+          ctaLabel={onNavigate ? "Ver avisos publicados" : undefined}
+          onAction={onNavigate ? () => onNavigate("announcements") : undefined}
+        />
+      </div>
+
+      <section className="dashboard-upcoming" aria-label="Proximos 7 dias">
+        <h2>Proximos 7 dias</h2>
+        {upcomingEvents.length === 0 ? (
+          <p className="empty-note">Sem eventos nos proximos 7 dias.</p>
+        ) : (
+          <ul className="dashboard-upcoming-list">
+            {upcomingEvents.map((event) => (
+              <li key={event.id} className="dashboard-upcoming-item">
+                <strong>{event.title}</strong>
+                <span>{formatDateTime(event.startsAt)}</span>
+                <span>{event.ministry}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Manter cards detalhados para compatibilidade com testes existentes. */}
+      <div className="dashboard-grid dashboard-grid-secondary">
+        <SummaryCard
           tone="alert"
           title="Pedidos de oracao novos"
-          count={newPrayersCount}
+          count={countNewPrayers(prayers)}
           description="Pedidos com mais de 24h sem leitura. Priorize o cuidado pastoral."
           emptyDescription="OK, nada pendente."
           ctaLabel={onNavigate ? "Ver pedidos novos" : undefined}
           onAction={onNavigate ? () => onNavigate("prayers") : undefined}
         />
-
-        <DashboardCard
+        <SummaryCard
           tone="warning"
           title="Cultos solenes sem pregador"
-          count={servicesMissingPreacher}
+          count={countServicesMissingRole(snapshot.schedule, "preacher")}
           description="Cultos solenes nos proximos 7 dias ainda sem pregador definido."
           emptyDescription="OK, nada pendente."
           ctaLabel={onNavigate ? "Editar programacao" : undefined}
           onAction={onNavigate ? () => onNavigate("schedule") : undefined}
         />
-
-        <DashboardCard
+        <SummaryCard
           tone="warning"
           title="Cultos solenes sem dirigente"
-          count={servicesMissingDirector}
+          count={countServicesMissingRole(snapshot.schedule, "director")}
           description="Cultos solenes nos proximos 7 dias ainda sem dirigente definido."
           emptyDescription="OK, nada pendente."
           ctaLabel={onNavigate ? "Editar programacao" : undefined}
           onAction={onNavigate ? () => onNavigate("schedule") : undefined}
         />
-
-        <DashboardCard
+        <SummaryCard
           tone="warning"
           title="Avisos fixados desatualizados"
-          count={stalePinnedCount}
+          count={countStalePinned(snapshot)}
           description="Avisos fixados arquivados ou com data de expiracao no passado."
           emptyDescription="OK, nada pendente."
           ctaLabel={onNavigate ? "Ver avisos" : undefined}
           onAction={onNavigate ? () => onNavigate("announcements") : undefined}
         />
-
         {top ? (
           <article className={`dashboard-card ${burnoutTone}`}>
             <header>

@@ -186,7 +186,7 @@ export function App() {
     return backend.auth.subscribe((nextSession) => {
       setSession(nextSession);
       setAuthReady(true);
-      setSentryUser(nextSession ? { id: nextSession.uid, email: nextSession.email } : null);
+      setSentryUser(nextSession ? { id: nextSession.uid } : null);
       if (nextSession && nextSession.uid !== previousUid) {
         reportLoginAlert(nextSession);
       }

@@ -16,8 +16,12 @@ export function initMonitoring() {
   });
 }
 
-export function setSentryUser(user: { id: string; email: string } | null) {
-  Sentry.setUser(user);
+export function setSentryUser(user: { id: string } | null) {
+  if (!user) {
+    Sentry.setUser(null);
+    return;
+  }
+  Sentry.setUser({ id: user.id });
 }
 
 export function addMutationBreadcrumb(message: string, data?: Record<string, unknown>) {
