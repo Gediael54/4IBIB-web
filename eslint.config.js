@@ -21,6 +21,7 @@ const workerGlobals = {
   crypto: "readonly",
   fetch: "readonly",
   FormData: "readonly",
+  Request: "readonly",
   Response: "readonly",
   TextEncoder: "readonly",
   URL: "readonly"
