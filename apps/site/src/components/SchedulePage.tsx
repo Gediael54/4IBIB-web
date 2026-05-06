@@ -91,6 +91,19 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const controlsRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimer.current !== null) {
+        clearTimeout(blurTimer.current);
+      }
+    };
+  }, []);
+
+  function handleBlur() {
+    blurTimer.current = window.setTimeout(() => setOpenSuggestions(false), 120);
+  }
 
   const monthValue = useMemo(() => {
     if (pickedMonth && monthOptions.some((opt) => opt.value === pickedMonth)) {
@@ -182,9 +195,9 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
   return (
     <main className="schedule-page">
       <a className="skip-link" href="#programacao">
-        Pular para o conteudo
+        Pular para o conteúdo
       </a>
-      <header className="schedule-page-topbar" aria-label="Navegacao da programacao">
+      <header className="schedule-page-topbar" aria-label="Navegação da programação">
         <a className="schedule-page-back" href="#inicio">
           <ArrowLeft size={20} aria-hidden="true" />
           <span>Voltar</span>
@@ -194,17 +207,19 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
           <span className="schedule-page-crumb-sep" aria-hidden="true">
             ›
           </span>
-          <span>Programacao</span>
+          <span>Programação</span>
         </nav>
       </header>
 
       <section className="schedule-page-hero">
         <p className="eyebrow">Cultos e agenda</p>
-        <h1>Programacao</h1>
-        <p className="schedule-page-lead">Veja onde voce serve nos cultos.</p>
+        <h1>Programação</h1>
+        <p className="schedule-page-lead">
+          Calendário completo de cultos e estudos. Use os filtros para encontrar onde você serve.
+        </p>
       </section>
 
-      <section className="schedule-page-controls" aria-label="Filtros da programacao" ref={controlsRef}>
+      <section className="schedule-page-controls" aria-label="Filtros da programação" ref={controlsRef}>
         <label className="schedule-page-search">
           <span className="schedule-page-search-label">Seu nome</span>
           <span className="schedule-page-search-input">
@@ -222,7 +237,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
               value={query}
               onChange={handleQueryChange}
               onFocus={() => setOpenSuggestions(true)}
-              onBlur={() => setTimeout(() => setOpenSuggestions(false), 120)}
+              onBlur={handleBlur}
               onKeyDown={handleKeyDown}
             />
             {openSuggestions && filteredSuggestions.length > 0 && (
@@ -249,7 +264,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
 
         <div className="schedule-page-filters">
           <label className="schedule-page-filter">
-            <span>Mes</span>
+            <span>Mês</span>
             <select
               value={monthValue}
               onChange={(event) => setPickedMonth(event.target.value)}
@@ -284,7 +299,7 @@ export default function SchedulePage({ schedule }: SchedulePageProps) {
       </section>
 
       {monthThemes.length > 0 && (
-        <aside className="month-theme-banner schedule-page-month-theme" aria-label="Tema do mes">
+        <aside className="month-theme-banner schedule-page-month-theme" aria-label="Tema do mês">
           {monthThemes.map((theme) => (
             <p key={theme.monthKey}>
               <span className="month-theme-banner-month">{theme.monthLabel}</span>

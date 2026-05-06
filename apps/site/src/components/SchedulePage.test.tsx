@@ -108,7 +108,7 @@ describe("SchedulePage", () => {
     expect(screen.getByText("Culto de louvor")).toBeInTheDocument();
     expect(screen.queryByText("Encontro de jovens")).toBeNull();
 
-    const monthSelect = screen.getByLabelText(/Mes/i) as HTMLSelectElement;
+    const monthSelect = screen.getByLabelText(/Mês/i) as HTMLSelectElement;
     fireEvent.change(monthSelect, { target: { value: "2026-06" } });
     expect(screen.getByText("Encontro de jovens")).toBeInTheDocument();
     expect(screen.queryByText("Culto de louvor")).toBeNull();
