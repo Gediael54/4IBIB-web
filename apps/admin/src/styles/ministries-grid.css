@@ -1,0 +1,55 @@
+/* === Ministries Apple-style grid === */
+
+.ministries-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: var(--space-3);
+}
+
+.ministry-card-wrapper {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.ministry-card-wrapper > .data-card {
+  flex: 1;
+}
+
+.ministry-card-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.ministry-card-handle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.ministry-card-handle:active {
+  cursor: grabbing;
+}
+
+.ministry-card-handle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 540px) {
+  .ministry-card-wrapper {
+    flex-direction: column;
+  }
+  .ministry-card-handle {
+    width: 100%;
+    height: 28px;
+  }
+}

@@ -73,6 +73,10 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   return { ...utils, onStateChange };
 }
 
+function openCreateSheet() {
+  fireEvent.click(screen.getByRole("button", { name: /Novo ministério/i }));
+}
+
 describe("MinistriesView", () => {
   afterEach(() => {
     cleanup();
@@ -86,7 +90,7 @@ describe("MinistriesView", () => {
     expect(screen.getByText("Sem ministerios ainda.")).toBeInTheDocument();
   });
 
-  it("renders ministry rows from the snapshot", () => {
+  it("renders ministry cards from the snapshot", () => {
     renderView(
       buildSnapshot([
         makeMinistry({ id: "m1", name: "Louvor", sortOrder: 0 }),
@@ -100,6 +104,7 @@ describe("MinistriesView", () => {
 
   it("creates a new ministry when the form is submitted", async () => {
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Juventude" } });
     fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "juventude" } });
@@ -125,6 +130,7 @@ describe("MinistriesView", () => {
   it("shows a danger toast when saving fails", async () => {
     mocks.saveMinistry.mockRejectedValue(new Error("Slug duplicado"));
     renderView();
+    openCreateSheet();
 
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Repetido" } });
     fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "repetido" } });
@@ -150,7 +156,7 @@ describe("MinistriesView", () => {
   it("opens the confirm dialog and archives a ministry after confirmation", async () => {
     renderView(buildSnapshot([makeMinistry({ name: "Diaconia" })]));
 
-    fireEvent.click(screen.getByRole("button", { name: /Excluir ministerio Diaconia/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Excluir Diaconia/i }));
 
     expect(screen.getByText('Excluir o ministerio "Diaconia"?')).toBeInTheDocument();
 
@@ -169,7 +175,7 @@ describe("MinistriesView", () => {
   it("does not archive when the confirm dialog is cancelled", async () => {
     renderView(buildSnapshot([makeMinistry({ name: "Diaconia" })]));
 
-    fireEvent.click(screen.getByRole("button", { name: /Excluir ministerio Diaconia/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Excluir Diaconia/i }));
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
@@ -181,7 +187,7 @@ describe("MinistriesView", () => {
   it("triggers restore when the undo button is clicked after archive", async () => {
     renderView(buildSnapshot([makeMinistry({ id: "m9", name: "Diaconia" })]));
 
-    fireEvent.click(screen.getByRole("button", { name: /Excluir ministerio Diaconia/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Excluir Diaconia/i }));
     await act(async () => {
       fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
     });
@@ -198,7 +204,7 @@ describe("MinistriesView", () => {
     });
   });
 
-  it("disables the up button on the first ministry", () => {
+  it("renders a drag handle for each ministry card", () => {
     renderView(
       buildSnapshot([
         makeMinistry({ id: "m1", name: "Louvor", sortOrder: 0 }),
@@ -206,39 +212,7 @@ describe("MinistriesView", () => {
       ])
     );
 
-    const upLouvor = screen.getByRole("button", { name: "Mover Louvor para cima" });
-    expect(upLouvor).toBeDisabled();
-
-    const downLouvor = screen.getByRole("button", { name: "Mover Louvor para baixo" });
-    expect(downLouvor).not.toBeDisabled();
-  });
-
-  it("swaps sort order when moving a ministry down", async () => {
-    renderView(
-      buildSnapshot([
-        makeMinistry({ id: "m1", name: "Louvor", sortOrder: 0 }),
-        makeMinistry({ id: "m2", slug: "diaconia", name: "Diaconia", sortOrder: 1 })
-      ])
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Mover Louvor para baixo" }));
-
-    await waitFor(() => {
-      expect(mocks.saveMinistry).toHaveBeenCalledTimes(2);
-    });
-    expect(mocks.saveMinistry.mock.calls[0][0].sortOrder).toBe(1);
-    expect(mocks.saveMinistry.mock.calls[1][0].sortOrder).toBe(0);
-  });
-
-  it("renders a drag handle for each ministry row", () => {
-    renderView(
-      buildSnapshot([
-        makeMinistry({ id: "m1", name: "Louvor", sortOrder: 0 }),
-        makeMinistry({ id: "m2", slug: "diaconia", name: "Diaconia", sortOrder: 1 })
-      ])
-    );
-
-    expect(screen.getByRole("button", { name: "Arrastar Louvor" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Arrastar Diaconia" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reordenar Louvor" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reordenar Diaconia" })).toBeInTheDocument();
   });
 });

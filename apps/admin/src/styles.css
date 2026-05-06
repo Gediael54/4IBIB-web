@@ -11,6 +11,7 @@
 @import "./styles/audit-timeline.css";
 @import "./styles/households-grid.css";
 @import "./styles/schedule-cards.css";
+@import "./styles/ministries-grid.css";
 
 * {
   box-sizing: border-box;
