@@ -36,8 +36,11 @@ import UpcomingEvents from "./components/UpcomingEvents";
 import UserDataRequest from "./components/UserDataRequest";
 import { CHURCH } from "./config/church";
 import { ChurchProvider, useChurchProfile, useMinistries, useRegularMeetings } from "./lib/church-context";
+import { safeUrl } from "./lib/safe-url";
 import { initMonitoring } from "./monitoring";
 import "./styles.css";
+
+const CHURCH_CNPJ = "46.882.520/0001-76";
 
 void initMonitoring();
 
@@ -58,24 +61,24 @@ const CATEGORY_LABELS: Record<string, string> = {
   geral: "Geral",
   evento: "Evento",
   juventude: "Juventude",
-  oracao: "Oracao"
+  oracao: "Oração"
 };
 
 const SITE_TITLE = CHURCH.name;
 const SECTION_TITLES: Record<string, string> = {
   inicio: SITE_TITLE,
   avisos: `Avisos | ${SITE_TITLE}`,
-  programacao: `Programacao | ${SITE_TITLE}`,
+  programacao: `Programação | ${SITE_TITLE}`,
   agenda: `Agenda completa | ${SITE_TITLE}`,
-  ministerios: `Ministerios | ${SITE_TITLE}`,
-  lideranca: `Lideranca | ${SITE_TITLE}`,
+  ministerios: `Ministérios | ${SITE_TITLE}`,
+  lideranca: `Liderança | ${SITE_TITLE}`,
   "quem-somos": `Quem somos | ${SITE_TITLE}`,
-  "confissao-de-fe": `Confissao de fe | ${SITE_TITLE}`,
+  "confissao-de-fe": `Confissão de fé | ${SITE_TITLE}`,
   "primeira-vez": `Primeira vez aqui | ${SITE_TITLE}`,
-  pregacoes: `Pregacoes | ${SITE_TITLE}`,
-  doacoes: `Doacoes | ${SITE_TITLE}`,
-  contato: `Pedido de oracao | ${SITE_TITLE}`,
-  "politica-privacidade": `Politica de privacidade | ${SITE_TITLE}`,
+  pregacoes: `Pregações | ${SITE_TITLE}`,
+  doacoes: `Doações | ${SITE_TITLE}`,
+  contato: `Pedido de oração | ${SITE_TITLE}`,
+  "politica-privacidade": `Política de privacidade | ${SITE_TITLE}`,
   "meus-dados": `Meus dados | ${SITE_TITLE}`
 };
 const PRAYER_FIELD_LIMITS = {
@@ -124,7 +127,7 @@ function SiteHome({
   return (
     <main>
       <a className="skip-link" href="#inicio">
-        Pular para o conteudo
+        Pular para o conteúdo
       </a>
       <SiteNav />
 
@@ -135,11 +138,11 @@ function SiteHome({
           <p className="hero-copy">{church.tagline}</p>
           <div className="hero-actions">
             <a href="#programacao" className="button primary">
-              <CalendarDays size={18} /> Conheca nossa programacao
+              <CalendarDays size={18} /> Conheça nossa programação
             </a>
             {church.whatsapp && (
               <a
-                href={buildWhatsAppUrl(church.whatsapp, "Ola, quero saber mais sobre a igreja.")}
+                href={buildWhatsAppUrl(church.whatsapp, "Olá, quero saber mais sobre a igreja.")}
                 className="button secondary"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -151,7 +154,7 @@ function SiteHome({
         </section>
       </header>
 
-      <section className="meeting-band">
+      <section className="meeting-band" aria-label="Horários dos cultos">
         {regularMeetings.map((meeting) => (
           <article key={`${meeting.weekday}-${meeting.startsAt}-${meeting.title}`}>
             <strong>{meeting.title}</strong>
@@ -169,12 +172,12 @@ function SiteHome({
         <div className="intro-image">
           <PictureSet
             src="/intro.jpg"
-            alt="Membro da congregacao em momento de leitura biblica"
+            alt="Membro da congregação em momento de leitura bíblica"
             loading="lazy"
           />
         </div>
         <div className="intro-text">
-          <p className="eyebrow">Nossa missao</p>
+          <p className="eyebrow">Nossa missão</p>
           <h2>{church.mission}</h2>
           <blockquote className="intro-verse">{church.heroVerse}</blockquote>
         </div>
@@ -185,7 +188,7 @@ function SiteHome({
       <section className="section" id="avisos">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Atualizacoes</p>
+            <p className="eyebrow">Atualizações</p>
             <h2>Avisos importantes</h2>
           </div>
           <Megaphone />
@@ -200,7 +203,7 @@ function SiteHome({
               <h3>{announcement.title}</h3>
               <p>{announcement.summary}</p>
               {announcement.ctaUrl && announcement.ctaLabel && (
-                <a href={announcement.ctaUrl} target="_blank" rel="noopener noreferrer">
+                <a href={safeUrl(announcement.ctaUrl)} target="_blank" rel="noopener noreferrer">
                   {announcement.ctaLabel}
                 </a>
               )}
@@ -216,11 +219,11 @@ function SiteHome({
         <div className="section-heading">
           <div>
             <p className="eyebrow">Cultos e agenda</p>
-            <h2>Programacao</h2>
+            <h2>Programação</h2>
           </div>
           <CalendarDays />
         </div>
-        <p className="schedule-subhead">Proximos eventos</p>
+        <p className="schedule-subhead">Próximos eventos</p>
         <UpcomingEvents schedule={schedule} />
         <a href="#agenda" className="schedule-section-cta">
           <span>Ver agenda completa</span>
@@ -231,8 +234,8 @@ function SiteHome({
       <section className="section" id="ministerios">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Servico</p>
-            <h2>Ministerios</h2>
+            <p className="eyebrow">Serviço</p>
+            <h2>Ministérios</h2>
           </div>
           <UsersRound />
         </div>
@@ -257,8 +260,8 @@ function SiteHome({
       <section className="contact-section" id="contato">
         <div>
           <p className="eyebrow">Cuidado pastoral</p>
-          <h2>Pedido de oracao</h2>
-          <p>Envie um pedido para a equipe pastoral acompanhar em oracao.</p>
+          <h2>Pedido de oração</h2>
+          <p>Envie um pedido para a equipe pastoral acompanhar em oração.</p>
           <div className="contact-links">
             {church.email && (
               <a href={`mailto:${church.email}`}>
@@ -266,17 +269,17 @@ function SiteHome({
               </a>
             )}
             {church.mapsUrl && (
-              <a href={church.mapsUrl} target="_blank" rel="noopener noreferrer">
+              <a href={safeUrl(church.mapsUrl)} target="_blank" rel="noopener noreferrer">
                 <MapPin size={18} /> {church.address}
               </a>
             )}
             {church.instagramUrl && (
-              <a href={church.instagramUrl} target="_blank" rel="noopener noreferrer">
+              <a href={safeUrl(church.instagramUrl)} target="_blank" rel="noopener noreferrer">
                 <Instagram size={18} /> Instagram
               </a>
             )}
             {church.youtubeUrl && (
-              <a href={church.youtubeUrl} target="_blank" rel="noopener noreferrer">
+              <a href={safeUrl(church.youtubeUrl)} target="_blank" rel="noopener noreferrer">
                 <Youtube size={18} /> YouTube
               </a>
             )}
@@ -308,7 +311,7 @@ function SiteHome({
               Autorizo a 4a IBIB a tratar meus dados (nome, contato, pedido) com finalidade pastoral e
               religiosa, conforme a{" "}
               <a className="prayer-consent-link" href="#politica-privacidade">
-                politica de privacidade
+                política de privacidade
               </a>
               .
             </span>
@@ -328,30 +331,117 @@ function SiteHome({
             <p className="form-error">
               {prayerMutation.error instanceof Error
                 ? prayerMutation.error.message
-                : "Nao foi possivel enviar o pedido."}
+                : "Não foi possível enviar o pedido."}
             </p>
           )}
         </form>
       </section>
 
-      <footer className="footer">
-        <div className="footer-brand">
-          <img src="/logo.png" alt="" className="footer-logo" />
+      <footer className="site-footer">
+        <div className="site-footer-grid">
+          <section className="site-footer-col" aria-label="Sobre a igreja">
+            <div className="site-footer-brand">
+              <img src="/logo.png" alt="" className="footer-logo" />
+              <span>{church.shortName}</span>
+            </div>
+            <p className="site-footer-text">{church.tagline}</p>
+            <p className="site-footer-text">
+              {church.address}
+              <br />
+              {church.city}
+            </p>
+            <p className="site-footer-meta">CNPJ {CHURCH_CNPJ}</p>
+            <div className="site-footer-social" aria-label="Redes sociais">
+              {church.instagramUrl && (
+                <a
+                  href={safeUrl(church.instagramUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Instagram"
+                >
+                  <Instagram size={20} aria-hidden="true" />
+                </a>
+              )}
+              {church.youtubeUrl && (
+                <a
+                  href={safeUrl(church.youtubeUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="YouTube"
+                >
+                  <Youtube size={20} aria-hidden="true" />
+                </a>
+              )}
+            </div>
+          </section>
+
+          <section className="site-footer-col" aria-label="Contato">
+            <h3 className="site-footer-heading">Contato</h3>
+            <ul className="site-footer-list">
+              {church.whatsapp && (
+                <li>
+                  <a
+                    href={safeUrl(buildWhatsAppUrl(church.whatsapp, "Olá, quero saber mais sobre a igreja."))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    WhatsApp {church.whatsapp}
+                  </a>
+                </li>
+              )}
+              {church.email && (
+                <li>
+                  <a href={`mailto:${church.email}`}>{church.email}</a>
+                </li>
+              )}
+              <li>Quinta 19h30 - Culto de louvor</li>
+              <li>Domingo 09h30 - Escola Bíblica</li>
+              <li>Domingo 17h00 - Culto solene</li>
+            </ul>
+          </section>
+
+          <nav className="site-footer-col" aria-label="Ações">
+            <h3 className="site-footer-heading">Ações</h3>
+            <ul className="site-footer-list">
+              <li>
+                <a href="#contato">Pedido de oração</a>
+              </li>
+              <li>
+                <a href="#doacoes">Doações</a>
+              </li>
+              <li>
+                <a href="#lideranca">Liderança</a>
+              </li>
+              <li>
+                <a href="#confissao-de-fe">Confissão de fé</a>
+              </li>
+              <li>
+                <a href="#pregacoes">Pregações</a>
+              </li>
+            </ul>
+          </nav>
+
+          <nav className="site-footer-col" aria-label="Legal">
+            <h3 className="site-footer-heading">Legal</h3>
+            <ul className="site-footer-list">
+              <li>
+                <a href="#politica-privacidade">Política de privacidade</a>
+              </li>
+              <li>
+                <a href="#meus-dados">Meus dados</a>
+              </li>
+              <li>
+                <a href="#quem-somos">Quem somos</a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+
+        <div className="site-footer-bottom">
           <span>
-            {church.name} - {church.city}
+            &copy; {new Date().getFullYear()} {church.name}
           </span>
         </div>
-        <nav className="footer-nav" aria-label="Navegacao do rodape">
-          <a href="#inicio">Inicio</a>
-          <a href="#avisos">Avisos</a>
-          <a href="#programacao">Programacao</a>
-          <a href="#ministerios">Ministerios</a>
-          <a href="#lideranca">Lideranca</a>
-          <a href="#contato">Pedido de oracao</a>
-          <a href="#politica-privacidade">Politica de privacidade</a>
-          <a href="#meus-dados">Meus dados</a>
-          <a href="/admin">Admin</a>
-        </nav>
       </footer>
     </main>
   );

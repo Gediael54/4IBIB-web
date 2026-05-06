@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getSnapshot: vi.fn(),
   createPrayerRequest: vi.fn(),
-  listMembers: vi.fn()
+  listPublicMembers: vi.fn()
 }));
 
 vi.mock("./backend", () => ({
@@ -15,7 +15,7 @@ vi.mock("./backend", () => ({
     content: {
       getSnapshot: mocks.getSnapshot,
       createPrayerRequest: mocks.createPrayerRequest,
-      listMembers: mocks.listMembers
+      listPublicMembers: mocks.listPublicMembers
     }
   }
 }));
@@ -49,7 +49,7 @@ describe("public site", () => {
       recurringMeetings: []
     });
     mocks.createPrayerRequest.mockReset();
-    mocks.listMembers.mockResolvedValue([]);
+    mocks.listPublicMembers.mockResolvedValue([]);
     window.location.hash = "";
   });
 
@@ -65,7 +65,7 @@ describe("public site", () => {
       expect(screen.getByRole("heading", { name: CHURCH.name })).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("heading", { name: "Pedido de oracao" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Pedido de oração" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /enviar pedido/i })).toBeEnabled();
   });
 
@@ -76,12 +76,24 @@ describe("public site", () => {
       expect(screen.getByRole("heading", { name: CHURCH.name })).toBeInTheDocument();
     });
 
-    const footer = screen.getByRole("navigation", { name: /Navegacao do rodape/i });
-    expect(within(footer).getByRole("link", { name: /Politica de privacidade/i })).toHaveAttribute(
+    const legalNav = screen.getByRole("navigation", { name: /^Legal$/i });
+    expect(within(legalNav).getByRole("link", { name: /Política de privacidade/i })).toHaveAttribute(
       "href",
       "#politica-privacidade"
     );
-    expect(within(footer).getByRole("link", { name: /Meus dados/i })).toHaveAttribute("href", "#meus-dados");
+    expect(within(legalNav).getByRole("link", { name: /Meus dados/i })).toHaveAttribute(
+      "href",
+      "#meus-dados"
+    );
+  });
+
+  it("does not expose Admin link in the public footer", async () => {
+    renderApp();
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: CHURCH.name })).toBeInTheDocument();
+    });
+    const footer = screen.getByRole("contentinfo");
+    expect(within(footer).queryByRole("link", { name: /^Admin$/i })).toBeNull();
   });
 
   it("blocks prayer submission without consent and surfaces inline error", async () => {
@@ -134,7 +146,7 @@ describe("public site", () => {
     renderApp();
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 1, name: /Politica de privacidade/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1, name: /Política de privacidade/i })).toBeInTheDocument();
     });
   });
 
