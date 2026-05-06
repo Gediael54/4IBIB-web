@@ -127,7 +127,8 @@ const scheduleRow = {
   occasion_label: "",
   status: "scheduled",
   featured: true,
-  series_id: null
+  series_id: null,
+  youtube_url: ""
 };
 
 const volunteerRow = {
@@ -261,6 +262,7 @@ const memberRow = {
   consent_given_at: "2024-01-01T00:00:00.000Z",
   consent_version: "v1",
   public_directory: true,
+  public_bio: "Pastor da igreja desde 2015.",
   data_retention_until: "2030-01-01",
   created_at: "2024-01-01T00:00:00.000Z",
   updated_at: "2024-01-01T00:00:00.000Z",
@@ -510,7 +512,8 @@ describe("SupabaseContentRepository", () => {
       passage: "Marcos 1",
       occasion_label: "PASCOA",
       status: "suspended",
-      series_id: "ser-1"
+      series_id: "ser-1",
+      youtube_url: "https://youtu.be/abc123"
     };
     client.setNext({ data: [row], error: null });
     const [item] = await backend().content.listSchedule();
@@ -530,10 +533,65 @@ describe("SupabaseContentRepository", () => {
       status: "suspended",
       featured: true,
       seriesId: "ser-1",
+      youtubeUrl: "https://youtu.be/abc123",
       preacherMemberId: null,
       directorMemberId: null,
       soundMemberId: null
     });
+  });
+
+  it("maps schedule youtube_url to empty string when null", async () => {
+    client.setNext({ data: [{ ...scheduleRow, youtube_url: null }], error: null });
+    const [item] = await backend().content.listSchedule();
+    expect(item?.youtubeUrl).toBe("");
+  });
+
+  it("saves schedule item carrying youtube_url in payload", async () => {
+    client.setNext({
+      data: { ...scheduleRow, youtube_url: "https://youtu.be/xyz" },
+      error: null
+    });
+    const result = await backend().content.saveScheduleItem({
+      id: "s1",
+      title: "Culto",
+      ministry: "louvor",
+      startsAt: "2030-01-01T10:00:00.000Z",
+      endsAt: "2030-01-01T12:00:00.000Z",
+      location: "Salao",
+      summary: "",
+      preacher: "Lider",
+      director: "",
+      soundTeam: "",
+      passage: "",
+      occasionLabel: "",
+      status: "scheduled",
+      featured: false,
+      youtubeUrl: "https://youtu.be/xyz"
+    });
+    expect(result.youtubeUrl).toBe("https://youtu.be/xyz");
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ youtube_url: "https://youtu.be/xyz" })
+    );
+  });
+
+  it("defaults youtube_url to empty string when input omits it", async () => {
+    client.setNext({ data: scheduleRow, error: null });
+    await backend().content.saveScheduleItem({
+      title: "Culto",
+      ministry: "louvor",
+      startsAt: "2030-01-01T10:00:00.000Z",
+      endsAt: "2030-01-01T12:00:00.000Z",
+      location: "Salao",
+      summary: "",
+      preacher: "Lider",
+      director: "",
+      soundTeam: "",
+      passage: "",
+      occasionLabel: "",
+      status: "scheduled",
+      featured: false
+    });
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(expect.objectContaining({ youtube_url: "" }));
   });
 
   it("maps nullable schedule labels to empty strings", async () => {
@@ -1655,6 +1713,7 @@ describe("SupabaseContentRepository", () => {
       consentGivenAt: "2024-01-01T00:00:00.000Z",
       consentVersion: "v1",
       publicDirectory: true,
+      publicBio: "Pastor da igreja desde 2015.",
       dataRetentionUntil: "2030-01-01"
     });
 
@@ -1663,6 +1722,7 @@ describe("SupabaseContentRepository", () => {
     expect(result.address.city).toBe("Caruaru");
     expect(result.churchRole).toBe("diacono");
     expect(result.publicDirectory).toBe(true);
+    expect(result.publicBio).toBe("Pastor da igreja desde 2015.");
     expect(client.queries[0]?.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "mem-uuid-1-2-3",
@@ -1670,7 +1730,8 @@ describe("SupabaseContentRepository", () => {
         cpf: "12345678901",
         address_city: "Caruaru",
         is_volunteer: true,
-        public_directory: true
+        public_directory: true,
+        public_bio: "Pastor da igreja desde 2015."
       })
     );
     uuid.mockRestore();
@@ -1704,6 +1765,7 @@ describe("SupabaseContentRepository", () => {
     expect(result?.membershipStatus).toBe("ativo");
     expect(result?.isVolunteer).toBe(false);
     expect(result?.publicDirectory).toBe(false);
+    expect(result?.publicBio).toBe("");
     expect(result?.address.zip).toBe("");
     expect(result?.prayerTopics).toEqual([]);
     expect(result?.spiritualGifts).toEqual([]);
@@ -1760,6 +1822,7 @@ describe("SupabaseContentRepository", () => {
         consentGivenAt: null,
         consentVersion: "",
         publicDirectory: false,
+        publicBio: "",
         dataRetentionUntil: null
       })
     ).rejects.toThrow("mem-create");
@@ -1812,6 +1875,7 @@ describe("SupabaseContentRepository", () => {
       consentGivenAt: "2024-01-01T00:00:00.000Z",
       consentVersion: "v1",
       publicDirectory: true,
+      publicBio: "Pastor desde 2015.",
       dataRetentionUntil: "2030-01-01"
     });
     expect(client.queries[0]?.update).toHaveBeenCalledWith(
@@ -1822,6 +1886,7 @@ describe("SupabaseContentRepository", () => {
         address_city: "C",
         is_volunteer: true,
         public_directory: true,
+        public_bio: "Pastor desde 2015.",
         data_retention_until: "2030-01-01"
       })
     );
