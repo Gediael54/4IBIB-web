@@ -6,6 +6,7 @@
 @import "./styles/mfa.css";
 @import "./styles/brand-loader.css";
 @import "./styles/annual-commemoration.css";
+@import "./styles/apple-views.css";
 
 * {
   box-sizing: border-box;
