@@ -5,12 +5,12 @@
 -- os campos redacted -- aceitavel: o admin reverte campos publicos e os
 -- privados ficam como estao (precisariam ser editados manualmente).
 
-create or replace function public.redact_member_pii(row jsonb)
+create or replace function public.redact_member_pii(payload jsonb)
 returns jsonb
 language sql
 stable
 as $$
-  select coalesce(row, '{}'::jsonb)
+  select coalesce(payload, '{}'::jsonb)
     - 'cpf'
     - 'rg'
     - 'rg_issuer'
