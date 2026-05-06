@@ -138,6 +138,7 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
         volunteers={volunteers}
         setPendingForCell={setPendingForCell}
         year={year}
+        commemorations={snapshot.commemorations}
       />
     </section>
   );

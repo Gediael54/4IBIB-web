@@ -1,6 +1,7 @@
-import { type ScheduleItem, type Volunteer } from "@4ibib/core";
-import { useState } from "react";
+import { type Commemoration, type ScheduleItem, type Volunteer } from "@4ibib/core";
+import { useMemo, useState } from "react";
 import { applyPending, getCurrentValue, ROLE_LABELS, type PendingState, type RoleColumn } from "./cadence";
+import { dayHighlightForIso, monthHighlightsForYear } from "./annual-commemoration";
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
   weekday: "short",
@@ -26,9 +27,18 @@ interface AnnualGridProps {
   volunteers: Volunteer[];
   setPendingForCell: (itemId: string, role: RoleColumn, value: string) => void;
   year: number;
+  commemorations?: Commemoration[];
 }
 
-export function AnnualGrid({ yearItems, pending, volunteers, setPendingForCell, year }: AnnualGridProps) {
+export function AnnualGrid({
+  yearItems,
+  pending,
+  volunteers,
+  setPendingForCell,
+  year,
+  commemorations = []
+}: AnnualGridProps) {
+  const monthHighlights = useMemo(() => monthHighlightsForYear(commemorations, year), [commemorations, year]);
   const [activeCell, setActiveCell] = useState<{ id: string; role: RoleColumn } | null>(null);
 
   function renderSoundTeam(value: string) {
@@ -132,36 +142,77 @@ export function AnnualGrid({ yearItems, pending, volunteers, setPendingForCell, 
   }
 
   return (
-    <table className="annual-grid">
-      <thead>
-        <tr>
-          <th>Data</th>
-          <th>Evento</th>
-          <th>Pregador</th>
-          <th>Dirigente</th>
-          <th>Som</th>
-        </tr>
-      </thead>
-      <tbody>
-        {yearItems.map((item) => {
-          const startDate = new Date(item.startsAt);
-          return (
-            <tr key={item.id}>
-              <td data-label="Data" className="annual-cell-date">
-                <strong>{DATE_FORMATTER.format(startDate)}</strong>
-                <small>{TIME_FORMATTER.format(startDate)}</small>
-              </td>
-              <td data-label="Evento" className="annual-cell-event">
-                <strong>{item.title}</strong>
-                <small>{item.ministry}</small>
-              </td>
-              {renderCell(item, "preacher")}
-              {renderCell(item, "director")}
-              {renderCell(item, "soundTeam")}
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <>
+      {monthHighlights.length > 0 && (
+        <aside className="annual-month-highlights" aria-label="Meses tematicos">
+          {monthHighlights.map((highlight) => (
+            <div key={highlight.monthIndex} className="annual-month-highlight">
+              <span className="annual-month-highlight-label">{highlight.monthLabel}</span>
+              {highlight.items.map((item) => (
+                <span
+                  key={item.id}
+                  className="annual-month-highlight-tag"
+                  style={{ background: item.color, color: "#fff" }}
+                  title={item.description || item.name}
+                >
+                  {item.name}
+                </span>
+              ))}
+            </div>
+          ))}
+        </aside>
+      )}
+      <table className="annual-grid">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Evento</th>
+            <th>Pregador</th>
+            <th>Dirigente</th>
+            <th>Som</th>
+          </tr>
+        </thead>
+        <tbody>
+          {yearItems.map((item) => {
+            const startDate = new Date(item.startsAt);
+            const dayHighlights = dayHighlightForIso(commemorations, item.startsAt);
+            const rowClasses = ["annual-row"];
+            if (dayHighlights.length > 0) rowClasses.push("annual-row-with-day");
+            if (item.status === "suspended") rowClasses.push("annual-row-suspended");
+            if (item.status === "free") rowClasses.push("annual-row-free");
+            return (
+              <tr key={item.id} className={rowClasses.join(" ")}>
+                <td data-label="Data" className="annual-cell-date">
+                  <strong>{DATE_FORMATTER.format(startDate)}</strong>
+                  <small>{TIME_FORMATTER.format(startDate)}</small>
+                </td>
+                <td data-label="Evento" className="annual-cell-event">
+                  <strong>{item.title}</strong>
+                  <small>{item.ministry}</small>
+                  {dayHighlights.length > 0 && (
+                    <div className="annual-day-tags">
+                      {dayHighlights.map((highlight) => (
+                        <span
+                          key={highlight.id}
+                          className="annual-day-tag"
+                          style={{ background: highlight.color, color: "#fff" }}
+                          title={highlight.description || highlight.name}
+                        >
+                          {highlight.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {item.status === "suspended" && <span className="annual-status-suspended">SUSPENSO</span>}
+                </td>
+                {renderCell(item, "preacher")}
+                {renderCell(item, "director")}
+                {renderCell(item, "soundTeam")}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </>
   );
 }
