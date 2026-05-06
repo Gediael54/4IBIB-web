@@ -11,6 +11,8 @@ import {
   type ChurchBackend,
   type ChurchProfile,
   type ChurchProfileInput,
+  type Commemoration,
+  type CommemorationInput,
   type ContentRepository,
   type Household,
   type InviteAdminInput,
@@ -36,6 +38,7 @@ import {
   sortAdmins,
   sortAnnouncements,
   sortAuditLog,
+  sortCommemorations,
   sortMinistries,
   sortRecurringMeetings,
   sortSchedule,
@@ -598,6 +601,33 @@ function toRecurringMeetingRow(input: RecurringMeetingRecord): JsonObject {
   };
 }
 
+function mapCommemoration(row: JsonObject): Commemoration {
+  const dayValue = row.day_of_month;
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    type: row.type === "day" ? "day" : "month",
+    month: Number(row.month ?? 1),
+    dayOfMonth: dayValue === null || dayValue === undefined ? null : Number(dayValue),
+    description: asString(row.description),
+    color: asString(row.color),
+    sortOrder: Number(row.sort_order ?? 0)
+  };
+}
+
+function toCommemorationRow(input: Commemoration): JsonObject {
+  return {
+    id: input.id,
+    name: input.name,
+    type: input.type,
+    month: input.month,
+    day_of_month: input.type === "day" ? input.dayOfMonth : null,
+    description: input.description,
+    color: input.color,
+    sort_order: input.sortOrder
+  };
+}
+
 function mapAdminUser(row: JsonObject): AdminUser {
   return {
     userId: String(row.user_id),
@@ -628,15 +658,17 @@ class SupabaseContentRepository implements ContentRepository {
   ) {}
 
   async getSnapshot(): Promise<SiteSnapshot> {
-    const [announcements, schedule, volunteers, profile, ministries, recurringMeetings] = await Promise.all([
-      this.listAnnouncements(),
-      this.listSchedule(),
-      this.listVolunteers(),
-      this.getProfile(),
-      this.listMinistries(),
-      this.listRecurringMeetings()
-    ]);
-    return { announcements, schedule, volunteers, profile, ministries, recurringMeetings };
+    const [announcements, schedule, volunteers, profile, ministries, recurringMeetings, commemorations] =
+      await Promise.all([
+        this.listAnnouncements(),
+        this.listSchedule(),
+        this.listVolunteers(),
+        this.getProfile(),
+        this.listMinistries(),
+        this.listRecurringMeetings(),
+        this.listCommemorations()
+      ]);
+    return { announcements, schedule, volunteers, profile, ministries, recurringMeetings, commemorations };
   }
 
   async listAnnouncements() {
@@ -767,7 +799,7 @@ class SupabaseContentRepository implements ContentRepository {
 
   async listVolunteers() {
     const { data, error } = await this.client
-      .from("volunteers")
+      .from("volunteers_public")
       .select("*")
       .order("sort_order", { ascending: true });
     return sortVolunteers(requireData(data as JsonObject[] | null, error).map(mapVolunteer));
@@ -1003,6 +1035,45 @@ class SupabaseContentRepository implements ContentRepository {
 
   async deleteRecurringMeeting(id: string) {
     const { error } = await this.client.from("recurring_meetings").delete().eq("id", id);
+    requireOk(error);
+  }
+
+  async listCommemorations() {
+    const { data, error } = await this.client
+      .from("commemorative_dates")
+      .select("*")
+      .is("deleted_at", null)
+      .order("month", { ascending: true })
+      .order("sort_order", { ascending: true });
+    return sortCommemorations(requireData(data as JsonObject[] | null, error).map(mapCommemoration));
+  }
+
+  async saveCommemoration(input: CommemorationInput) {
+    const item: Commemoration = {
+      id: input.id ?? crypto.randomUUID(),
+      name: input.name,
+      type: input.type,
+      month: input.month,
+      dayOfMonth: input.type === "day" ? input.dayOfMonth : null,
+      description: input.description,
+      color: input.color,
+      sortOrder: input.sortOrder
+    };
+    const { data, error } = await this.client
+      .from("commemorative_dates")
+      .upsert(toCommemorationRow(item))
+      .select("*")
+      .single();
+    return mapCommemoration(requireData(data as JsonObject | null, error));
+  }
+
+  async archiveCommemoration(id: string) {
+    const { error } = await this.client.rpc("archive_commemorative_date", { p_id: id });
+    requireOk(error);
+  }
+
+  async restoreCommemoration(id: string) {
+    const { error } = await this.client.rpc("restore_commemorative_date", { p_id: id });
     requireOk(error);
   }
 
