@@ -1,3 +1,9 @@
+# [1.10.0](https://github.com/Gediael54/4IBIB-web/compare/v1.9.0...v1.10.0) (2026-05-06)
+
+### Features
+
+- **admin:** apple-style base components for view redesign ([4da4997](https://github.com/Gediael54/4IBIB-web/commit/4da4997d739518fe0c47b1bd16508c300a5dd3f7))
+
 # [1.9.0](https://github.com/Gediael54/4IBIB-web/compare/v1.8.0...v1.9.0) (2026-05-06)
 
 ### Features
