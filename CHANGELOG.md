@@ -1,3 +1,9 @@
+# [1.13.0](https://github.com/Gediael54/4IBIB-web/compare/v1.12.0...v1.13.0) (2026-05-06)
+
+### Features
+
+- **admin:** rotation rules CRUD + auto-generate annual schedule ([40dc499](https://github.com/Gediael54/4IBIB-web/commit/40dc499082a7c41ed8ff89a6f3c47ad27e36f331))
+
 # [1.12.0](https://github.com/Gediael54/4IBIB-web/compare/v1.11.0...v1.12.0) (2026-05-06)
 
 ### Features
