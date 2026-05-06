@@ -62,7 +62,7 @@ export default function TeamView({ state, onStateChange }: TeamViewProps) {
     defaultValues: EMPTY_INVITE
   });
 
-  const admins = adminsQuery.data ?? [];
+  const admins = useMemo(() => adminsQuery.data ?? [], [adminsQuery.data]);
 
   const list = useMemo(() => {
     const query = normalizeSearch(state.search);

@@ -732,9 +732,11 @@ export default function ScheduleView({ snapshot, state, onStateChange }: Schedul
               </div>
             )}
             {selectionCount > 0 && (
-              <div className="bulk-action-bar" role="region" aria-label="Acoes em massa">
-                <span className="bulk-action-bar-count">{selectionCount} selecionados</span>
-                <div className="bulk-action-bar-buttons">
+              <div className="sticky-action-bar bulk-action-bar" role="region" aria-label="Acoes em massa">
+                <span className="sticky-action-message bulk-action-bar-count">
+                  {selectionCount} selecionados
+                </span>
+                <div className="sticky-action-buttons bulk-action-bar-buttons">
                   <button
                     type="button"
                     className="button ghost"
