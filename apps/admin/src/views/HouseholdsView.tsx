@@ -3,6 +3,7 @@ import { valibotResolver } from "@hookform/resolvers/valibot";
 import { Home, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
 import { ListView } from "../components/ListView";
 import { useToast } from "../components/Toast";
@@ -71,6 +72,7 @@ export default function HouseholdsView({ state, onStateChange }: HouseholdsViewP
   const saveMutation = useSaveHousehold();
   const archiveMutation = useArchiveHousehold();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const {
@@ -85,8 +87,8 @@ export default function HouseholdsView({ state, onStateChange }: HouseholdsViewP
     defaultValues: emptyHouseholdValues()
   });
 
-  const households = householdsQuery.data ?? [];
-  const members = membersQuery.data ?? [];
+  const households = useMemo(() => householdsQuery.data ?? [], [householdsQuery.data]);
+  const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
 
   const list = useMemo(() => {
     const query = normalizeSearch(state.search);
@@ -136,7 +138,13 @@ export default function HouseholdsView({ state, onStateChange }: HouseholdsViewP
   }
 
   async function handleArchive(item: Household) {
-    if (!window.confirm(`Arquivar familia "${item.name}"?`)) return;
+    const ok = await confirm({
+      title: `Arquivar familia "${item.name}"?`,
+      message: "A familia sera arquivada e some da listagem ativa.",
+      confirmText: "Arquivar",
+      destructive: true
+    });
+    if (!ok) return;
     try {
       await archiveMutation.mutateAsync(item.id);
       toast(`Familia "${item.name}" arquivada.`, { variant: "success" });
@@ -228,7 +236,7 @@ export default function HouseholdsView({ state, onStateChange }: HouseholdsViewP
             <Field
               label="CEP"
               placeholder="00000-000"
-              value={watch("addressZip")}
+              value={watch("addressZip") ?? ""}
               onChange={(event) =>
                 setValue("addressZip", maskCep(event.currentTarget.value), {
                   shouldDirty: true,

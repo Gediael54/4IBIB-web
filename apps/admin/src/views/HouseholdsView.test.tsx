@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import type { Household, Member } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -25,6 +25,7 @@ vi.mock("../backend", () => ({
   }
 }));
 
+import { ConfirmProvider } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/Toast";
 import HouseholdsView from "./HouseholdsView";
 
@@ -114,7 +115,9 @@ function renderView() {
   const utils = render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <HouseholdsView state={{ search: "", sort: "nameAsc", page: 1 }} onStateChange={onStateChange} />
+        <ConfirmProvider>
+          <HouseholdsView state={{ search: "", sort: "nameAsc", page: 1 }} onStateChange={onStateChange} />
+        </ConfirmProvider>
       </ToastProvider>
     </QueryClientProvider>
   );
@@ -234,7 +237,6 @@ describe("HouseholdsView", () => {
   });
 
   it("archives a household after confirmation", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     mocks.listHouseholds.mockResolvedValue([makeHousehold({ id: "h1", name: "Familia Removida" })]);
     renderView();
 
@@ -244,17 +246,19 @@ describe("HouseholdsView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Arquivar familia Familia Removida/i }));
 
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+    });
+
     await waitFor(() => {
       expect(mocks.archiveHousehold).toHaveBeenCalledWith("h1");
     });
     await waitFor(() => {
       expect(screen.getByText('Familia "Familia Removida" arquivada.')).toBeInTheDocument();
     });
-    confirmSpy.mockRestore();
   });
 
   it("does not archive when confirmation is denied", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     mocks.listHouseholds.mockResolvedValue([makeHousehold({ id: "h1", name: "Familia Mantida" })]);
     renderView();
 
@@ -264,12 +268,14 @@ describe("HouseholdsView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Arquivar familia Familia Mantida/i }));
 
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    });
+
     expect(mocks.archiveHousehold).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it("shows a danger toast when archive fails", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     mocks.archiveHousehold.mockRejectedValue(new Error("Falha arquivar"));
     mocks.listHouseholds.mockResolvedValue([makeHousehold({ id: "h1", name: "Familia ComErro" })]);
     renderView();
@@ -280,9 +286,12 @@ describe("HouseholdsView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Arquivar familia Familia ComErro/i }));
 
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+    });
+
     await waitFor(() => {
       expect(screen.getByText("Falha arquivar")).toBeInTheDocument();
     });
-    confirmSpy.mockRestore();
   });
 });

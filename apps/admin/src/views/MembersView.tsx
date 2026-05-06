@@ -81,6 +81,64 @@ const DUPLICATE_BLOCKING_REASONS: ReadonlyArray<MemberDuplicateMatch["matchReaso
   "phone_match"
 ];
 
+const MEMBER_TAB_FIELDS: Record<string, ReadonlyArray<keyof MemberFormValues>> = {
+  identidade: [
+    "fullName",
+    "preferredName",
+    "birthDate",
+    "maritalStatus",
+    "gender",
+    "photoUrl",
+    "cpf",
+    "rg",
+    "rgIssuer"
+  ],
+  contato: [
+    "email",
+    "phone",
+    "whatsapp",
+    "addressZip",
+    "addressNumber",
+    "addressStreet",
+    "addressComplement",
+    "addressNeighborhood",
+    "addressCity",
+    "addressState"
+  ],
+  familia: ["householdId"],
+  igreja: [
+    "churchRole",
+    "membershipStatus",
+    "joinedAt",
+    "baptismDate",
+    "baptismLocation",
+    "transferredFrom",
+    "notes",
+    "publicBio"
+  ],
+  voluntariado: ["isVolunteer", "volunteerMinistries", "volunteerUnavailableDates", "volunteerNotes"],
+  profissional: [
+    "profession",
+    "emergencyContactName",
+    "emergencyContactPhone",
+    "prayerTopics",
+    "spiritualGifts"
+  ],
+  saude: ["allergies", "medicalNotes", "consentMedicalDataChecked"],
+  lgpd: ["consentVersion", "publicDirectory", "dataRetentionUntil"]
+};
+
+const MEMBER_TAB_ORDER = [
+  "identidade",
+  "contato",
+  "familia",
+  "igreja",
+  "voluntariado",
+  "profissional",
+  "saude",
+  "lgpd"
+] as const;
+
 function emptyMemberValues(): MemberFormValues {
   return {
     fullName: "",
@@ -592,6 +650,7 @@ export default function MembersView({
   const [duplicateWarning, setDuplicateWarning] = useState<MemberDuplicateMatch[]>([]);
   const [forceCreate, setForceCreate] = useState(false);
   const [showCandidates, setShowCandidates] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(defaultTab ?? "identidade");
 
   const {
     register,
@@ -608,10 +667,10 @@ export default function MembersView({
     defaultValues: emptyMemberValues()
   });
 
-  const watchedFullName = watch("fullName");
-  const watchedCpf = watch("cpf");
-  const watchedEmail = watch("email");
-  const watchedPhone = watch("phone");
+  const watchedFullName = watch("fullName") ?? "";
+  const watchedCpf = watch("cpf") ?? "";
+  const watchedEmail = watch("email") ?? "";
+  const watchedPhone = watch("phone") ?? "";
   const isVolunteer = watch("isVolunteer");
   const consentMedical = watch("consentMedicalDataChecked");
   const watchedAllergies = watch("allergies") ?? "";
@@ -639,9 +698,9 @@ export default function MembersView({
 
   const [newDate, setNewDate] = useState("");
 
-  const membersAll = allMembersQuery.data ?? [];
-  const filteredMembers = membersQuery.data ?? [];
-  const households = householdsQuery.data ?? [];
+  const membersAll = useMemo(() => allMembersQuery.data ?? [], [allMembersQuery.data]);
+  const filteredMembers = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
+  const households = useMemo(() => householdsQuery.data ?? [], [householdsQuery.data]);
 
   const editingItem = useMemo(
     () => (editingId ? (membersAll.find((item) => item.id === editingId) ?? null) : null),
@@ -786,7 +845,13 @@ export default function MembersView({
   }
 
   async function handleArchive(item: Member) {
-    if (!window.confirm(`Arquivar membro "${item.fullName}"?`)) return;
+    const ok = await confirm({
+      title: `Arquivar membro "${item.fullName}"?`,
+      message: "O membro sera arquivado e some da listagem ativa. Voce pode restaurar depois.",
+      confirmText: "Arquivar",
+      destructive: true
+    });
+    if (!ok) return;
     try {
       await archiveMutation.mutateAsync(item.id);
       toast(`"${item.fullName}" arquivado.`, { variant: "success" });
@@ -866,6 +931,25 @@ export default function MembersView({
   }
 
   const saving = isSubmitting || saveMutation.isPending;
+
+  const tabErrorCounts: Record<string, number> = {};
+  for (const tabId of MEMBER_TAB_ORDER) {
+    const fields = MEMBER_TAB_FIELDS[tabId] ?? [];
+    let count = 0;
+    for (const field of fields) {
+      if (errors[field as keyof typeof errors]) count += 1;
+    }
+    tabErrorCounts[tabId] = count;
+  }
+
+  function focusFirstTabWithErrors() {
+    for (const tabId of MEMBER_TAB_ORDER) {
+      if ((tabErrorCounts[tabId] ?? 0) > 0) {
+        setActiveTab(tabId);
+        return;
+      }
+    }
+  }
 
   const identidadePanel = (
     <>
@@ -959,7 +1043,7 @@ export default function MembersView({
         <Field
           label="CEP"
           placeholder="00000-000"
-          value={watch("addressZip")}
+          value={watch("addressZip") ?? ""}
           onChange={(event) =>
             setValue("addressZip", maskCep(event.currentTarget.value), {
               shouldDirty: true,
@@ -1325,7 +1409,7 @@ export default function MembersView({
         <form
           key={editingId ?? "new-member"}
           className="editor-form member-form"
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, () => focusFirstTabWithErrors())}
           noValidate
         >
           {mode === "update" && editingItem && (
@@ -1365,15 +1449,42 @@ export default function MembersView({
           )}
           <FieldGroup
             defaultGroup={defaultTab}
+            activeGroup={activeTab}
+            onActiveChange={setActiveTab}
             groups={[
-              { id: "identidade", label: "Identidade", content: identidadePanel },
-              { id: "contato", label: "Contato", content: contatoPanel },
-              { id: "familia", label: "Familia", content: familiaPanel },
-              { id: "igreja", label: "Igreja", content: igrejaPanel },
-              { id: "voluntariado", label: "Voluntariado", content: voluntariadoPanel },
-              { id: "profissional", label: "Profissional", content: profissionalPanel },
-              { id: "saude", label: "Saude", content: saudePanel },
-              { id: "lgpd", label: "LGPD", content: lgpdPanel }
+              {
+                id: "identidade",
+                label: "Identidade",
+                content: identidadePanel,
+                errorCount: tabErrorCounts.identidade
+              },
+              {
+                id: "contato",
+                label: "Contato",
+                content: contatoPanel,
+                errorCount: tabErrorCounts.contato
+              },
+              {
+                id: "familia",
+                label: "Familia",
+                content: familiaPanel,
+                errorCount: tabErrorCounts.familia
+              },
+              { id: "igreja", label: "Igreja", content: igrejaPanel, errorCount: tabErrorCounts.igreja },
+              {
+                id: "voluntariado",
+                label: "Voluntariado",
+                content: voluntariadoPanel,
+                errorCount: tabErrorCounts.voluntariado
+              },
+              {
+                id: "profissional",
+                label: "Profissional",
+                content: profissionalPanel,
+                errorCount: tabErrorCounts.profissional
+              },
+              { id: "saude", label: "Saude", content: saudePanel, errorCount: tabErrorCounts.saude },
+              { id: "lgpd", label: "LGPD", content: lgpdPanel, errorCount: tabErrorCounts.lgpd }
             ]}
           />
           <FormActions saving={saving} onCancel={cancelEdit} />
