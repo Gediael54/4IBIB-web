@@ -56,7 +56,7 @@ npm run test:db          # tests SQL reais (precisa Postgres rodando)
 ## Convencoes
 
 - **Sem comentarios explicando WHAT** — codigo auto-explicativo. Comentario so pra WHY nao-obvio.
-- **Strings em PT-BR sem acentos** (compatibilidade ampla).
+- **Strings UI com acento PT-BR padrao** ("Doações", "Confissão de fé"); código/comentários/SQL/slugs sem acento.
 - **Cobertura 100%** em `core` + `supabase` (gate em `vitest.config.ts`).
 - **`.env`** fica na raiz; cada app aponta `envDir: "../.."`.
 - **Conventional commits obrigatorio** — `commitlint` valida via Husky `commit-msg`. `semantic-release` calcula versao a partir disso.
