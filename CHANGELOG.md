@@ -1,3 +1,9 @@
+# [1.7.0](https://github.com/Gediael54/4IBIB-web/compare/v1.6.0...v1.7.0) (2026-05-06)
+
+### Features
+
+- **admin:** show commemorations and suspended state on annual grid ([9b867cb](https://github.com/Gediael54/4IBIB-web/commit/9b867cb748675fe776ababbcd7ed9c1f7db68729))
+
 # [1.6.0](https://github.com/Gediael54/4IBIB-web/compare/v1.5.1...v1.6.0) (2026-05-06)
 
 ### Features
