@@ -40,6 +40,31 @@ const slug = v.pipe(
 
 const hexColor = v.pipe(v.string(), v.regex(/^#[0-9a-fA-F]{6}$/u, "Use formato hex tipo #0f766e."));
 
+const optionalYoutubeUrl = v.pipe(
+  v.string(),
+  v.maxLength(URL_MAX, `Maximo ${URL_MAX} caracteres.`),
+  v.check((value) => {
+    const trimmed = value?.trim() ?? "";
+    if (!trimmed) {
+      return true;
+    }
+    if (!isValidOptionalHttpUrl(trimmed)) {
+      return false;
+    }
+    try {
+      const host = new URL(trimmed).hostname.toLowerCase();
+      return (
+        host === "youtu.be" ||
+        host === "youtube.com" ||
+        host === "www.youtube.com" ||
+        host === "m.youtube.com"
+      );
+    } catch {
+      return false;
+    }
+  }, "Use uma URL do YouTube (youtube.com ou youtu.be).")
+);
+
 export const announcementSchema = v.object({
   title: requiredText(TEXT_MAX, "Titulo"),
   summary: requiredText(TEXTAREA_MAX, "Resumo"),
@@ -69,7 +94,8 @@ export const scheduleSchema = v.pipe(
     passage: v.pipe(v.string(), v.maxLength(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`)),
     occasionLabel: v.pipe(v.string(), v.maxLength(TEXT_MAX, `Maximo ${TEXT_MAX} caracteres.`)),
     status: v.picklist(["scheduled", "suspended", "free"]),
-    featured: v.boolean()
+    featured: v.boolean(),
+    youtubeUrl: optionalYoutubeUrl
   }),
   v.forward(
     v.partialCheck(
@@ -228,6 +254,7 @@ export const memberSchema = v.object({
   consentMedicalDataChecked: v.boolean(),
   consentVersion: v.pipe(v.string(), v.maxLength(40)),
   publicDirectory: v.boolean(),
+  publicBio: v.pipe(v.string(), v.maxLength(500, "Maximo 500 caracteres.")),
   dataRetentionUntil: optionalDate
 });
 
