@@ -86,6 +86,7 @@ function makeSchedule(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     status: "scheduled",
     featured: false,
     seriesId: null,
+    youtubeUrl: "",
     ...overrides
   };
 }
@@ -191,13 +192,15 @@ it("preserves all schedule fields through sort", () => {
     passage: "Marcos 1",
     occasionLabel: "PASCOA",
     featured: true,
-    seriesId: "serie-louvor"
+    seriesId: "serie-louvor",
+    youtubeUrl: "https://youtu.be/abc123"
   });
 
   const [result] = sortSchedule([item]);
   expect(result).toEqual(item);
   expect(result?.soundTeam).toBe("Miguel, Brainer");
   expect(result?.seriesId).toBe("serie-louvor");
+  expect(result?.youtubeUrl).toBe("https://youtu.be/abc123");
 });
 
 it("treats unpublished or future-dated announcements as not visible", () => {
