@@ -15,9 +15,11 @@ import { FieldGroup } from "../components/FieldGroup";
 import { ListView } from "../components/ListView";
 import { useToast } from "../components/Toast";
 import { Field, FormActions, ListToolbar, Pagination, SelectField, TextAreaField } from "../components/ui";
+import WhatsAppShareButton from "../components/WhatsAppShareButton";
 import { useArchiveAnnouncement, useRestoreAnnouncement, useSaveAnnouncement } from "../hooks";
 import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
 import { announcementSchema, type AnnouncementFormValues } from "../schemas";
+import { buildAnnouncementMessage } from "../lib/whatsapp-share";
 import { ANNOUNCEMENT_STATUS_LABELS, ANNOUNCEMENT_STATUS_OPTIONS } from "../lib/labels";
 import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "../lib/limits";
 import {
@@ -372,6 +374,13 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
               </span>
             </div>
             <div className="row-actions">
+              {item.status === "published" && (
+                <WhatsAppShareButton
+                  message={buildAnnouncementMessage(item)}
+                  size="sm"
+                  label="Avisar grupo"
+                />
+              )}
               <button onClick={() => startEdit(item)} type="button">
                 Editar
               </button>

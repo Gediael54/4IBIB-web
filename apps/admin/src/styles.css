@@ -2,6 +2,7 @@
 @import "./styles/commemoration.css";
 @import "./styles/views-polish.css";
 @import "./styles/mobile-polish.css";
+@import "./styles/whatsapp-share.css";
 
 * {
   box-sizing: border-box;

@@ -1,0 +1,53 @@
+/* === WhatsApp share button === */
+
+.whatsapp-share {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.whatsapp-share .button {
+  font-size: var(--text-sm);
+  padding: 8px 14px;
+}
+
+.whatsapp-share-sm .button {
+  font-size: var(--text-xs);
+  padding: 6px 10px;
+}
+
+.whatsapp-share-action {
+  background: #25d366;
+  color: #fff;
+  border: 1px solid #1ebe57;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transition:
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.whatsapp-share-action:hover {
+  background: #1ebe57;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.whatsapp-share-action:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 540px) {
+  .whatsapp-share {
+    width: 100%;
+  }
+  .whatsapp-share .button {
+    flex: 1;
+    justify-content: center;
+  }
+}
