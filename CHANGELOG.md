@@ -1,3 +1,25 @@
+# [1.5.0](https://github.com/Gediael54/4IBIB-web/compare/v1.4.0...v1.5.0) (2026-05-06)
+
+### Bug Fixes
+
+- **admin:** mfa setup unenroll all factors and polish view typography ([18eef96](https://github.com/Gediael54/4IBIB-web/commit/18eef96abfbd41c1e382edf708c21ed57945d551))
+- **functions:** enforce hostname allowlist and 403 on Turnstile failure ([476c2a6](https://github.com/Gediael54/4IBIB-web/commit/476c2a6a9e7eb7bd668dad2f90c103b9ebc3d7e8))
+- **site:** solid header on subpages and remove sticky page-shell topbar ([1799afa](https://github.com/Gediael54/4IBIB-web/commit/1799afa802f13d828abf127f79556c3bab0a5d2c))
+- **supabase:** create volunteers_public view for anon access ([67f34f2](https://github.com/Gediael54/4IBIB-web/commit/67f34f267c7c061d53c0907f87997c237eafbd37))
+- **supabase:** rename row parameter to payload in redact_member_pii ([e8dcaab](https://github.com/Gediael54/4IBIB-web/commit/e8dcaabf30f1d374306213b1acb47a3943225269))
+
+### Features
+
+- **admin:** add blocking MFA setup and challenge with in-app QR ([67bae64](https://github.com/Gediael54/4IBIB-web/commit/67bae649732922a90b397e7c3b8e06a3de8f4499))
+- **admin:** add CRUD view for commemorative dates ([e79f208](https://github.com/Gediael54/4IBIB-web/commit/e79f2085aa50e87d241f672f13ffdc1b5ad9c517))
+- **admin:** add WhatsApp share for announcements and schedule ([5d9d111](https://github.com/Gediael54/4IBIB-web/commit/5d9d111fb44ddc664a79cbd2b898ad8a88672123))
+- **auth:** add MFA gateway methods and full coverage ([48d01aa](https://github.com/Gediael54/4IBIB-web/commit/48d01aa5dfa7c51703bca0e20809036445aab645))
+- **core:** add Commemoration types and helpers ([eff4c61](https://github.com/Gediael54/4IBIB-web/commit/eff4c61877292fe82c0b3272655c58bf60a56fff))
+- **functions:** wire login-alert with JWT + Turnstile + Resend ([3c004ba](https://github.com/Gediael54/4IBIB-web/commit/3c004ba0b90833f654a1db4efc4d1956267ea2f0))
+- **site:** integrate commemorative dates with banner and badges ([78e1841](https://github.com/Gediael54/4IBIB-web/commit/78e18410749b789e2d775ee3a55ee9e7e6538ac0))
+- **supabase:** add commemorative_dates table with RLS ([393e33e](https://github.com/Gediael54/4IBIB-web/commit/393e33e98a7774bde3bcf5470e6acc19a2066be0))
+- **supabase:** implement listCommemorations and CRUD adapter ([50687cc](https://github.com/Gediael54/4IBIB-web/commit/50687cca3f69b2dc9873bb9b5c591ad583064cb3))
+
 # [1.4.0](https://github.com/Gediael54/4IBIB-web/compare/v1.3.0...v1.4.0) (2026-05-06)
 
 ### Bug Fixes
