@@ -16,7 +16,10 @@ import {
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { backend } from "./backend";
+import EyebrowTag, { categoryToVariant } from "./components/EyebrowTag";
 import Gallery from "./components/Gallery";
+import LatestTeaching from "./components/LatestTeaching";
+import Leadership from "./components/Leadership";
 import PictureSet from "./components/PictureSet";
 import PrivacyPolicy from "./components/PrivacyPolicy";
 import SchedulePage from "./components/SchedulePage";
@@ -58,6 +61,7 @@ const SECTION_TITLES: Record<string, string> = {
   programacao: `Programacao | ${SITE_TITLE}`,
   agenda: `Agenda completa | ${SITE_TITLE}`,
   ministerios: `Ministerios | ${SITE_TITLE}`,
+  lideranca: `Lideranca | ${SITE_TITLE}`,
   contato: `Pedido de oracao | ${SITE_TITLE}`,
   "politica-privacidade": `Politica de privacidade | ${SITE_TITLE}`,
   "meus-dados": `Meus dados | ${SITE_TITLE}`
@@ -119,6 +123,7 @@ function SiteHome({
           <a href="#avisos">Avisos</a>
           <a href="#programacao">Programacao</a>
           <a href="#ministerios">Ministerios</a>
+          <a href="#lideranca">Lideranca</a>
           <a href="/admin">Admin</a>
         </div>
       </nav>
@@ -158,6 +163,8 @@ function SiteHome({
         ))}
       </section>
 
+      <LatestTeaching schedule={schedule} />
+
       <section className="section intro">
         <div className="intro-image">
           <PictureSet
@@ -186,7 +193,10 @@ function SiteHome({
         <div className="announcement-grid">
           {pinnedAnnouncements.map((announcement) => (
             <article className="announcement-card" key={announcement.id}>
-              <span>{CATEGORY_LABELS[announcement.category] ?? announcement.category}</span>
+              <EyebrowTag
+                label={CATEGORY_LABELS[announcement.category] ?? announcement.category}
+                variant={categoryToVariant(announcement.category)}
+              />
               <h3>{announcement.title}</h3>
               <p>{announcement.summary}</p>
               {announcement.ctaUrl && announcement.ctaLabel && (
@@ -241,6 +251,8 @@ function SiteHome({
           ))}
         </div>
       </section>
+
+      <Leadership />
 
       <section className="contact-section" id="contato">
         <div>
@@ -334,6 +346,7 @@ function SiteHome({
           <a href="#avisos">Avisos</a>
           <a href="#programacao">Programacao</a>
           <a href="#ministerios">Ministerios</a>
+          <a href="#lideranca">Lideranca</a>
           <a href="#contato">Pedido de oracao</a>
           <a href="#politica-privacidade">Politica de privacidade</a>
           <a href="#meus-dados">Meus dados</a>
