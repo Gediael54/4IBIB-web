@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { HeartHandshake } from "lucide-react";
-import type { ChurchRole, Member } from "@4ibib/core";
+import type { ChurchRole, PublicMember } from "@4ibib/core";
 import { backend } from "../backend";
 import PictureSet from "./PictureSet";
 
@@ -11,8 +11,8 @@ const LEADERSHIP_ROLES: readonly LeadershipRole[] = ["pastor", "pastor_auxiliar"
 const LEADERSHIP_ROLE_LABELS: Record<LeadershipRole, string> = {
   pastor: "Pastor",
   pastor_auxiliar: "Pastor auxiliar",
-  presbitero: "Presbitero",
-  diacono: "Diacono"
+  presbitero: "Presbítero",
+  diacono: "Diácono"
 };
 
 const ROLE_ORDER: Record<LeadershipRole, number> = {
@@ -26,7 +26,7 @@ function isLeadershipRole(role: ChurchRole): role is LeadershipRole {
   return (LEADERSHIP_ROLES as readonly ChurchRole[]).includes(role);
 }
 
-function displayName(member: Member): string {
+function displayName(member: PublicMember): string {
   return member.preferredName.trim() || member.fullName;
 }
 
@@ -34,7 +34,7 @@ function isPictureSetCandidate(url: string): boolean {
   return url.toLowerCase().endsWith(".jpg");
 }
 
-export function sortLeadership(items: Member[]): Member[] {
+export function sortLeadership(items: PublicMember[]): PublicMember[] {
   return [...items].sort((left, right) => {
     const leftRole = isLeadershipRole(left.churchRole) ? ROLE_ORDER[left.churchRole] : 99;
     const rightRole = isLeadershipRole(right.churchRole) ? ROLE_ORDER[right.churchRole] : 99;
@@ -45,14 +45,12 @@ export function sortLeadership(items: Member[]): Member[] {
   });
 }
 
-export function filterLeadership(items: Member[]): Member[] {
-  return items.filter(
-    (member) => member.publicDirectory && member.deletedAt === null && isLeadershipRole(member.churchRole)
-  );
+export function filterLeadership(items: PublicMember[]): PublicMember[] {
+  return items.filter((member) => isLeadershipRole(member.churchRole));
 }
 
 export interface LeadershipProps {
-  members: Member[];
+  members: PublicMember[];
 }
 
 export function LeadershipList({ members }: LeadershipProps) {
@@ -100,7 +98,7 @@ export function LeadershipList({ members }: LeadershipProps) {
 export default function Leadership() {
   const { data: members } = useQuery({
     queryKey: ["leadership"],
-    queryFn: () => backend.content.listMembers()
+    queryFn: () => backend.content.listPublicMembers()
   });
 
   return <LeadershipList members={members ?? []} />;

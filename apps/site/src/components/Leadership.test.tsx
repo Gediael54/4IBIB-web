@@ -1,76 +1,34 @@
 import "@testing-library/jest-dom/vitest";
-import type { Member } from "@4ibib/core";
+import type { PublicMember } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  listMembers: vi.fn()
+  listPublicMembers: vi.fn()
 }));
 
 vi.mock("../backend", () => ({
   backend: {
     mode: "supabase",
     content: {
-      listMembers: mocks.listMembers
+      listPublicMembers: mocks.listPublicMembers
     }
   }
 }));
 
 import Leadership, { LeadershipList, filterLeadership, sortLeadership } from "./Leadership";
 
-function makeMember(overrides: Partial<Member> = {}): Member {
+function makeMember(overrides: Partial<PublicMember> = {}): PublicMember {
   return {
     id: "m1",
     fullName: "Joao Silva",
     preferredName: "",
-    birthDate: null,
-    maritalStatus: null,
-    gender: null,
     photoUrl: "",
-    email: "",
-    phone: "",
-    whatsapp: "",
-    cpf: null,
-    rg: "",
-    rgIssuer: "",
-    profession: "",
-    address: {
-      zip: "",
-      street: "",
-      number: "",
-      complement: "",
-      neighborhood: "",
-      city: "",
-      state: ""
-    },
-    householdId: null,
     churchRole: "pastor",
-    membershipStatus: "ativo",
-    joinedAt: null,
-    baptismDate: null,
-    baptismLocation: "",
-    transferredFrom: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    prayerTopics: [],
-    spiritualGifts: [],
-    allergies: "",
-    medicalNotes: "",
-    consentMedicalDataAt: null,
-    isVolunteer: false,
-    volunteerMinistries: [],
-    volunteerUnavailableDates: [],
-    volunteerNotes: "",
-    notes: "",
-    consentGivenAt: null,
-    consentVersion: "1.0",
-    publicDirectory: true,
     publicBio: "Bio do membro.",
-    dataRetentionUntil: null,
-    deletedAt: null,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
+    isVolunteer: false,
+    householdId: null,
     ...overrides
   };
 }
@@ -87,17 +45,16 @@ function renderLeadership() {
 }
 
 describe("Leadership filtering and sorting", () => {
-  it("filterLeadership keeps only public, non-deleted leadership roles", () => {
+  it("filterLeadership keeps only leadership roles", () => {
     const members = [
-      makeMember({ id: "a", churchRole: "pastor", publicDirectory: true }),
-      makeMember({ id: "b", churchRole: "membro_comum", publicDirectory: true }),
-      makeMember({ id: "c", churchRole: "pastor", publicDirectory: false }),
-      makeMember({ id: "d", churchRole: "diacono", publicDirectory: true, deletedAt: "2026-01-01" }),
-      makeMember({ id: "e", churchRole: "presbitero", publicDirectory: true }),
-      makeMember({ id: "f", churchRole: "tesoureiro", publicDirectory: true })
+      makeMember({ id: "a", churchRole: "pastor" }),
+      makeMember({ id: "b", churchRole: "membro_comum" }),
+      makeMember({ id: "e", churchRole: "presbitero" }),
+      makeMember({ id: "f", churchRole: "tesoureiro" }),
+      makeMember({ id: "d", churchRole: "diacono" })
     ];
     const result = filterLeadership(members);
-    expect(result.map((m) => m.id)).toEqual(["a", "e"]);
+    expect(result.map((m) => m.id)).toEqual(["a", "e", "d"]);
   });
 
   it("sortLeadership orders pastor > pastor_auxiliar > presbitero > diacono", () => {
@@ -147,13 +104,13 @@ describe("LeadershipList component", () => {
         ]}
       />
     );
-    expect(screen.getByRole("heading", { level: 2, name: /Lideranca/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /Lideran/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "Joao" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "Maria Santos" })).toBeInTheDocument();
     expect(screen.getByText("Pastor desde 2015.")).toBeInTheDocument();
     expect(screen.getByText("Servindo na cozinha.")).toBeInTheDocument();
     expect(screen.getAllByText("Pastor")[0]).toBeInTheDocument();
-    expect(screen.getByText("Diacono")).toBeInTheDocument();
+    expect(screen.getByText("Diácono")).toBeInTheDocument();
   });
 
   it("renders the photo as a picture set when url ends with .jpg", () => {
@@ -200,15 +157,15 @@ describe("LeadershipList component", () => {
 
 describe("Leadership data fetching", () => {
   beforeEach(() => {
-    mocks.listMembers.mockReset();
+    mocks.listPublicMembers.mockReset();
   });
 
   afterEach(() => {
     cleanup();
   });
 
-  it("queries listMembers and renders the visible leadership", async () => {
-    mocks.listMembers.mockResolvedValue([
+  it("queries listPublicMembers and renders the visible leadership", async () => {
+    mocks.listPublicMembers.mockResolvedValue([
       makeMember({
         id: "p1",
         churchRole: "pastor",
@@ -221,6 +178,6 @@ describe("Leadership data fetching", () => {
     await waitFor(() => {
       expect(screen.getByRole("heading", { level: 3, name: "Pastor Joao" })).toBeInTheDocument();
     });
-    expect(mocks.listMembers).toHaveBeenCalled();
+    expect(mocks.listPublicMembers).toHaveBeenCalled();
   });
 });
