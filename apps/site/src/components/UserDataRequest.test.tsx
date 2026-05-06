@@ -23,7 +23,7 @@ describe("UserDataRequest", () => {
 
   it("mentions the 15 business days response deadline", () => {
     render(<UserDataRequest />);
-    expect(screen.getByText(/15 dias uteis/i)).toBeInTheDocument();
+    expect(screen.getByText(/15 dias úteis/i)).toBeInTheDocument();
   });
 
   it("lists the LGPD rights", () => {
@@ -34,18 +34,18 @@ describe("UserDataRequest", () => {
       .map((node) => node.textContent ?? "");
     expect(titleTexts).toEqual([
       "Acesso.",
-      "Correcao.",
-      "Anonimizacao ou bloqueio.",
+      "Correção.",
+      "Anonimização ou bloqueio.",
       "Portabilidade.",
-      "Eliminacao.",
-      "Revogacao do consentimento."
+      "Eliminação.",
+      "Revogação do consentimento."
     ]);
   });
 
   it("links back to home and to the privacy policy", () => {
     render(<UserDataRequest />);
     expect(screen.getByRole("link", { name: /Voltar/i })).toHaveAttribute("href", "#inicio");
-    expect(screen.getByRole("link", { name: /politica de privacidade/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /política de privacidade/i })).toHaveAttribute(
       "href",
       "#politica-privacidade"
     );

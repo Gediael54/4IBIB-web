@@ -11,8 +11,8 @@ describe("PrivacyPolicy", () => {
 
   it("renders heading and lead paragraph", () => {
     render(<PrivacyPolicy />);
-    expect(screen.getByRole("heading", { level: 1, name: /Politica de privacidade/i })).toBeInTheDocument();
-    expect(screen.getByText(/Lei Geral de Protecao de Dados/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /Política de privacidade/i })).toBeInTheDocument();
+    expect(screen.getByText(/Lei Geral de Proteção de Dados/i)).toBeInTheDocument();
   });
 
   it("mentions LGPD legal bases (Art. 7 incisos I and V)", () => {

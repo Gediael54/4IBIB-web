@@ -8,32 +8,32 @@ const RIGHTS = [
   {
     key: "acesso",
     title: "Acesso",
-    description: "Saber quais dados pessoais a igreja mantem sobre voce."
+    description: "Saber quais dados pessoais a igreja mantém sobre você."
   },
   {
     key: "correcao",
-    title: "Correcao",
-    description: "Solicitar correcao de dados incompletos, inexatos ou desatualizados."
+    title: "Correção",
+    description: "Solicitar correção de dados incompletos, inexatos ou desatualizados."
   },
   {
     key: "anonimizacao",
-    title: "Anonimizacao ou bloqueio",
-    description: "Pedir anonimizacao, bloqueio ou eliminacao de dados desnecessarios ou excessivos."
+    title: "Anonimização ou bloqueio",
+    description: "Pedir anonimização, bloqueio ou eliminação de dados desnecessários ou excessivos."
   },
   {
     key: "portabilidade",
     title: "Portabilidade",
-    description: "Receber seus dados em formato estruturado e interoperavel."
+    description: "Receber seus dados em formato estruturado e interoperável."
   },
   {
     key: "eliminacao",
-    title: "Eliminacao",
+    title: "Eliminação",
     description: "Eliminar dados tratados com base no seu consentimento."
   },
   {
     key: "revogacao",
-    title: "Revogacao do consentimento",
-    description: "Retirar o consentimento dado para tratamentos especificos."
+    title: "Revogação do consentimento",
+    description: "Retirar o consentimento dado para tratamentos específicos."
   }
 ];
 
@@ -45,9 +45,9 @@ export default function UserDataRequest() {
   return (
     <main className="legal-page">
       <a className="skip-link" href="#meus-dados">
-        Pular para o conteudo
+        Pular para o conteúdo
       </a>
-      <header className="legal-page-topbar" aria-label="Navegacao da pagina meus dados">
+      <header className="legal-page-topbar" aria-label="Navegação da página meus dados">
         <a className="legal-page-back" href="#inicio">
           <ArrowLeft size={20} aria-hidden="true" />
           <span>Voltar</span>
@@ -65,8 +65,8 @@ export default function UserDataRequest() {
         <p className="eyebrow">Direitos do titular</p>
         <h1>Meus dados</h1>
         <p className="legal-page-lead">
-          Voce pode solicitar, a qualquer momento, acesso, correcao ou exclusao dos dados que a {church.name}{" "}
-          mantem sobre voce.
+          Você pode solicitar, a qualquer momento, acesso, correção ou exclusão dos dados que a {church.name}{" "}
+          mantém sobre você.
         </p>
 
         <section aria-labelledby="como-solicitar">
@@ -77,11 +77,11 @@ export default function UserDataRequest() {
               <Mail size={16} aria-hidden="true" /> {contactEmail}
             </a>{" "}
             com o assunto <strong>&quot;{REQUEST_SUBJECT}&quot;</strong>. Inclua seu nome completo, descreva
-            qual direito deseja exercer e, se possivel, anexe informacoes que facilitem a identificacao do
+            qual direito deseja exercer e, se possível, anexe informações que facilitem a identificação do
             pedido (data aproximada, contato usado, etc.).
           </p>
           <p>
-            Respondemos em ate <strong>{RESPONSE_DEADLINE_DAYS} dias uteis</strong>. Pedidos que envolvam
+            Respondemos em até <strong>{RESPONSE_DEADLINE_DAYS} dias úteis</strong>. Pedidos que envolvam
             terceiros ou registros antigos podem demandar prazo adicional, sempre comunicado ao titular.
           </p>
         </section>
@@ -98,10 +98,10 @@ export default function UserDataRequest() {
         </section>
 
         <section aria-labelledby="observacoes">
-          <h2 id="observacoes">Observacoes</h2>
+          <h2 id="observacoes">Observações</h2>
           <p>
             Para detalhes completos sobre como tratamos seus dados, finalidades e bases legais, consulte a{" "}
-            <a href="#politica-privacidade">politica de privacidade</a>.
+            <a href="#politica-privacidade">política de privacidade</a>.
           </p>
         </section>
       </article>
