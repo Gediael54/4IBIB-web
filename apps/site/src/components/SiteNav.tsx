@@ -18,9 +18,15 @@ const PRIMARY_LINKS = [
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+function isHomeHash(hash: string): boolean {
+  const normalized = hash.replace(/^#/, "");
+  return normalized === "" || normalized === "inicio";
+}
+
 export default function SiteNav() {
   const church = useChurchProfile();
   const [scrolled, setScrolled] = useState(false);
+  const [isHome, setIsHome] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quemSomosExpanded, setQuemSomosExpanded] = useState(false);
@@ -32,10 +38,20 @@ export default function SiteNav() {
     function handleScroll() {
       setScrolled(window.scrollY >= 80);
     }
+    function handleHash() {
+      setIsHome(isHomeHash(window.location.hash));
+    }
     handleScroll();
+    handleHash();
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("hashchange", handleHash);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("hashchange", handleHash);
+    };
   }, []);
+
+  const solid = scrolled || !isHome;
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -124,7 +140,7 @@ export default function SiteNav() {
   }
 
   return (
-    <nav className={`site-nav${scrolled ? " scrolled" : ""}`} aria-label="Navegação principal">
+    <nav className={`site-nav${solid ? " scrolled" : ""}`} aria-label="Navegação principal">
       <a className="brand" href="#inicio" onClick={handleNavigate}>
         <img src="/logo.png" alt="" className="brand-logo" />
         <span>{church.shortName}</span>
