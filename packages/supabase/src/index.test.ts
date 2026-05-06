@@ -193,6 +193,17 @@ const recurringMeetingRow = {
   sort_order: 1
 };
 
+const commemorationRow = {
+  id: "c1",
+  name: "Mes de Missoes",
+  type: "month",
+  month: 7,
+  day_of_month: null,
+  description: "",
+  color: "#0f766e",
+  sort_order: 0
+};
+
 const adminUserRow = {
   user_id: "u-1",
   role: "owner",
@@ -339,13 +350,14 @@ describe("SupabaseContentRepository", () => {
     return createSupabaseBackend({ url: "https://x", anonKey: "k" });
   }
 
-  it("gets snapshot fanning out to six fetches", async () => {
+  it("gets snapshot fanning out across content tables", async () => {
     client.setNext({ data: [announcementRow], error: null });
     client.setNext({ data: [scheduleRow], error: null });
     client.setNext({ data: [volunteerRow], error: null });
     client.setNext({ data: profileRow, error: null });
     client.setNext({ data: [ministryRow], error: null });
     client.setNext({ data: [recurringMeetingRow], error: null });
+    client.setNext({ data: [commemorationRow], error: null });
 
     const snapshot = await backend().content.getSnapshot();
 
@@ -355,7 +367,8 @@ describe("SupabaseContentRepository", () => {
     expect(snapshot.profile?.id).toBe("main");
     expect(snapshot.ministries[0]?.id).toBe("m1");
     expect(snapshot.recurringMeetings[0]?.id).toBe("r1");
-    expect(client.from).toHaveBeenCalledTimes(6);
+    expect(snapshot.commemorations[0]?.id).toBe("c1");
+    expect(client.from).toHaveBeenCalledTimes(7);
   });
 
   it("lists announcements with empty cta fallbacks and default status", async () => {
@@ -1487,6 +1500,135 @@ describe("SupabaseContentRepository", () => {
   it("propagates supabase error on deleteRecurringMeeting", async () => {
     client.setNext({ data: null, error: { message: "rec-del" } });
     await expect(backend().content.deleteRecurringMeeting("r1")).rejects.toThrow("rec-del");
+  });
+
+  it("lists commemorations sorted excluding deleted", async () => {
+    client.setNext({
+      data: [{ ...commemorationRow, id: "c-aug", month: 8, name: "Agosto" }, commemorationRow],
+      error: null
+    });
+    const items = await backend().content.listCommemorations();
+    expect(items.map((c) => c.id)).toEqual(["c1", "c-aug"]);
+    expect(client.queries[0]?.is).toHaveBeenCalledWith("deleted_at", null);
+  });
+
+  it("maps commemoration day type and null fields", async () => {
+    client.setNext({
+      data: [
+        {
+          id: "c-day",
+          name: "Dia das Maes",
+          type: "day",
+          month: 5,
+          day_of_month: 10,
+          description: null,
+          color: null,
+          sort_order: null
+        }
+      ],
+      error: null
+    });
+    const [item] = await backend().content.listCommemorations();
+    expect(item?.type).toBe("day");
+    expect(item?.dayOfMonth).toBe(10);
+    expect(item?.description).toBe("");
+    expect(item?.color).toBe("");
+    expect(item?.sortOrder).toBe(0);
+  });
+
+  it("propagates supabase error on listCommemorations", async () => {
+    client.setNext({ data: null, error: { message: "com-list" } });
+    await expect(backend().content.listCommemorations()).rejects.toThrow("com-list");
+  });
+
+  it("saves commemoration preserving id and clearing day for month type", async () => {
+    client.setNext({ data: commemorationRow, error: null });
+    const result = await backend().content.saveCommemoration({
+      id: "c1",
+      name: "Mes de Missoes",
+      type: "month",
+      month: 7,
+      dayOfMonth: 15,
+      description: "",
+      color: "#0f766e",
+      sortOrder: 0
+    });
+    expect(result.id).toBe("c1");
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "c1", type: "month", month: 7, day_of_month: null })
+    );
+  });
+
+  it("saves commemoration of day type preserving day", async () => {
+    client.setNext({
+      data: { ...commemorationRow, id: "c-day", type: "day", day_of_month: 10, month: 5 },
+      error: null
+    });
+    await backend().content.saveCommemoration({
+      name: "Dia das Maes",
+      type: "day",
+      month: 5,
+      dayOfMonth: 10,
+      description: "",
+      color: "#0f766e",
+      sortOrder: 0
+    });
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "day", day_of_month: 10 })
+    );
+  });
+
+  it("saves commemoration generating id when missing", async () => {
+    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue("com-uuid-1-2-3");
+    client.setNext({ data: { ...commemorationRow, id: "com-uuid-1-2-3" }, error: null });
+    await backend().content.saveCommemoration({
+      name: "Mes de Missoes",
+      type: "month",
+      month: 7,
+      dayOfMonth: null,
+      description: "",
+      color: "#0f766e",
+      sortOrder: 0
+    });
+    expect(client.queries[0]?.upsert).toHaveBeenCalledWith(expect.objectContaining({ id: "com-uuid-1-2-3" }));
+    uuid.mockRestore();
+  });
+
+  it("propagates supabase error on saveCommemoration", async () => {
+    client.setNext({ data: null, error: { message: "com-save" } });
+    await expect(
+      backend().content.saveCommemoration({
+        name: "x",
+        type: "month",
+        month: 1,
+        dayOfMonth: null,
+        description: "",
+        color: "#000",
+        sortOrder: 0
+      })
+    ).rejects.toThrow("com-save");
+  });
+
+  it("archives commemoration through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.archiveCommemoration("c1");
+    expect(client.rpc).toHaveBeenCalledWith("archive_commemorative_date", { p_id: "c1" });
+  });
+
+  it("propagates rpc error on archiveCommemoration", async () => {
+    client.setNextRpc({ data: null, error: { message: "arc-com-fail" } });
+    await expect(backend().content.archiveCommemoration("c1")).rejects.toThrow("arc-com-fail");
+  });
+
+  it("restores commemoration through rpc", async () => {
+    client.setNextRpc({ data: null, error: null });
+    await backend().content.restoreCommemoration("c1");
+    expect(client.rpc).toHaveBeenCalledWith("restore_commemorative_date", { p_id: "c1" });
+  });
+
+  it("propagates rpc error on restoreCommemoration", async () => {
+    client.setNextRpc({ data: null, error: { message: "res-com-fail" } });
+    await expect(backend().content.restoreCommemoration("c1")).rejects.toThrow("res-com-fail");
   });
 
   it("lists admins enriched via list_admins rpc", async () => {

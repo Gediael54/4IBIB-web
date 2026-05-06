@@ -155,6 +155,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      commemorative_dates: {
+        Row: {
+          color: string;
+          created_at: string;
+          day_of_month: number | null;
+          deleted_at: string | null;
+          description: string;
+          id: string;
+          month: number;
+          name: string;
+          sort_order: number;
+          type: Database["public"]["Enums"]["commemoration_type"];
+          updated_at: string;
+        };
+        Insert: {
+          color?: string;
+          created_at?: string;
+          day_of_month?: number | null;
+          deleted_at?: string | null;
+          description?: string;
+          id?: string;
+          month: number;
+          name: string;
+          sort_order?: number;
+          type: Database["public"]["Enums"]["commemoration_type"];
+          updated_at?: string;
+        };
+        Update: {
+          color?: string;
+          created_at?: string;
+          day_of_month?: number | null;
+          deleted_at?: string | null;
+          description?: string;
+          id?: string;
+          month?: number;
+          name?: string;
+          sort_order?: number;
+          type?: Database["public"]["Enums"]["commemoration_type"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       content_audit_log: {
         Row: {
           action: string;
@@ -249,7 +291,21 @@ export type Database = {
             foreignKeyName: "households_head_member_fk";
             columns: ["head_member_id"];
             isOneToOne: false;
+            referencedRelation: "members_public";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "households_head_member_fk";
+            columns: ["head_member_id"];
+            isOneToOne: false;
             referencedRelation: "volunteers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "households_head_member_fk";
+            columns: ["head_member_id"];
+            isOneToOne: false;
+            referencedRelation: "volunteers_public";
             referencedColumns: ["id"];
           }
         ];
@@ -294,7 +350,21 @@ export type Database = {
             foreignKeyName: "member_relationships_from_member_id_fkey";
             columns: ["from_member_id"];
             isOneToOne: false;
+            referencedRelation: "members_public";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_relationships_from_member_id_fkey";
+            columns: ["from_member_id"];
+            isOneToOne: false;
             referencedRelation: "volunteers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_relationships_from_member_id_fkey";
+            columns: ["from_member_id"];
+            isOneToOne: false;
+            referencedRelation: "volunteers_public";
             referencedColumns: ["id"];
           },
           {
@@ -308,7 +378,21 @@ export type Database = {
             foreignKeyName: "member_relationships_to_member_id_fkey";
             columns: ["to_member_id"];
             isOneToOne: false;
+            referencedRelation: "members_public";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_relationships_to_member_id_fkey";
+            columns: ["to_member_id"];
+            isOneToOne: false;
             referencedRelation: "volunteers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_relationships_to_member_id_fkey";
+            columns: ["to_member_id"];
+            isOneToOne: false;
+            referencedRelation: "volunteers_public";
             referencedColumns: ["id"];
           }
         ];
@@ -716,7 +800,21 @@ export type Database = {
             foreignKeyName: "schedule_items_director_member_id_fkey";
             columns: ["director_member_id"];
             isOneToOne: false;
+            referencedRelation: "members_public";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "schedule_items_director_member_id_fkey";
+            columns: ["director_member_id"];
+            isOneToOne: false;
             referencedRelation: "volunteers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "schedule_items_director_member_id_fkey";
+            columns: ["director_member_id"];
+            isOneToOne: false;
+            referencedRelation: "volunteers_public";
             referencedColumns: ["id"];
           },
           {
@@ -730,7 +828,21 @@ export type Database = {
             foreignKeyName: "schedule_items_preacher_member_id_fkey";
             columns: ["preacher_member_id"];
             isOneToOne: false;
+            referencedRelation: "members_public";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "schedule_items_preacher_member_id_fkey";
+            columns: ["preacher_member_id"];
+            isOneToOne: false;
             referencedRelation: "volunteers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "schedule_items_preacher_member_id_fkey";
+            columns: ["preacher_member_id"];
+            isOneToOne: false;
+            referencedRelation: "volunteers_public";
             referencedColumns: ["id"];
           },
           {
@@ -744,7 +856,21 @@ export type Database = {
             foreignKeyName: "schedule_items_sound_member_id_fkey";
             columns: ["sound_member_id"];
             isOneToOne: false;
+            referencedRelation: "members_public";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "schedule_items_sound_member_id_fkey";
+            columns: ["sound_member_id"];
+            isOneToOne: false;
             referencedRelation: "volunteers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "schedule_items_sound_member_id_fkey";
+            columns: ["sound_member_id"];
+            isOneToOne: false;
+            referencedRelation: "volunteers_public";
             referencedColumns: ["id"];
           }
         ];
@@ -834,10 +960,50 @@ export type Database = {
         };
         Relationships: [];
       };
+      volunteers_public: {
+        Row: {
+          created_at: string | null;
+          id: string | null;
+          ministries: string[] | null;
+          name: string | null;
+          notes: string | null;
+          photo_url: string | null;
+          role: string | null;
+          sort_order: number | null;
+          unavailable_dates: string[] | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string | null;
+          ministries?: string[] | null;
+          name?: string | null;
+          notes?: string | null;
+          photo_url?: string | null;
+          role?: never;
+          sort_order?: never;
+          unavailable_dates?: string[] | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string | null;
+          ministries?: string[] | null;
+          name?: string | null;
+          notes?: string | null;
+          photo_url?: string | null;
+          role?: never;
+          sort_order?: never;
+          unavailable_dates?: string[] | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       anonymize_member: { Args: { p_id: string }; Returns: undefined };
       archive_announcement: { Args: { p_id: string }; Returns: undefined };
+      archive_commemorative_date: { Args: { p_id: string }; Returns: undefined };
       archive_member: { Args: { p_id: string }; Returns: undefined };
       archive_ministry: { Args: { p_id: string }; Returns: undefined };
       archive_prayer_request: { Args: { p_id: string }; Returns: undefined };
@@ -871,7 +1037,9 @@ export type Database = {
       };
       purge_old_audit: { Args: never; Returns: number };
       purge_old_prayers: { Args: never; Returns: number };
+      redact_member_pii: { Args: { payload: Json }; Returns: Json };
       restore_announcement: { Args: { p_id: string }; Returns: undefined };
+      restore_commemorative_date: { Args: { p_id: string }; Returns: undefined };
       restore_member: { Args: { p_id: string }; Returns: undefined };
       restore_ministry: { Args: { p_id: string }; Returns: undefined };
       restore_prayer_request: { Args: { p_id: string }; Returns: undefined };
@@ -893,6 +1061,7 @@ export type Database = {
         | "secretario"
         | "pastor"
         | "pastor_auxiliar";
+      commemoration_type: "month" | "day";
       gender: "masculino" | "feminino" | "outro";
       marital_status: "solteiro" | "casado" | "viuvo" | "divorciado" | "uniao_estavel";
       membership_status: "ativo" | "inativo" | "transferido" | "falecido";
@@ -1047,6 +1216,7 @@ export const Constants = {
         "pastor",
         "pastor_auxiliar"
       ],
+      commemoration_type: ["month", "day"],
       gender: ["masculino", "feminino", "outro"],
       marital_status: ["solteiro", "casado", "viuvo", "divorciado", "uniao_estavel"],
       membership_status: ["ativo", "inativo", "transferido", "falecido"],
