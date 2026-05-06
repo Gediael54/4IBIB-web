@@ -1,3 +1,21 @@
+# [1.4.0](https://github.com/Gediael54/4IBIB-web/compare/v1.3.0...v1.4.0) (2026-05-06)
+
+### Bug Fixes
+
+- **site:** add Portuguese accents and content to pages ([c668d2a](https://github.com/Gediael54/4IBIB-web/commit/c668d2ac773dd14460a156a9e7ab84d40529621c))
+- **site:** update SchedulePage with accents and improved filters ([636f01e](https://github.com/Gediael54/4IBIB-web/commit/636f01ea3bc7134b11836a8d7c1d8672887cf21c))
+
+### Features
+
+- **admin:** add error badge tabs and form improvements ([a68e5a0](https://github.com/Gediael54/4IBIB-web/commit/a68e5a01fa4e8adbcd8b3aa045201d5f202a1f35))
+- **admin:** add ListRow component for consistent row rendering ([a4803e4](https://github.com/Gediael54/4IBIB-web/commit/a4803e49e261547308ef4f9bc410fa1fad00d8dc))
+- **admin:** redesign dashboard and improve monitoring ([dc4d614](https://github.com/Gediael54/4IBIB-web/commit/dc4d614d0b014ac1f3b180c6c6049bc82658edbf))
+- **site:** add layout components and URL utilities ([bacdf92](https://github.com/Gediael54/4IBIB-web/commit/bacdf92262201719abc830b14954f277c0617b78))
+- **site:** add multipage routing and new sections to home ([5093151](https://github.com/Gediael54/4IBIB-web/commit/5093151b7c781ce0af849680c1b51a90f172d03d))
+- **site:** add navigation menu with drawer and sticky scroll ([b74d5c7](https://github.com/Gediael54/4IBIB-web/commit/b74d5c7f74d4c4ebb204af3ad295ca16cf4c2d18))
+- **site:** add YouTube preview to EventCard and remove ministry badge ([9d8562b](https://github.com/Gediael54/4IBIB-web/commit/9d8562b072aa80795b0048612a5f80ef7f182306))
+- **supabase:** add security migrations and members_public view ([3e81f8c](https://github.com/Gediael54/4IBIB-web/commit/3e81f8c5a076d9e6a520b232a311048d2c84b514))
+
 # [1.3.0](https://github.com/Gediael54/4IBIB-web/compare/v1.2.0...v1.3.0) (2026-05-06)
 
 ### Features
