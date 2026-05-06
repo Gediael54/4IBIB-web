@@ -616,14 +616,6 @@ h3 {
   border-color: var(--accent-warm);
 }
 
-.announcement-card span {
-  color: var(--accent-terracotta);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
 .announcement-card h3,
 .ministry-card h3 {
   margin: 14px 0 12px;
@@ -631,10 +623,127 @@ h3 {
   color: var(--ink-charcoal);
 }
 
+.eyebrow-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.eyebrow-tag-default,
+.eyebrow-tag-geral {
+  background: rgba(110, 95, 79, 0.12);
+  color: #4a3f33;
+  border-color: rgba(110, 95, 79, 0.28);
+}
+
+.eyebrow-tag-evento {
+  background: rgba(120, 90, 170, 0.14);
+  color: #4a2f7a;
+  border-color: rgba(120, 90, 170, 0.34);
+}
+
+.eyebrow-tag-juventude {
+  background: rgba(210, 136, 77, 0.18);
+  color: #7a3e15;
+  border-color: rgba(210, 136, 77, 0.42);
+}
+
+.eyebrow-tag-oracao {
+  background: rgba(60, 110, 165, 0.14);
+  color: #1f3f6b;
+  border-color: rgba(60, 110, 165, 0.34);
+}
+
+.eyebrow-tag-culto {
+  background: rgba(168, 73, 44, 0.14);
+  color: var(--accent-terracotta-deep);
+  border-color: rgba(168, 73, 44, 0.34);
+}
+
+.eyebrow-tag-louvor {
+  background: rgba(200, 153, 62, 0.18);
+  color: #6e4e10;
+  border-color: rgba(200, 153, 62, 0.42);
+}
+
+.eyebrow-tag-estudo {
+  background: rgba(46, 107, 59, 0.14);
+  color: #1d4a26;
+  border-color: rgba(46, 107, 59, 0.34);
+}
+
 .announcement-card p,
 .ministry-card p {
   color: var(--muted);
   line-height: 1.65;
+}
+
+.leadership-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.leadership-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease;
+}
+
+.leadership-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent-warm);
+}
+
+.leadership-card img,
+.leadership-card picture img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+.leadership-card-body {
+  padding: 22px 24px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.leadership-card-role {
+  color: var(--accent-terracotta);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.leadership-card h3 {
+  margin: 0;
+  font-size: 1.22rem;
+  color: var(--ink-charcoal);
+}
+
+.leadership-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .announcement-card a {
