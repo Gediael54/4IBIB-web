@@ -4,6 +4,7 @@
 @import "./styles/mobile-polish.css";
 @import "./styles/whatsapp-share.css";
 @import "./styles/mfa.css";
+@import "./styles/brand-loader.css";
 
 * {
   box-sizing: border-box;

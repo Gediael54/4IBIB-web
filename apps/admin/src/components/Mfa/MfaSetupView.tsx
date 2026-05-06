@@ -114,7 +114,11 @@ export default function MfaSetupView({ email, onCompleted, onSignOut }: MfaSetup
             <p>Recomendados: Google Authenticator, Microsoft Authenticator, Authy ou 1Password.</p>
           </li>
           <li>
-            <strong>2. Escaneie o QR code abaixo</strong>
+            <strong>2. Abra o app e escolha "Escanear codigo QR"</strong>
+            <p>
+              Importante: escaneie de <em>dentro do app autenticador</em>, nao pela camera comum do celular —
+              senao ele so abre o link como texto.
+            </p>
             {loadingEnroll && <p className="muted">Gerando QR code...</p>}
             {enrollment && <QrCodeImage qrCode={enrollment.qrCodeSvg} />}
             {enrollment && (

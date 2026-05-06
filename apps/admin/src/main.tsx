@@ -9,7 +9,6 @@ import {
   History,
   Home,
   LayoutGrid,
-  LoaderCircle,
   LogOut,
   Megaphone,
   Search,
@@ -25,6 +24,7 @@ import { ConfirmProvider } from "./components/ConfirmDialog";
 import { ErrorBoundary, ViewBoundary } from "./components/ErrorBoundary";
 import { MobileTopbar } from "./components/MobileTopbar";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
+import BrandLoader from "./components/BrandLoader";
 import MfaGuard from "./components/Mfa/MfaGuard";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { ToastProvider } from "./components/Toast";
@@ -253,7 +253,7 @@ export function App() {
   if (!authReady) {
     return (
       <main className="loading">
-        <LoaderCircle className="spin" />
+        <BrandLoader label="Carregando o painel..." />
       </main>
     );
   }
@@ -305,7 +305,7 @@ export function App() {
     if (snapshotQuery.isLoading || prayersQuery.isLoading || !snapshotQuery.data || !prayersQuery.data) {
       return (
         <main className="loading">
-          <LoaderCircle className="spin" />
+          <BrandLoader label="Carregando dados da igreja..." />
         </main>
       );
     }
@@ -472,7 +472,7 @@ export function App() {
             <Suspense
               fallback={
                 <div className="loading">
-                  <LoaderCircle className="spin" />
+                  <BrandLoader inline label="Carregando..." />
                 </div>
               }
             >
