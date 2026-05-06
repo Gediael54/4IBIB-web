@@ -2,6 +2,7 @@ import { type AdminSession, type PrayerRequest } from "@4ibib/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Building2,
+  Calendar,
   CalendarDays,
   ClipboardList,
   HeartHandshake,
@@ -45,6 +46,7 @@ const HouseholdsView = lazy(() => import("./views/HouseholdsView"));
 const PrayersView = lazy(() => import("./views/PrayersView"));
 const ProfileView = lazy(() => import("./views/ProfileView"));
 const MinistriesView = lazy(() => import("./views/MinistriesView"));
+const CommemorationsView = lazy(() => import("./views/CommemorationsView"));
 const AuditLogView = lazy(() => import("./views/AuditLogView"));
 const TeamView = lazy(() => import("./views/TeamView"));
 
@@ -70,6 +72,7 @@ type AdminView =
   | "prayers"
   | "profile"
   | "ministries"
+  | "commemorations"
   | "audit"
   | "team";
 
@@ -84,6 +87,7 @@ const VIEW_TITLES: Record<AdminView, string> = {
   prayers: "Oracao",
   profile: "Perfil",
   ministries: "Ministerios",
+  commemorations: "Datas comemorativas",
   audit: "Auditoria",
   team: "Equipe"
 };
@@ -405,6 +409,13 @@ export function App() {
             />
             <NavButton
               current={view}
+              target="commemorations"
+              icon={<Calendar />}
+              label="Datas comemorativas"
+              onClick={navigateTo}
+            />
+            <NavButton
+              current={view}
               target="profile"
               icon={<Building2 />}
               label="Perfil"
@@ -512,6 +523,13 @@ export function App() {
                   snapshot={snapshot}
                   state={listState.ministries}
                   onStateChange={(patch) => updateListState("ministries", patch)}
+                />
+              )}
+              {view === "commemorations" && (
+                <CommemorationsView
+                  snapshot={snapshot}
+                  state={listState.commemorations}
+                  onStateChange={(patch) => updateListState("commemorations", patch)}
                 />
               )}
               {view === "audit" && (

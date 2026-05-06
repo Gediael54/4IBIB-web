@@ -3,6 +3,7 @@ import type {
   AnnouncementInput,
   AuditLogFilter,
   ChurchProfileInput,
+  CommemorationInput,
   Household,
   InviteAdminInput,
   Member,
@@ -323,6 +324,40 @@ export function useRestoreMinistry() {
     mutationFn: (id: string) => backend.content.restoreMinistry(id),
     onMutate: (id) => {
       addMutationBreadcrumb("restore-ministry", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useSaveCommemoration() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    ...CRITICAL_RETRY,
+    mutationFn: (input: CommemorationInput) => backend.content.saveCommemoration(input),
+    onMutate: (input) => {
+      addMutationBreadcrumb("save-commemoration", { id: input.id ?? null });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useArchiveCommemoration() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.archiveCommemoration(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("archive-commemoration", { id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+  });
+}
+
+export function useRestoreCommemoration() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => backend.content.restoreCommemoration(id),
+    onMutate: (id) => {
+      addMutationBreadcrumb("restore-commemoration", { id });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY })
   });

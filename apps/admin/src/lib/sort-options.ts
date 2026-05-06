@@ -34,6 +34,12 @@ export const MINISTRY_SORT_OPTIONS = [
   { value: "nameDesc", label: "Nome Z-A" }
 ] as const;
 
+export const COMMEMORATION_SORT_OPTIONS = [
+  { value: "monthAsc", label: "Mes (Jan a Dez)" },
+  { value: "nameAsc", label: "Nome A-Z" },
+  { value: "nameDesc", label: "Nome Z-A" }
+] as const;
+
 export const AUDIT_SORT_OPTIONS = [
   { value: "changedDesc", label: "Mais recentes" },
   { value: "changedAsc", label: "Mais antigos" },

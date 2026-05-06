@@ -163,6 +163,32 @@ export const ministrySchema = v.object({
 
 export type MinistryFormValues = v.InferOutput<typeof ministrySchema>;
 
+export const commemorationSchema = v.pipe(
+  v.object({
+    id: v.optional(v.string()),
+    name: requiredText(TEXT_MAX, "Nome"),
+    type: v.picklist(["month", "day"]),
+    month: v.pipe(v.number(), v.integer(), v.minValue(1, "Mes invalido."), v.maxValue(12, "Mes invalido.")),
+    dayOfMonth: v.union([
+      v.null(),
+      v.pipe(v.number(), v.integer(), v.minValue(1, "Dia invalido."), v.maxValue(31, "Dia invalido."))
+    ]),
+    description: v.pipe(v.string(), v.maxLength(TEXTAREA_MAX)),
+    color: hexColor,
+    sortOrder: v.pipe(v.number(), v.integer(), v.minValue(0))
+  }),
+  v.forward(
+    v.partialCheck(
+      [["type"], ["dayOfMonth"]],
+      (input) => (input.type === "day" ? input.dayOfMonth !== null : true),
+      "Informe o dia do mes para datas de tipo dia."
+    ),
+    ["dayOfMonth"]
+  )
+);
+
+export type CommemorationFormValues = v.InferOutput<typeof commemorationSchema>;
+
 export const recurringMeetingSchema = v.pipe(
   v.object({
     id: v.optional(v.string()),
