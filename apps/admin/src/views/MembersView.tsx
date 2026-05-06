@@ -124,6 +124,7 @@ function emptyMemberValues(): MemberFormValues {
     consentMedicalDataChecked: false,
     consentVersion: "1.0",
     publicDirectory: false,
+    publicBio: "",
     dataRetentionUntil: ""
   };
 }
@@ -172,6 +173,7 @@ function memberToFormValues(item: Member): MemberFormValues {
     consentMedicalDataChecked: item.consentMedicalDataAt !== null,
     consentVersion: item.consentVersion || "1.0",
     publicDirectory: item.publicDirectory,
+    publicBio: item.publicBio,
     dataRetentionUntil: item.dataRetentionUntil ?? ""
   };
 }
@@ -232,6 +234,7 @@ function buildMemberPayload(
     consentGivenAt: options.existing?.consentGivenAt ?? new Date().toISOString(),
     consentVersion: values.consentVersion || "1.0",
     publicDirectory: values.publicDirectory,
+    publicBio: values.publicDirectory ? values.publicBio : "",
     dataRetentionUntil: values.dataRetentionUntil || null
   };
 }
@@ -619,6 +622,7 @@ export default function MembersView({
   const prayerTopics = watch("prayerTopics") ?? [];
   const spiritualGifts = watch("spiritualGifts") ?? [];
   const householdId = watch("householdId");
+  const publicDirectoryEnabled = watch("publicDirectory");
 
   const medicalDataWithoutConsent =
     !consentMedical && (watchedAllergies.trim().length > 0 || watchedMedicalNotes.trim().length > 0);
@@ -1068,6 +1072,25 @@ export default function MembersView({
         maxLength={TEXTAREA_MAX}
         {...register("notes")}
       />
+      {publicDirectoryEnabled ? (
+        <>
+          <TextAreaField
+            label="Bio publica"
+            placeholder="Breve apresentacao para o site publico"
+            maxLength={500}
+            error={errors.publicBio?.message}
+            {...register("publicBio")}
+          />
+          <small className="form-hint">
+            Bio curta (1-2 paragrafos) que aparecera no site publico. So aplica a membros visiveis no
+            diretorio.
+          </small>
+        </>
+      ) : (
+        <small className="form-hint">
+          Marque &quot;Exibir no diretorio publico&quot; na aba LGPD para editar a bio publica.
+        </small>
+      )}
     </>
   );
 
