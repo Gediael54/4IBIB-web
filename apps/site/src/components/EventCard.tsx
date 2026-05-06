@@ -1,9 +1,11 @@
-import { Star } from "lucide-react";
+import { Star, Youtube } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ScheduleItem } from "@4ibib/core";
 import { useChurchProfile } from "../lib/church-context";
 import { formatTime } from "../lib/date";
 import { displayLocation, getSoundTeam, occasionStyle, splitNames } from "../lib/event";
+import { extractYouTubeId } from "../lib/youtube";
+import EyebrowTag, { ministryToLabel, ministryToVariant } from "./EyebrowTag";
 
 export interface EventCardProps {
   item: ScheduleItem;
@@ -82,6 +84,11 @@ export default function EventCard({
   const location = displayLocation(item, church);
   const time = formatTime(item.startsAt);
   const soundTeam = getSoundTeam(item);
+  const ministryLabel = ministryToLabel(item.ministry);
+  const showMinistryTag = !occasion && item.status !== "free" && ministryLabel.length > 0;
+  const youtubeId = extractYouTubeId(item.youtubeUrl);
+  // eslint-disable-next-line react-hooks/purity
+  const showYoutubeCta = item.status !== "free" && Date.parse(item.endsAt) < Date.now() && youtubeId !== null;
 
   return (
     <article
@@ -100,6 +107,7 @@ export default function EventCard({
           {occasion.label}
         </span>
       )}
+      {showMinistryTag && <EyebrowTag label={ministryLabel} variant={ministryToVariant(item.ministry)} />}
       <div className="event-card-head">
         <time className="event-card-time" dateTime={item.startsAt}>
           {showDay && dayLabel ? (
@@ -152,6 +160,26 @@ export default function EventCard({
             </div>
           )}
         </dl>
+      )}
+      {showYoutubeCta && youtubeId && (
+        <a
+          className="event-card-youtube"
+          href={item.youtubeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Ver pregacao "${item.title}" no YouTube`}
+        >
+          <img
+            src={`https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`}
+            alt=""
+            loading="lazy"
+            className="event-card-youtube-thumb"
+          />
+          <span className="event-card-youtube-cta">
+            <Youtube size={16} aria-hidden="true" />
+            Ver no YouTube
+          </span>
+        </a>
       )}
     </article>
   );
