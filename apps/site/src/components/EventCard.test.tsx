@@ -22,6 +22,7 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     status: "scheduled",
     featured: false,
     seriesId: null,
+    youtubeUrl: "",
     ...overrides
   };
 }

@@ -24,6 +24,7 @@ function makeItem(id: string, daysFromNow: number, overrides: Partial<ScheduleIt
     status: "scheduled",
     featured: false,
     seriesId: null,
+    youtubeUrl: "",
     ...overrides
   };
 }
