@@ -50,7 +50,8 @@ function buildSnapshot(announcements: Announcement[] = []): SiteSnapshot {
     profile: null,
     ministries: [],
     recurringMeetings: [],
-    commemorations: []
+    commemorations: [],
+    rotationRules: []
   };
 }
 
@@ -75,6 +76,10 @@ function renderView(snapshot: SiteSnapshot = buildSnapshot()) {
   return { ...utils, onStateChange };
 }
 
+function openCreateSheet() {
+  fireEvent.click(screen.getByRole("button", { name: /novo aviso/i }));
+}
+
 describe("AnnouncementsView", () => {
   afterEach(() => {
     cleanup();
@@ -88,7 +93,7 @@ describe("AnnouncementsView", () => {
     expect(screen.getByText("Sem avisos por aqui.")).toBeInTheDocument();
   });
 
-  it("renders announcement rows from the snapshot", () => {
+  it("renders announcement cards from the snapshot", () => {
     renderView(buildSnapshot([makeAnnouncement({ id: "a1", title: "Culto especial" })]));
     expect(screen.getByText("Culto especial")).toBeInTheDocument();
   });
@@ -96,6 +101,7 @@ describe("AnnouncementsView", () => {
   it("submits a new announcement", async () => {
     renderView();
 
+    openCreateSheet();
     fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Novo aviso CRUD" } });
     fireEvent.change(screen.getByLabelText("Resumo"), { target: { value: "Resumo curto" } });
 
@@ -117,6 +123,7 @@ describe("AnnouncementsView", () => {
   it("shows error badge on conteudo tab when required title is missing", async () => {
     renderView();
 
+    openCreateSheet();
     fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "" } });
     fireEvent.change(screen.getByLabelText("Resumo"), { target: { value: "" } });
 
@@ -137,6 +144,7 @@ describe("AnnouncementsView", () => {
   it("renders eyebrow tag (categoria) in the preview panel", async () => {
     renderView();
 
+    openCreateSheet();
     fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Evento" } });
 
     const select = screen.getByLabelText("Categoria") as HTMLSelectElement;
@@ -185,6 +193,7 @@ describe("AnnouncementsView", () => {
     mocks.saveAnnouncement.mockRejectedValue(new Error("Erro do servidor"));
     renderView();
 
+    openCreateSheet();
     fireEvent.change(screen.getByLabelText("Titulo"), { target: { value: "Falha" } });
     fireEvent.change(screen.getByLabelText("Resumo"), { target: { value: "Resumo" } });
 

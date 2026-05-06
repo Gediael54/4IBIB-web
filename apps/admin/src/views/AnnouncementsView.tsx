@@ -6,31 +6,29 @@ import {
   type SiteSnapshot
 } from "@4ibib/core";
 import { valibotResolver } from "@hookform/resolvers/valibot";
-import { ExternalLink, Megaphone, Trash2 } from "lucide-react";
+import { ExternalLink, Megaphone, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
-import { FieldGroup } from "../components/FieldGroup";
-import { ListView } from "../components/ListView";
+import DataCard from "../components/Layout/DataCard";
+import DetailSheet from "../components/Layout/DetailSheet";
+import FilterChips, { type ChipOption } from "../components/Layout/FilterChips";
+import ViewHeader from "../components/Layout/ViewHeader";
 import { useToast } from "../components/Toast";
-import { Field, FormActions, ListToolbar, Pagination, SelectField, TextAreaField } from "../components/ui";
 import WhatsAppShareButton from "../components/WhatsAppShareButton";
 import { useArchiveAnnouncement, useRestoreAnnouncement, useSaveAnnouncement } from "../hooks";
 import { clearFormAutosave, useFormAutosave } from "../lib/use-form-autosave";
-import { announcementSchema, type AnnouncementFormValues } from "../schemas";
+import { uniqueSorted, type ListState } from "../lib/list-state";
 import { buildAnnouncementMessage } from "../lib/whatsapp-share";
-import { ANNOUNCEMENT_STATUS_LABELS, ANNOUNCEMENT_STATUS_OPTIONS } from "../lib/labels";
-import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "../lib/limits";
+import { announcementSchema, type AnnouncementFormValues } from "../schemas";
+import AnnouncementForm from "./announcements/AnnouncementForm";
 import {
-  compareText,
-  matchesSearch,
-  normalizeSearch,
-  paginateItems,
-  uniqueSorted,
-  type ListState
-} from "../lib/list-state";
-import { ANNOUNCEMENT_SORT_OPTIONS } from "../lib/sort-options";
+  CATEGORY_ICON_STYLES,
+  CATEGORY_LABELS,
+  STATUS_BADGE_LABELS,
+  statusToCardStatus
+} from "./announcements/announcement-styling";
 
 interface AnnouncementsViewProps {
   snapshot: SiteSnapshot;
@@ -39,22 +37,8 @@ interface AnnouncementsViewProps {
 }
 
 type StatusFilter = "all" | "draft" | "scheduled" | "published" | "archived";
-type StatusValue = "draft" | "scheduled" | "published" | "archived";
 
-const ANNOUNCEMENT_TAB_FIELDS: Record<string, ReadonlyArray<keyof AnnouncementFormValues>> = {
-  conteudo: ["title", "summary", "category", "ctaLabel", "ctaUrl", "pinned"],
-  publicacao: ["status", "publishedAt", "expiresAt"],
-  imagem: ["imageUrl"]
-};
-
-const ANNOUNCEMENT_TAB_ORDER = ["conteudo", "publicacao", "imagem"] as const;
-
-const CATEGORY_LABELS: Record<AnnouncementFormValues["category"], string> = {
-  geral: "Geral",
-  evento: "Evento",
-  juventude: "Juventude",
-  oracao: "Oracao"
-};
+const ANNOUNCEMENT_DRAFT_KEY = "announcement-draft";
 
 function emptyAnnouncementValues(): AnnouncementFormValues {
   return {
@@ -86,10 +70,9 @@ function announcementToFormValues(item: Announcement): AnnouncementFormValues {
   };
 }
 
-const ANNOUNCEMENT_DRAFT_KEY = "announcement-draft";
-
 export default function AnnouncementsView({ snapshot, state, onStateChange }: AnnouncementsViewProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [activeTab, setActiveTab] = useState<string>("conteudo");
   const saveMutation = useSaveAnnouncement();
@@ -111,45 +94,55 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
 
   useFormAutosave(ANNOUNCEMENT_DRAFT_KEY, control, reset, editingId === null);
 
-  const previewValues = useWatch({ control });
-
-  const announcementCtaLabels = useMemo(
+  const ctaSuggestions = useMemo(
     () => uniqueSorted(snapshot.announcements.map((item) => item.ctaLabel)),
     [snapshot]
   );
 
-  const list = useMemo(() => {
-    const query = normalizeSearch(state.search);
-    const filtered = snapshot.announcements
-      .filter((item) => statusFilter === "all" || item.status === statusFilter)
-      .filter((item) => matchesSearch(query, [item.title, item.summary, item.category]));
-    const sorted = [...filtered].sort((left, right) => {
-      if (state.sort === "publishedAsc") {
-        return Date.parse(left.publishedAt) - Date.parse(right.publishedAt);
-      }
-      if (state.sort === "titleAsc") {
-        return compareText(left.title, right.title);
-      }
-      if (state.sort === "categoryAsc") {
-        return compareText(left.category, right.category);
-      }
-      if (state.sort === "statusAsc") {
-        return compareText(left.status, right.status);
-      }
-      return Date.parse(right.publishedAt) - Date.parse(left.publishedAt);
-    });
-    return paginateItems(sorted, state.page);
-  }, [snapshot, state, statusFilter]);
+  const statusCounts = useMemo(() => {
+    const counts = { all: 0, draft: 0, scheduled: 0, published: 0, archived: 0 };
+    for (const item of snapshot.announcements) {
+      counts.all += 1;
+      counts[item.status] += 1;
+    }
+    return counts;
+  }, [snapshot]);
 
-  function startEdit(item: Announcement) {
-    setEditingId(item.id);
-    reset(announcementToFormValues(item));
+  const visibleAnnouncements = useMemo(() => {
+    const filtered =
+      statusFilter === "all"
+        ? snapshot.announcements
+        : snapshot.announcements.filter((item) => item.status === statusFilter);
+    return [...filtered].sort((left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt));
+  }, [snapshot, statusFilter]);
+
+  const filterOptions: ReadonlyArray<ChipOption<StatusFilter>> = [
+    { value: "all", label: "Todos", count: statusCounts.all },
+    { value: "published", label: "Publicado", count: statusCounts.published },
+    { value: "scheduled", label: "Agendado", count: statusCounts.scheduled },
+    { value: "draft", label: "Rascunho", count: statusCounts.draft },
+    { value: "archived", label: "Arquivado", count: statusCounts.archived }
+  ];
+
+  function openCreate() {
+    setEditingId(null);
+    reset(emptyAnnouncementValues());
+    setActiveTab("conteudo");
+    setSheetOpen(true);
   }
 
-  function cancelEdit() {
+  function openEdit(item: Announcement) {
+    setEditingId(item.id);
+    reset(announcementToFormValues(item));
+    setActiveTab("conteudo");
+    setSheetOpen(true);
+  }
+
+  function closeSheet() {
     if (editingId === null) {
       clearFormAutosave(ANNOUNCEMENT_DRAFT_KEY);
     }
+    setSheetOpen(false);
     setEditingId(null);
     reset(emptyAnnouncementValues());
   }
@@ -169,12 +162,12 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
         expiresAt: values.expiresAt ? inputDateTimeToIso(values.expiresAt) : null,
         imageUrl: values.imageUrl
       });
-      toast(editingId ? "Aviso atualizado. Mudancas no site ja." : "Aviso publicado. Boa entrega!", {
+      toast(editingId ? "Aviso atualizado. Mudanças no site já." : "Aviso publicado. Boa entrega!", {
         variant: "success"
       });
-      cancelEdit();
+      closeSheet();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?";
+      const message = error instanceof Error ? error.message : "Não consegui salvar — tenta de novo?";
       toast(message, { variant: "danger" });
     }
   }
@@ -182,7 +175,7 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
   async function handleDelete(item: Announcement) {
     const ok = await confirm({
       title: "Excluir aviso?",
-      message: `"${item.title}" vai sumir do site. Voce ainda pode restaurar pela auditoria.`,
+      message: `"${item.title}" vai sumir do site. Você ainda pode restaurar pela auditoria.`,
       confirmText: "Excluir",
       destructive: true
     });
@@ -196,279 +189,134 @@ export default function AnnouncementsView({ snapshot, state, onStateChange }: An
         onUndo: () => restoreMutation.mutate(item.id)
       });
       if (editingId === item.id) {
-        cancelEdit();
+        closeSheet();
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Nao consegui excluir — tenta de novo?";
+      const message = error instanceof Error ? error.message : "Não consegui excluir — tenta de novo?";
       toast(message, { variant: "danger" });
     }
   }
 
   const saving = isSubmitting || saveMutation.isPending;
 
-  const tabErrorCounts: Record<string, number> = {};
-  for (const tabId of ANNOUNCEMENT_TAB_ORDER) {
-    const fields = ANNOUNCEMENT_TAB_FIELDS[tabId] ?? [];
-    let count = 0;
-    for (const field of fields) {
-      if (errors[field as keyof typeof errors]) count += 1;
-    }
-    tabErrorCounts[tabId] = count;
-  }
-
-  function focusFirstTabWithErrors() {
-    for (const tabId of ANNOUNCEMENT_TAB_ORDER) {
-      if ((tabErrorCounts[tabId] ?? 0) > 0) {
-        setActiveTab(tabId);
-        return;
-      }
-    }
-  }
-
-  const previewStatus: StatusValue = previewValues.status ?? "draft";
-  const previewCategory = previewValues.category ?? "geral";
-  const previewTitle = previewValues.title?.trim() ? previewValues.title : "Titulo do aviso";
-  const previewSummary = previewValues.summary?.trim()
-    ? previewValues.summary
-    : "Resumo aparecera aqui conforme voce digita.";
-  const previewImage = previewValues.imageUrl?.trim() ?? "";
-  const previewCtaLabel = previewValues.ctaLabel?.trim() ?? "";
-  const previewCtaUrl = previewValues.ctaUrl?.trim() ?? "";
-  const previewExpiresLabel = formatDateOnly(previewValues.expiresAt ?? "");
-
-  const conteudoPanel = (
-    <>
-      <Field
-        label="Titulo"
-        placeholder="Titulo"
-        maxLength={TEXT_MAX}
-        error={errors.title?.message}
-        {...register("title")}
-      />
-      <TextAreaField
-        label="Resumo"
-        placeholder="Resumo"
-        maxLength={TEXTAREA_MAX}
-        error={errors.summary?.message}
-        {...register("summary")}
-      />
-      <SelectField label="Categoria" error={errors.category?.message} {...register("category")}>
-        <option value="geral">Geral</option>
-        <option value="evento">Evento</option>
-        <option value="juventude">Juventude</option>
-        <option value="oracao">Oracao</option>
-      </SelectField>
-      <div className="form-grid">
-        <Field
-          label="Texto do botao"
-          list="announcement-cta-labels"
-          placeholder="Texto do botao"
-          maxLength={TEXT_MAX}
-          error={errors.ctaLabel?.message}
-          {...register("ctaLabel")}
-        />
-        <Field
-          label="URL do botao"
-          type="url"
-          placeholder="URL do botao (https://...)"
-          maxLength={URL_MAX}
-          error={errors.ctaUrl?.message}
-          {...register("ctaUrl")}
-        />
-      </div>
-      <datalist id="announcement-cta-labels">
-        {announcementCtaLabels.map((value) => (
-          <option key={value} value={value} />
-        ))}
-      </datalist>
-      <label className="check-row">
-        <input type="checkbox" {...register("pinned")} />
-        Destacar aviso
-      </label>
-    </>
-  );
-
-  const publicacaoPanel = (
-    <>
-      <SelectField label="Status" error={errors.status?.message} {...register("status")}>
-        <option value="draft">Rascunho</option>
-        <option value="scheduled">Agendado</option>
-        <option value="published">Publicado</option>
-        <option value="archived">Arquivado</option>
-      </SelectField>
-      <div className="form-grid">
-        <Field
-          label="Publicacao"
-          type="datetime-local"
-          error={errors.publishedAt?.message}
-          {...register("publishedAt")}
-        />
-        <Field
-          label="Expira em"
-          type="datetime-local"
-          error={errors.expiresAt?.message}
-          {...register("expiresAt")}
-        />
-      </div>
-    </>
-  );
-
-  const imagemPanel = (
-    <Field
-      label="Imagem (URL)"
-      type="url"
-      placeholder="https://..."
-      maxLength={URL_MAX}
-      error={errors.imageUrl?.message}
-      {...register("imageUrl")}
-    />
-  );
+  // suppress unused-state-prop until pagination/search return to the view
+  void state;
+  void onStateChange;
 
   return (
-    <div className="crud-layout">
-      <ListView
+    <section className="apple-view">
+      <ViewHeader
+        eyebrow="Comunicação"
         title="Avisos"
-        count={list.total}
-        toolbar={
-          <ListToolbar
-            search={state.search}
-            searchLabel="Titulo, resumo ou categoria"
-            sort={state.sort}
-            sortOptions={ANNOUNCEMENT_SORT_OPTIONS}
-            total={list.total}
-            onSearch={(search) => onStateChange({ search, page: 1 })}
-            onSort={(sort) => onStateChange({ sort, page: 1 })}
-          >
-            <SelectField
-              label="Status"
-              value={statusFilter}
-              onChange={(event) => {
-                setStatusFilter(event.currentTarget.value as StatusFilter);
-                onStateChange({ page: 1 });
-              }}
-            >
-              {ANNOUNCEMENT_STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </SelectField>
-          </ListToolbar>
+        lead="Compartilhe eventos, recados e pedidos de oração com a igreja em poucos cliques."
+        primaryAction={
+          <button type="button" className="button primary" onClick={openCreate}>
+            <Plus size={16} aria-hidden="true" />
+            <span>Novo aviso</span>
+          </button>
         }
-        items={list.items}
-        getId={(item) => item.id}
-        emptyState={
-          <EmptyState
-            icon={<Megaphone size={32} />}
-            title="Sem avisos por aqui."
-            description="Crie o primeiro pra anunciar evento, oracao ou recado da semana."
-          />
-        }
-        footer={<Pagination list={list} onPageChange={(page) => onStateChange({ page })} />}
-        renderItem={(item) => (
-          <article className="ministry-row">
-            <div>
-              <strong>{item.title}</strong>
-              <span>
-                {item.category} - {ANNOUNCEMENT_STATUS_LABELS[item.status]}
-              </span>
-            </div>
-            <div className="row-actions">
-              {item.status === "published" && (
-                <WhatsAppShareButton
-                  message={buildAnnouncementMessage(item)}
-                  size="sm"
-                  label="Avisar grupo"
-                />
-              )}
-              <button onClick={() => startEdit(item)} type="button">
-                Editar
-              </button>
-              <a
-                href="/#avisos"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="row-action-link"
-                aria-label={`Ver aviso ${item.title} no site`}
-                title="Ver no site"
-              >
-                <ExternalLink size={16} />
-              </a>
-              <button
-                onClick={() => handleDelete(item)}
-                type="button"
-                aria-label={`Excluir aviso ${item.title}`}
-                title="Excluir"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          </article>
-        )}
       />
-      <div className="editor-panel">
-        <div className="announcement-editor">
-          <form
-            className="editor-form"
-            onSubmit={handleSubmit(onSubmit, () => focusFirstTabWithErrors())}
-            noValidate
-          >
-            <FieldGroup
-              activeGroup={activeTab}
-              onActiveChange={setActiveTab}
-              groups={[
-                {
-                  id: "conteudo",
-                  label: "Conteudo",
-                  content: conteudoPanel,
-                  errorCount: tabErrorCounts.conteudo
-                },
-                {
-                  id: "publicacao",
-                  label: "Publicacao",
-                  content: publicacaoPanel,
-                  errorCount: tabErrorCounts.publicacao
-                },
-                {
-                  id: "imagem",
-                  label: "Imagem",
-                  content: imagemPanel,
-                  errorCount: tabErrorCounts.imagem
+
+      <FilterChips<StatusFilter>
+        ariaLabel="Filtrar avisos por status"
+        value={statusFilter}
+        onChange={setStatusFilter}
+        options={filterOptions}
+      />
+
+      {visibleAnnouncements.length === 0 ? (
+        <EmptyState
+          icon={<Megaphone size={32} />}
+          title="Sem avisos por aqui."
+          description="Crie o primeiro pra anunciar evento, oração ou recado da semana."
+        />
+      ) : (
+        <div className="data-cards-grid">
+          {visibleAnnouncements.map((item) => {
+            const iconStyle = CATEGORY_ICON_STYLES[item.category];
+            const publishedLabel = formatDateOnly(item.publishedAt);
+            return (
+              <DataCard
+                key={item.id}
+                icon={<Megaphone size={22} aria-hidden="true" />}
+                iconBackground={iconStyle.background}
+                iconColor={iconStyle.color}
+                status={statusToCardStatus(item.status)}
+                title={item.title}
+                subtitle={CATEGORY_LABELS[item.category]}
+                badge={
+                  <span className={`status-pill status-pill-${statusToCardStatus(item.status)}`}>
+                    {STATUS_BADGE_LABELS[item.status]}
+                  </span>
                 }
-              ]}
-            />
-            <FormActions saving={saving} onCancel={cancelEdit} />
-          </form>
-          <aside className="announcement-preview" aria-label="Pre-visualizacao do aviso">
-            <p className="announcement-preview-eyebrow">Pre-visualizacao</p>
-            <article className="announcement-preview-card">
-              {previewImage && <img src={previewImage} alt="" className="announcement-preview-image" />}
-              <div className="announcement-preview-meta">
-                <span className="announcement-preview-badge">{CATEGORY_LABELS[previewCategory]}</span>
-                <span className={`announcement-preview-status announcement-preview-status-${previewStatus}`}>
-                  {ANNOUNCEMENT_STATUS_LABELS[previewStatus]}
-                </span>
-                {previewValues.pinned && <span className="announcement-preview-pinned">Fixado</span>}
-              </div>
-              <h3 className="announcement-preview-title">{previewTitle}</h3>
-              <p className="announcement-preview-summary">{previewSummary}</p>
-              {previewExpiresLabel && (
-                <p className="announcement-preview-expires">Expira em {previewExpiresLabel}</p>
-              )}
-              {previewCtaLabel && previewCtaUrl && (
-                <a
-                  className="announcement-preview-cta"
-                  href={previewCtaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {previewCtaLabel}
-                </a>
-              )}
-            </article>
-          </aside>
+                meta={publishedLabel ? <span>Publicado em {publishedLabel}</span> : undefined}
+                description={
+                  item.summary ? (
+                    <span className="data-card-description-clamp">{item.summary}</span>
+                  ) : undefined
+                }
+                secondaryActions={
+                  <>
+                    {item.status === "published" && (
+                      <WhatsAppShareButton
+                        message={buildAnnouncementMessage(item)}
+                        size="sm"
+                        label="Avisar grupo"
+                      />
+                    )}
+                    <button type="button" className="button ghost" onClick={() => openEdit(item)}>
+                      Editar
+                    </button>
+                    <a
+                      href="/#avisos"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="icon-button"
+                      aria-label={`Ver aviso ${item.title} no site`}
+                      title="Ver no site"
+                    >
+                      <ExternalLink size={16} aria-hidden="true" />
+                    </a>
+                    <button
+                      type="button"
+                      className="icon-button icon-button-danger"
+                      onClick={() => handleDelete(item)}
+                      aria-label={`Excluir aviso ${item.title}`}
+                      title="Excluir"
+                    >
+                      <Trash2 size={16} aria-hidden="true" />
+                    </button>
+                  </>
+                }
+              />
+            );
+          })}
         </div>
-      </div>
-    </div>
+      )}
+
+      <DetailSheet
+        open={sheetOpen}
+        onClose={closeSheet}
+        title={editingId ? "Editar aviso" : "Novo aviso"}
+        subtitle={
+          editingId
+            ? "Ajuste os detalhes e salve para publicar a alteração."
+            : "Preencha os campos e publique para a igreja."
+        }
+      >
+        <AnnouncementForm
+          register={register}
+          control={control}
+          errors={errors}
+          handleSubmit={handleSubmit}
+          onSubmit={onSubmit}
+          onCancel={closeSheet}
+          saving={saving}
+          activeTab={activeTab}
+          onActiveTabChange={setActiveTab}
+          ctaSuggestions={ctaSuggestions}
+        />
+      </DetailSheet>
+    </section>
   );
 }
