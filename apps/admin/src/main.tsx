@@ -25,6 +25,7 @@ import { ConfirmProvider } from "./components/ConfirmDialog";
 import { ErrorBoundary, ViewBoundary } from "./components/ErrorBoundary";
 import { MobileTopbar } from "./components/MobileTopbar";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
+import MfaGuard from "./components/Mfa/MfaGuard";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { ToastProvider } from "./components/Toast";
 import TurnstileWidget from "./components/TurnstileWidget";
@@ -294,275 +295,286 @@ export function App() {
     );
   }
 
-  if (snapshotQuery.isLoading || prayersQuery.isLoading || !snapshotQuery.data || !prayersQuery.data) {
-    return (
-      <main className="loading">
-        <LoaderCircle className="spin" />
-      </main>
-    );
-  }
-
-  if (snapshotQuery.error || prayersQuery.error) {
-    const message =
-      (snapshotQuery.error instanceof Error ? snapshotQuery.error.message : null) ??
-      (prayersQuery.error instanceof Error ? prayersQuery.error.message : null) ??
-      "Falha ao carregar dados.";
-    return (
-      <main className="loading">
-        <p className="form-error">{message}</p>
-      </main>
-    );
-  }
-
-  const snapshot = snapshotQuery.data;
-  const prayers = prayersQuery.data;
-
   return (
-    <ErrorBoundary>
-      <a className="skip-link" href="#workspace-main">
-        Pular para o conteudo
-      </a>
-      <main className={`admin-shell${drawerOpen ? " drawer-open" : ""}`}>
-        <MobileTopbar
-          title={VIEW_TITLES[view]}
-          drawerOpen={drawerOpen}
-          onToggleDrawer={() => setDrawerOpen((value) => !value)}
-          action={
-            <button
-              type="button"
-              className="cmdk-trigger cmdk-trigger-mobile"
-              aria-label="Buscar"
-              onClick={() => setPaletteOpen(true)}
-            >
-              <Search size={18} />
-            </button>
-          }
-        />
-        <div className="sidebar-backdrop" aria-hidden={!drawerOpen} onClick={() => setDrawerOpen(false)} />
-        <aside id="admin-sidebar" className="sidebar" aria-hidden={false}>
-          <div className="sidebar-brand">
-            <img src="/logo.png" alt="" className="sidebar-logo" />
-            <div>
-              <strong>4a Betel</strong>
-              <span>{session.email}</span>
-            </div>
-          </div>
-          <nav>
-            <NavButton
-              current={view}
-              target="dashboard"
-              icon={<ClipboardList />}
-              label="Resumo"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="announcements"
-              icon={<Megaphone />}
-              label="Avisos"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="members"
-              icon={<Users />}
-              label="Membros"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="households"
-              icon={<Home />}
-              label="Familias"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="volunteers"
-              icon={<UserCheck />}
-              label="Voluntarios"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="schedule"
-              icon={<CalendarDays />}
-              label="Programacao"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="annual"
-              icon={<LayoutGrid />}
-              label="Escala anual"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="prayers"
-              icon={<HeartHandshake />}
-              label="Oracao"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="ministries"
-              icon={<Sparkles />}
-              label="Ministerios"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="commemorations"
-              icon={<Calendar />}
-              label="Datas comemorativas"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="profile"
-              icon={<Building2 />}
-              label="Perfil"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="audit"
-              icon={<History />}
-              label="Auditoria"
-              onClick={navigateTo}
-            />
-            <NavButton
-              current={view}
-              target="team"
-              icon={<ShieldCheck />}
-              label="Equipe"
-              onClick={navigateTo}
-            />
-          </nav>
-          <div className="sidebar-footer">
-            <ThemeToggle />
-            <button className="sidebar-logout" onClick={handleLogout} type="button">
-              <LogOut size={18} /> Sair
-            </button>
-          </div>
-        </aside>
-
-        <section id="workspace-main" className="workspace" tabIndex={-1}>
-          <div className="workspace-toolbar">
-            <button
-              type="button"
-              className="cmdk-trigger cmdk-trigger-desktop"
-              onClick={() => setPaletteOpen(true)}
-              aria-label="Abrir busca rapida"
-            >
-              <Search size={16} />
-              <span>Buscar</span>
-              <kbd>{"⌘K"}</kbd>
-            </button>
-          </div>
-          <Suspense
-            fallback={
-              <div className="loading">
-                <LoaderCircle className="spin" />
-              </div>
-            }
-          >
-            <ViewBoundary
-              key={view}
-              viewName={VIEW_TITLES[view]}
-              onBackToDashboard={view === "dashboard" ? undefined : () => navigateTo("dashboard")}
-            >
-              {view === "dashboard" && (
-                <DashboardView snapshot={snapshot} prayers={prayers} onNavigate={navigateTo} />
-              )}
-              {view === "announcements" && (
-                <AnnouncementsView
-                  snapshot={snapshot}
-                  state={listState.announcements}
-                  onStateChange={(patch) => updateListState("announcements", patch)}
-                />
-              )}
-              {view === "schedule" && (
-                <ScheduleView
-                  snapshot={snapshot}
-                  state={listState.schedule}
-                  onStateChange={(patch) => updateListState("schedule", patch)}
-                />
-              )}
-              {view === "annual" && <AnnualScheduleView snapshot={snapshot} />}
-              {view === "members" && (
-                <MembersView
-                  state={listState.members}
-                  onStateChange={(patch) => updateListState("members", patch)}
-                />
-              )}
-              {view === "households" && (
-                <HouseholdsView
-                  state={listState.households}
-                  onStateChange={(patch) => updateListState("households", patch)}
-                />
-              )}
-              {view === "volunteers" && (
-                <MembersView
-                  title="Voluntarios"
-                  defaultFilter={{ isVolunteer: true }}
-                  defaultTab="voluntariado"
-                  state={listState.volunteers}
-                  onStateChange={(patch) => updateListState("volunteers", patch)}
-                />
-              )}
-              {view === "prayers" && (
-                <PrayersView
-                  prayers={prayers}
-                  state={listState.prayers}
-                  onStateChange={(patch) => updateListState("prayers", patch)}
-                  statusFilter={prayerStatusFilter}
-                  onStatusFilterChange={setPrayerStatusFilter}
-                />
-              )}
-              {view === "profile" && <ProfileView snapshot={snapshot} />}
-              {view === "ministries" && (
-                <MinistriesView
-                  snapshot={snapshot}
-                  state={listState.ministries}
-                  onStateChange={(patch) => updateListState("ministries", patch)}
-                />
-              )}
-              {view === "commemorations" && (
-                <CommemorationsView
-                  snapshot={snapshot}
-                  state={listState.commemorations}
-                  onStateChange={(patch) => updateListState("commemorations", patch)}
-                />
-              )}
-              {view === "audit" && (
-                <AuditLogView
-                  state={listState.audit}
-                  onStateChange={(patch) => updateListState("audit", patch)}
-                />
-              )}
-              {view === "team" && (
-                <TeamView state={listState.team} onStateChange={(patch) => updateListState("team", patch)} />
-              )}
-            </ViewBoundary>
-          </Suspense>
-        </section>
-
-        <CommandPalette
-          open={paletteOpen}
-          onOpenChange={setPaletteOpen}
-          snapshot={snapshot}
-          prayers={prayers}
-          onNavigate={(nextView) => {
-            navigateTo(nextView);
-            setPaletteOpen(false);
-          }}
-        />
-        <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
-      </main>
-    </ErrorBoundary>
+    <MfaGuard email={session.email} onSignOut={handleLogout}>
+      <AuthenticatedShell />
+    </MfaGuard>
   );
+
+  function AuthenticatedShell() {
+    if (snapshotQuery.isLoading || prayersQuery.isLoading || !snapshotQuery.data || !prayersQuery.data) {
+      return (
+        <main className="loading">
+          <LoaderCircle className="spin" />
+        </main>
+      );
+    }
+
+    if (snapshotQuery.error || prayersQuery.error) {
+      const message =
+        (snapshotQuery.error instanceof Error ? snapshotQuery.error.message : null) ??
+        (prayersQuery.error instanceof Error ? prayersQuery.error.message : null) ??
+        "Falha ao carregar dados.";
+      return (
+        <main className="loading">
+          <p className="form-error">{message}</p>
+        </main>
+      );
+    }
+
+    const snapshot = snapshotQuery.data;
+    const prayers = prayersQuery.data;
+
+    return (
+      <ErrorBoundary>
+        <a className="skip-link" href="#workspace-main">
+          Pular para o conteudo
+        </a>
+        <main className={`admin-shell${drawerOpen ? " drawer-open" : ""}`}>
+          <MobileTopbar
+            title={VIEW_TITLES[view]}
+            drawerOpen={drawerOpen}
+            onToggleDrawer={() => setDrawerOpen((value) => !value)}
+            action={
+              <button
+                type="button"
+                className="cmdk-trigger cmdk-trigger-mobile"
+                aria-label="Buscar"
+                onClick={() => setPaletteOpen(true)}
+              >
+                <Search size={18} />
+              </button>
+            }
+          />
+          <div className="sidebar-backdrop" aria-hidden={!drawerOpen} onClick={() => setDrawerOpen(false)} />
+          <aside id="admin-sidebar" className="sidebar" aria-hidden={false}>
+            <div className="sidebar-brand">
+              <img src="/logo.png" alt="" className="sidebar-logo" />
+              <div>
+                <strong>4a Betel</strong>
+                <span>{session?.email ?? ""}</span>
+              </div>
+            </div>
+            <nav>
+              <NavButton
+                current={view}
+                target="dashboard"
+                icon={<ClipboardList />}
+                label="Resumo"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="announcements"
+                icon={<Megaphone />}
+                label="Avisos"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="members"
+                icon={<Users />}
+                label="Membros"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="households"
+                icon={<Home />}
+                label="Familias"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="volunteers"
+                icon={<UserCheck />}
+                label="Voluntarios"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="schedule"
+                icon={<CalendarDays />}
+                label="Programacao"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="annual"
+                icon={<LayoutGrid />}
+                label="Escala anual"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="prayers"
+                icon={<HeartHandshake />}
+                label="Oracao"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="ministries"
+                icon={<Sparkles />}
+                label="Ministerios"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="commemorations"
+                icon={<Calendar />}
+                label="Datas comemorativas"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="profile"
+                icon={<Building2 />}
+                label="Perfil"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="audit"
+                icon={<History />}
+                label="Auditoria"
+                onClick={navigateTo}
+              />
+              <NavButton
+                current={view}
+                target="team"
+                icon={<ShieldCheck />}
+                label="Equipe"
+                onClick={navigateTo}
+              />
+            </nav>
+            <div className="sidebar-footer">
+              <ThemeToggle />
+              <button className="sidebar-logout" onClick={handleLogout} type="button">
+                <LogOut size={18} /> Sair
+              </button>
+            </div>
+          </aside>
+
+          <section id="workspace-main" className="workspace" tabIndex={-1}>
+            <div className="workspace-toolbar">
+              <button
+                type="button"
+                className="cmdk-trigger cmdk-trigger-desktop"
+                onClick={() => setPaletteOpen(true)}
+                aria-label="Abrir busca rapida"
+              >
+                <Search size={16} />
+                <span>Buscar</span>
+                <kbd>{"⌘K"}</kbd>
+              </button>
+            </div>
+            <Suspense
+              fallback={
+                <div className="loading">
+                  <LoaderCircle className="spin" />
+                </div>
+              }
+            >
+              <ViewBoundary
+                key={view}
+                viewName={VIEW_TITLES[view]}
+                onBackToDashboard={view === "dashboard" ? undefined : () => navigateTo("dashboard")}
+              >
+                {view === "dashboard" && (
+                  <DashboardView snapshot={snapshot} prayers={prayers} onNavigate={navigateTo} />
+                )}
+                {view === "announcements" && (
+                  <AnnouncementsView
+                    snapshot={snapshot}
+                    state={listState.announcements}
+                    onStateChange={(patch) => updateListState("announcements", patch)}
+                  />
+                )}
+                {view === "schedule" && (
+                  <ScheduleView
+                    snapshot={snapshot}
+                    state={listState.schedule}
+                    onStateChange={(patch) => updateListState("schedule", patch)}
+                  />
+                )}
+                {view === "annual" && <AnnualScheduleView snapshot={snapshot} />}
+                {view === "members" && (
+                  <MembersView
+                    state={listState.members}
+                    onStateChange={(patch) => updateListState("members", patch)}
+                  />
+                )}
+                {view === "households" && (
+                  <HouseholdsView
+                    state={listState.households}
+                    onStateChange={(patch) => updateListState("households", patch)}
+                  />
+                )}
+                {view === "volunteers" && (
+                  <MembersView
+                    title="Voluntarios"
+                    defaultFilter={{ isVolunteer: true }}
+                    defaultTab="voluntariado"
+                    state={listState.volunteers}
+                    onStateChange={(patch) => updateListState("volunteers", patch)}
+                  />
+                )}
+                {view === "prayers" && (
+                  <PrayersView
+                    prayers={prayers}
+                    state={listState.prayers}
+                    onStateChange={(patch) => updateListState("prayers", patch)}
+                    statusFilter={prayerStatusFilter}
+                    onStatusFilterChange={setPrayerStatusFilter}
+                  />
+                )}
+                {view === "profile" && <ProfileView snapshot={snapshot} />}
+                {view === "ministries" && (
+                  <MinistriesView
+                    snapshot={snapshot}
+                    state={listState.ministries}
+                    onStateChange={(patch) => updateListState("ministries", patch)}
+                  />
+                )}
+                {view === "commemorations" && (
+                  <CommemorationsView
+                    snapshot={snapshot}
+                    state={listState.commemorations}
+                    onStateChange={(patch) => updateListState("commemorations", patch)}
+                  />
+                )}
+                {view === "audit" && (
+                  <AuditLogView
+                    state={listState.audit}
+                    onStateChange={(patch) => updateListState("audit", patch)}
+                  />
+                )}
+                {view === "team" && (
+                  <TeamView
+                    state={listState.team}
+                    onStateChange={(patch) => updateListState("team", patch)}
+                  />
+                )}
+              </ViewBoundary>
+            </Suspense>
+          </section>
+
+          <CommandPalette
+            open={paletteOpen}
+            onOpenChange={setPaletteOpen}
+            snapshot={snapshot}
+            prayers={prayers}
+            onNavigate={(nextView) => {
+              navigateTo(nextView);
+              setPaletteOpen(false);
+            }}
+          />
+          <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+        </main>
+      </ErrorBoundary>
+    );
+  }
 }
 
 function NavButton(props: {

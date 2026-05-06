@@ -1,0 +1,215 @@
+/* === MFA setup and challenge screens === */
+
+.mfa-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background: var(--bg-base);
+}
+
+.mfa-card {
+  width: 100%;
+  max-width: 540px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-default);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-lg);
+}
+
+.mfa-card-compact {
+  max-width: 420px;
+}
+
+.mfa-card-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-8);
+}
+
+.mfa-card-header {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  margin-bottom: var(--space-5);
+  color: var(--accent);
+}
+
+.mfa-card-header h1 {
+  margin: 0;
+  font-size: var(--text-xl);
+  color: var(--text-primary);
+}
+
+.mfa-card-header p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.mfa-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.mfa-steps li {
+  border-left: 2px solid var(--border-subtle);
+  padding-left: var(--space-4);
+}
+
+.mfa-steps li > strong {
+  display: block;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.mfa-steps li p {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  line-height: var(--leading-snug);
+}
+
+.mfa-qrcode {
+  display: inline-flex;
+  padding: var(--space-3);
+  background: #fff;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  margin: var(--space-2) 0;
+}
+
+.mfa-qrcode svg {
+  display: block;
+  width: 200px;
+  height: 200px;
+}
+
+.mfa-secret {
+  margin-top: var(--space-2);
+}
+
+.mfa-secret summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  padding: var(--space-2) 0;
+}
+
+.mfa-secret summary:hover {
+  color: var(--accent);
+}
+
+.mfa-secret-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-2);
+}
+
+.mfa-secret-row code {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  word-break: break-all;
+  user-select: all;
+}
+
+.mfa-verify-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.mfa-code-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mfa-code-input input {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  letter-spacing: 0.4em;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  text-align: center;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.mfa-code-input input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.mfa-code-input input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.mfa-error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--danger);
+  font-weight: var(--weight-medium);
+}
+
+.mfa-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.mfa-actions .button {
+  flex: 1;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.mfa-spinner {
+  animation: mfa-spin 1s linear infinite;
+  color: var(--accent);
+}
+
+@keyframes mfa-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 540px) {
+  .mfa-card {
+    padding: var(--space-4);
+  }
+  .mfa-qrcode svg {
+    width: 180px;
+    height: 180px;
+  }
+  .mfa-code-input input {
+    font-size: var(--text-xl);
+  }
+}

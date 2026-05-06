@@ -3,6 +3,7 @@
 @import "./styles/views-polish.css";
 @import "./styles/mobile-polish.css";
 @import "./styles/whatsapp-share.css";
+@import "./styles/mfa.css";
 
 * {
   box-sizing: border-box;
