@@ -1,3 +1,9 @@
+# [1.16.0](https://github.com/Gediael54/4IBIB-web/compare/v1.15.0...v1.16.0) (2026-05-07)
+
+### Features
+
+- **admin:** apple-style ProfileView with stacked sections ([4e2e2ec](https://github.com/Gediael54/4IBIB-web/commit/4e2e2ec1e73ff9abf9c8fec51c7830642e014e49))
+
 # [1.15.0](https://github.com/Gediael54/4IBIB-web/compare/v1.14.0...v1.15.0) (2026-05-07)
 
 ### Features
