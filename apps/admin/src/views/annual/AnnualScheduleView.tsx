@@ -3,8 +3,11 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { useToast } from "../../components/Toast";
 import { SelectField } from "../../components/ui";
 import { AnnualGrid } from "./AnnualGrid";
+import { CalendarMonthView } from "./CalendarMonthView";
 import RotationGeneratorButton from "./RotationGeneratorButton";
 import { useAnnualSchedule } from "./use-annual-schedule";
+
+type AnnualViewMode = "table" | "calendar";
 
 const AnnualAutoDistribute = lazy(() =>
   import("./AnnualAutoDistribute").then((module) => ({ default: module.AnnualAutoDistribute }))
@@ -40,6 +43,7 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
     handleSave
   } = useAnnualSchedule(snapshot);
   const [autoOpen, setAutoOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<AnnualViewMode>("table");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -140,14 +144,39 @@ export default function AnnualScheduleView({ snapshot }: AnnualScheduleViewProps
         />
       </Suspense>
 
-      <AnnualGrid
-        yearItems={yearItems}
-        pending={pending}
-        volunteers={volunteers}
-        setPendingForCell={setPendingForCell}
-        year={year}
-        commemorations={snapshot.commemorations}
-      />
+      <div className="annual-view-toggle" role="tablist" aria-label="Modo de visualizacao da escala">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === "table"}
+          className={viewMode === "table" ? "active" : ""}
+          onClick={() => setViewMode("table")}
+        >
+          Tabela
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === "calendar"}
+          className={viewMode === "calendar" ? "active" : ""}
+          onClick={() => setViewMode("calendar")}
+        >
+          Calendário
+        </button>
+      </div>
+
+      {viewMode === "calendar" ? (
+        <CalendarMonthView yearItems={yearItems} year={year} commemorations={snapshot.commemorations} />
+      ) : (
+        <AnnualGrid
+          yearItems={yearItems}
+          pending={pending}
+          volunteers={volunteers}
+          setPendingForCell={setPendingForCell}
+          year={year}
+          commemorations={snapshot.commemorations}
+        />
+      )}
     </section>
   );
 }

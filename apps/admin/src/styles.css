@@ -16,6 +16,7 @@
 @import "./styles/members-grid.css";
 @import "./styles/login.css";
 @import "./styles/profile-form.css";
+@import "./styles/calendar-month.css";
 @import "./styles/team-grid.css";
 
 * {
