@@ -1,3 +1,9 @@
+# [1.15.0](https://github.com/Gediael54/4IBIB-web/compare/v1.14.0...v1.15.0) (2026-05-07)
+
+### Features
+
+- **admin:** apple login screen + commemorations + team refresh + calendar core ([cdd2c3d](https://github.com/Gediael54/4IBIB-web/commit/cdd2c3d14c62ac1c9e5aef8bb8e4ded40c95dfdf))
+
 # [1.14.0](https://github.com/Gediael54/4IBIB-web/compare/v1.13.0...v1.14.0) (2026-05-06)
 
 ### Features
