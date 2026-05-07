@@ -15,6 +15,7 @@
 @import "./styles/rotation.css";
 @import "./styles/members-grid.css";
 @import "./styles/login.css";
+@import "./styles/profile-form.css";
 @import "./styles/team-grid.css";
 
 * {

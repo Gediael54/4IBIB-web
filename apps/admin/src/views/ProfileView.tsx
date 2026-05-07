@@ -1,9 +1,4 @@
-import {
-  sortRecurringMeetings,
-  type ChurchProfile,
-  type RecurringMeetingRecord,
-  type SiteSnapshot
-} from "@4ibib/core";
+import { sortRecurringMeetings, type RecurringMeetingRecord, type SiteSnapshot } from "@4ibib/core";
 import { valibotResolver } from "@hookform/resolvers/valibot";
 import {
   DndContext,
@@ -22,66 +17,25 @@ import {
   verticalListSortingStrategy
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarClock, GripVertical, Trash2 } from "lucide-react";
-import { useMemo, useState, type CSSProperties } from "react";
+import { CalendarClock, GripVertical, Save, Trash2 } from "lucide-react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { useForm } from "react-hook-form";
 import { useConfirm } from "../components/ConfirmDialog";
 import { EmptyState } from "../components/EmptyState";
-import { FieldGroup } from "../components/FieldGroup";
+import ViewHeader from "../components/Layout/ViewHeader";
 import { useToast } from "../components/Toast";
 import { Field, FormActions, SelectField, TextAreaField } from "../components/ui";
 import { useDeleteRecurringMeeting, useSaveProfile, useSaveRecurringMeeting } from "../hooks";
-import {
-  profileSchema,
-  recurringMeetingSchema,
-  type ProfileFormValues,
-  type RecurringMeetingFormValues
-} from "../schemas";
 import { WEEKDAY_LABELS } from "../lib/labels";
-import { TEXT_MAX, TEXTAREA_MAX, URL_MAX } from "../lib/limits";
+import { TEXT_MAX, TEXTAREA_MAX } from "../lib/limits";
+import { recurringMeetingSchema, type ProfileFormValues, type RecurringMeetingFormValues } from "../schemas";
+import ProfileForm, { type ProfileFormHandle } from "./profile/ProfileForm";
 
 interface ProfileViewProps {
   snapshot: SiteSnapshot;
 }
 
-function emptyProfileValues(): ProfileFormValues {
-  return {
-    name: "",
-    shortName: "",
-    tagline: "",
-    city: "",
-    pastorName: "",
-    address: "",
-    email: "",
-    whatsapp: "",
-    instagramUrl: "",
-    youtubeUrl: "",
-    mapsUrl: "",
-    heroVerse: "",
-    mission: ""
-  };
-}
-
-function profileToFormValues(profile: ChurchProfile | null): ProfileFormValues {
-  if (!profile) {
-    return emptyProfileValues();
-  }
-  return {
-    name: profile.name,
-    shortName: profile.shortName,
-    tagline: profile.tagline,
-    city: profile.city,
-    pastorName: profile.pastorName,
-    address: profile.address,
-    email: profile.email,
-    whatsapp: profile.whatsapp,
-    instagramUrl: profile.instagramUrl,
-    youtubeUrl: profile.youtubeUrl,
-    mapsUrl: profile.mapsUrl,
-    heroVerse: profile.heroVerse,
-    mission: profile.mission
-  };
-}
+const PROFILE_FORM_ID = "church-profile-form";
 
 function stripSeconds(value: string): string {
   return value.length > 5 ? value.slice(0, 5) : value;
@@ -121,12 +75,8 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
   const { toast } = useToast();
   const confirm = useConfirm();
 
+  const profileFormHandleRef = useRef<ProfileFormHandle | null>(null);
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
-
-  const profileForm = useForm<ProfileFormValues>({
-    resolver: valibotResolver(profileSchema),
-    defaultValues: profileToFormValues(snapshot.profile)
-  });
 
   const recurringForm = useForm<RecurringMeetingFormValues>({
     resolver: valibotResolver(recurringMeetingSchema),
@@ -138,9 +88,7 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
     [snapshot.recurringMeetings]
   );
 
-  const profileKey = snapshot.profile?.id ?? "new-profile";
-
-  async function onProfileSubmit(values: ProfileFormValues) {
+  async function handleProfileSubmit(values: ProfileFormValues) {
     try {
       await profileSaveMutation.mutateAsync({
         id: "main",
@@ -163,10 +111,6 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
       const message = error instanceof Error ? error.message : "Nao consegui salvar — tenta de novo?";
       toast(message, { variant: "danger" });
     }
-  }
-
-  function resetProfile() {
-    profileForm.reset(profileToFormValues(snapshot.profile));
   }
 
   function startEditMeeting(item: RecurringMeetingRecord) {
@@ -259,155 +203,41 @@ export default function ProfileView({ snapshot }: ProfileViewProps) {
     }
   }
 
-  const profileSaving = profileForm.formState.isSubmitting || profileSaveMutation.isPending;
+  const profileSaving = profileSaveMutation.isPending;
   const recurringSaving = recurringForm.formState.isSubmitting || recurringSaveMutation.isPending;
 
-  const identidadePanel = (
-    <>
-      <div className="form-grid">
-        <Field
-          label="Nome"
-          placeholder="Nome completo"
-          maxLength={TEXT_MAX}
-          error={profileForm.formState.errors.name?.message}
-          {...profileForm.register("name")}
-        />
-        <Field
-          label="Sigla"
-          placeholder="Sigla curta"
-          maxLength={TEXT_MAX}
-          error={profileForm.formState.errors.shortName?.message}
-          {...profileForm.register("shortName")}
-        />
-      </div>
-      <TextAreaField
-        label="Tagline"
-        placeholder="Subtitulo curto"
-        maxLength={TEXTAREA_MAX}
-        error={profileForm.formState.errors.tagline?.message}
-        {...profileForm.register("tagline")}
-      />
-      <div className="form-grid">
-        <Field
-          label="Cidade"
-          placeholder="Cidade, UF"
-          maxLength={TEXT_MAX}
-          error={profileForm.formState.errors.city?.message}
-          {...profileForm.register("city")}
-        />
-        <Field
-          label="Pastor"
-          placeholder="Nome do pastor"
-          maxLength={TEXT_MAX}
-          error={profileForm.formState.errors.pastorName?.message}
-          {...profileForm.register("pastorName")}
-        />
-      </div>
-    </>
-  );
-
-  const contatoPanel = (
-    <>
-      <Field
-        label="Endereco"
-        placeholder="Rua, numero, bairro"
-        maxLength={TEXT_MAX}
-        error={profileForm.formState.errors.address?.message}
-        {...profileForm.register("address")}
-      />
-      <div className="form-grid">
-        <Field
-          label="Email"
-          type="email"
-          placeholder="contato@exemplo.com"
-          maxLength={TEXT_MAX}
-          error={profileForm.formState.errors.email?.message}
-          {...profileForm.register("email")}
-        />
-        <Field
-          label="WhatsApp"
-          placeholder="+55 81 90000-0000"
-          maxLength={TEXT_MAX}
-          error={profileForm.formState.errors.whatsapp?.message}
-          {...profileForm.register("whatsapp")}
-        />
-      </div>
-      <div className="form-grid">
-        <Field
-          label="Instagram"
-          type="url"
-          placeholder="https://instagram.com/..."
-          maxLength={URL_MAX}
-          error={profileForm.formState.errors.instagramUrl?.message}
-          {...profileForm.register("instagramUrl")}
-        />
-        <Field
-          label="YouTube"
-          type="url"
-          placeholder="https://youtube.com/..."
-          maxLength={URL_MAX}
-          error={profileForm.formState.errors.youtubeUrl?.message}
-          {...profileForm.register("youtubeUrl")}
-        />
-      </div>
-      <Field
-        label="Google Maps"
-        type="url"
-        placeholder="https://maps.google.com/..."
-        maxLength={URL_MAX}
-        error={profileForm.formState.errors.mapsUrl?.message}
-        {...profileForm.register("mapsUrl")}
-      />
-    </>
-  );
-
-  const conteudoPanel = (
-    <>
-      <TextAreaField
-        label="Versiculo do hero"
-        placeholder="Texto biblico exibido no banner"
-        maxLength={TEXTAREA_MAX}
-        error={profileForm.formState.errors.heroVerse?.message}
-        {...profileForm.register("heroVerse")}
-      />
-      <TextAreaField
-        label="Missao"
-        placeholder="Declaracao de missao"
-        maxLength={TEXTAREA_MAX}
-        error={profileForm.formState.errors.mission?.message}
-        {...profileForm.register("mission")}
-      />
-    </>
-  );
-
   return (
-    <section>
-      <header className="workspace-heading">
-        <div>
-          <p className="eyebrow">Identidade</p>
-          <h1>Perfil da igreja</h1>
-        </div>
-      </header>
+    <section className="apple-view profile-view">
+      <ViewHeader
+        eyebrow="Identidade"
+        title="Perfil da igreja"
+        lead="Informações que aparecem no site público — site title, contatos, missão e redes sociais."
+        primaryAction={
+          <button type="submit" form={PROFILE_FORM_ID} className="button primary" disabled={profileSaving}>
+            <Save size={18} aria-hidden="true" />
+            <span>{profileSaving ? "Salvando..." : "Salvar alterações"}</span>
+          </button>
+        }
+        secondaryActions={
+          <button
+            type="button"
+            className="button ghost"
+            disabled={profileSaving}
+            onClick={() => profileFormHandleRef.current?.reset()}
+          >
+            Descartar
+          </button>
+        }
+      />
 
-      <div className="editor-panel">
-        <form
-          key={profileKey}
-          className="editor-form"
-          onSubmit={profileForm.handleSubmit(onProfileSubmit)}
-          noValidate
-        >
-          <FieldGroup
-            groups={[
-              { id: "identidade", label: "Identidade", content: identidadePanel },
-              { id: "contato", label: "Contato", content: contatoPanel },
-              { id: "conteudo", label: "Conteudo", content: conteudoPanel }
-            ]}
-          />
-          <FormActions saving={profileSaving} onCancel={resetProfile} />
-        </form>
-      </div>
+      <ProfileForm
+        formId={PROFILE_FORM_ID}
+        profile={snapshot.profile}
+        onSubmit={handleProfileSubmit}
+        handleRef={profileFormHandleRef}
+      />
 
-      <header className="workspace-heading" style={{ marginTop: "2rem" }}>
+      <header className="workspace-heading profile-meetings-heading">
         <div>
           <p className="eyebrow">Programacao semanal fixa</p>
           <h2>Encontros recorrentes</h2>

@@ -96,31 +96,20 @@ describe("ProfileView", () => {
     mocks.deleteRecurringMeeting.mockClear();
   });
 
-  it("renders the FieldGroup tabs (Identidade, Contato, Conteudo)", () => {
+  it("renders the iOS-style stacked sections", () => {
     renderView();
-    expect(screen.getByRole("tab", { name: "Identidade" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Contato" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Conteudo" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /Nome e identifica/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /Onde a igreja se encontra/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /Canais de comunica/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /Voz da igreja/i })).toBeInTheDocument();
   });
 
-  it("shows Identidade panel by default", () => {
+  it("shows all profile fields simultaneously (no tabs)", () => {
     renderView();
     expect(screen.getByLabelText("Nome")).toBeInTheDocument();
     expect(screen.getByLabelText("Sigla")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Endereco")).not.toBeInTheDocument();
-  });
-
-  it("switches to Contato tab when clicked", () => {
-    renderView();
-    fireEvent.click(screen.getByRole("tab", { name: "Contato" }));
     expect(screen.getByLabelText("Endereco")).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Nome")).not.toBeInTheDocument();
-  });
-
-  it("switches to Conteudo tab when clicked", () => {
-    renderView();
-    fireEvent.click(screen.getByRole("tab", { name: "Conteudo" }));
     expect(screen.getByLabelText("Versiculo do hero")).toBeInTheDocument();
     expect(screen.getByLabelText("Missao")).toBeInTheDocument();
   });
@@ -132,16 +121,13 @@ describe("ProfileView", () => {
     expect((screen.getByLabelText("Sigla") as HTMLInputElement).value).toBe("4IBIB");
   });
 
-  it("submits profile form with required fields", async () => {
+  it("submits profile form with required fields via header primary action", async () => {
     renderView();
 
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Igreja" } });
     fireEvent.change(screen.getByLabelText("Sigla"), { target: { value: "IGR" } });
 
-    const buttons = screen.getAllByRole("button", { name: /salvar/i });
-    const form = buttons[0].closest("form");
-    if (!form) throw new Error("form not found");
-    fireEvent.submit(form);
+    fireEvent.click(screen.getByRole("button", { name: /Salvar alterações/i }));
 
     await waitFor(() => {
       expect(mocks.saveProfile).toHaveBeenCalledTimes(1);
@@ -163,10 +149,7 @@ describe("ProfileView", () => {
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Igreja" } });
     fireEvent.change(screen.getByLabelText("Sigla"), { target: { value: "IGR" } });
 
-    const buttons = screen.getAllByRole("button", { name: /salvar/i });
-    const form = buttons[0].closest("form");
-    if (!form) throw new Error("form not found");
-    fireEvent.submit(form);
+    fireEvent.click(screen.getByRole("button", { name: /Salvar alterações/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Falha ao salvar perfil")).toBeInTheDocument();
@@ -205,7 +188,7 @@ describe("ProfileView", () => {
     fireEvent.change(screen.getByLabelText("Inicio"), { target: { value: "19:30" } });
     fireEvent.change(screen.getByLabelText("Termino"), { target: { value: "21:00" } });
 
-    const allSaveButtons = screen.getAllByRole("button", { name: /salvar/i });
+    const allSaveButtons = screen.getAllByRole("button", { name: /^salvar$/i });
     const form = allSaveButtons[allSaveButtons.length - 1].closest("form");
     if (!form) throw new Error("form not found");
     fireEvent.submit(form);
