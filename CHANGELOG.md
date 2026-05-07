@@ -1,3 +1,9 @@
+# [1.17.0](https://github.com/Gediael54/4IBIB-web/compare/v1.16.0...v1.17.0) (2026-05-07)
+
+### Features
+
+- **admin:** visual month calendar view for annual schedule ([3a2ac9d](https://github.com/Gediael54/4IBIB-web/commit/3a2ac9dd9dc13eb561fa1edd265e782044e702df))
+
 # [1.16.0](https://github.com/Gediael54/4IBIB-web/compare/v1.15.0...v1.16.0) (2026-05-07)
 
 ### Features
