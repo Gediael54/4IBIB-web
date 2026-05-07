@@ -265,33 +265,53 @@ export function App() {
     return (
       <ErrorBoundary>
         <main className="login-screen">
-          <section className="login-panel">
-            <img src="/logo.png" alt="" className="login-logo" />
-            <p className="eyebrow">Painel da igreja</p>
-            <h1>Entrar no admin</h1>
-            <form onSubmit={handleLogin}>
-              <label>
-                Email
-                <input name="email" type="email" autoComplete="email" maxLength={TEXT_MAX} required />
+          <section className="login-card" aria-labelledby="login-title">
+            <div className="login-card-header">
+              <img src="/logo.png" alt="" className="login-card-logo" />
+              <p className="login-card-eyebrow">4ª IBIB Betel</p>
+              <h1 id="login-title" className="login-card-title">
+                Painel de administração
+              </h1>
+              <p className="login-card-subtitle">
+                Use sua conta para acessar avisos, programação e cadastros.
+              </p>
+            </div>
+            <form onSubmit={handleLogin} className="login-card-form">
+              <label className="login-card-field">
+                <span className="field-label">Email</span>
+                <input
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  maxLength={TEXT_MAX}
+                  placeholder="voce@exemplo.com"
+                  required
+                />
               </label>
-              <label>
-                Senha
+              <label className="login-card-field">
+                <span className="field-label">Senha</span>
                 <input
                   name="password"
                   type="password"
                   autoComplete="current-password"
                   maxLength={TEXT_MAX}
+                  placeholder="••••••••"
                   required
                 />
               </label>
               {TURNSTILE_SITE_KEY && (
-                <TurnstileWidget siteKey={TURNSTILE_SITE_KEY} onToken={handleTurnstileToken} />
+                <div className="login-card-turnstile">
+                  <TurnstileWidget siteKey={TURNSTILE_SITE_KEY} onToken={handleTurnstileToken} />
+                </div>
               )}
-              {authError && <p className="form-error">{authError}</p>}
-              <button className="button primary" type="submit">
+              {authError && <p className="login-card-error">{authError}</p>}
+              <button className="button primary login-card-submit" type="submit">
                 Entrar
               </button>
             </form>
+            <p className="login-card-help">
+              Problemas para acessar? Fale com <a href="mailto:4ibibetel@gmail.com">4ibibetel@gmail.com</a>.
+            </p>
           </section>
         </main>
       </ErrorBoundary>

@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   listAdmins: vi.fn<() => Promise<AdminUser[]>>().mockResolvedValue([]),
-  inviteAdmin: vi.fn().mockResolvedValue({}),
   updateAdminRole: vi.fn().mockResolvedValue({}),
   removeAdmin: vi.fn().mockResolvedValue(undefined)
 }));
@@ -16,7 +15,6 @@ vi.mock("../backend", () => ({
     mode: "supabase",
     content: {
       listAdmins: mocks.listAdmins,
-      inviteAdmin: mocks.inviteAdmin,
       updateAdminRole: mocks.updateAdminRole,
       removeAdmin: mocks.removeAdmin
     }
@@ -59,7 +57,6 @@ describe("TeamView", () => {
   afterEach(() => {
     cleanup();
     mocks.listAdmins.mockReset().mockResolvedValue([]);
-    mocks.inviteAdmin.mockReset().mockResolvedValue({});
     mocks.updateAdminRole.mockReset().mockResolvedValue({});
     mocks.removeAdmin.mockReset().mockResolvedValue(undefined);
   });
@@ -71,68 +68,70 @@ describe("TeamView", () => {
     });
   });
 
-  it("renders admin rows when data is available", async () => {
+  it("renders admin cards when data is available", async () => {
     mocks.listAdmins.mockResolvedValueOnce([
-      makeAdmin({ userId: "u1", email: "owner@igreja.org", role: "owner" }),
-      makeAdmin({ userId: "u2", email: "editor@igreja.org", role: "editor" })
+      makeAdmin({ userId: "u1", email: "owner@igreja.org", displayName: "Owner Pessoa", role: "owner" }),
+      makeAdmin({ userId: "u2", email: "editor@igreja.org", displayName: "Editor Pessoa", role: "editor" })
     ]);
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("owner@igreja.org")).toBeInTheDocument();
+      expect(screen.getByText("Owner Pessoa")).toBeInTheDocument();
     });
+    expect(screen.getByText("Editor Pessoa")).toBeInTheDocument();
+    expect(screen.getByText("owner@igreja.org")).toBeInTheDocument();
     expect(screen.getByText("editor@igreja.org")).toBeInTheDocument();
   });
 
-  it("invites a new admin when the form is submitted", async () => {
+  it("filters admins by role through chips", async () => {
+    mocks.listAdmins.mockResolvedValue([
+      makeAdmin({ userId: "u1", email: "owner@igreja.org", displayName: "Owner Pessoa", role: "owner" }),
+      makeAdmin({ userId: "u2", email: "editor@igreja.org", displayName: "Editor Pessoa", role: "editor" })
+    ]);
     renderView();
 
-    const inviteButton = screen.getByRole("button", { name: /Convidar/i });
-    fireEvent.change(screen.getByLabelText("Email"), {
-      target: { value: "novo@igreja.org" }
+    await waitFor(() => {
+      expect(screen.getByText("Owner Pessoa")).toBeInTheDocument();
     });
 
-    const form = inviteButton.closest("form");
-    if (!form) throw new Error("form not found");
-    fireEvent.submit(form);
+    fireEvent.click(screen.getByRole("radio", { name: /Owners/i }));
+    expect(screen.queryByText("Editor Pessoa")).not.toBeInTheDocument();
+    expect(screen.getByText("Owner Pessoa")).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(mocks.inviteAdmin).toHaveBeenCalledTimes(1);
-    });
-    expect(mocks.inviteAdmin.mock.calls[0][0]).toMatchObject({
-      email: "novo@igreja.org",
-      role: "editor"
-    });
-    await waitFor(() => {
-      expect(screen.getByText("Convite enviado.")).toBeInTheDocument();
-    });
+    fireEvent.click(screen.getByRole("radio", { name: /Editors/i }));
+    expect(screen.queryByText("Owner Pessoa")).not.toBeInTheDocument();
+    expect(screen.getByText("Editor Pessoa")).toBeInTheDocument();
   });
 
-  it("shows a danger toast when invite fails", async () => {
-    mocks.inviteAdmin.mockRejectedValueOnce(new Error("Email ja cadastrado"));
+  it("updates role when select changes", async () => {
+    mocks.listAdmins.mockResolvedValue([
+      makeAdmin({ userId: "u1", email: "editor@igreja.org", displayName: "Editor Pessoa", role: "editor" })
+    ]);
     renderView();
 
-    fireEvent.change(screen.getByLabelText("Email"), {
-      target: { value: "duplicado@igreja.org" }
+    await waitFor(() => {
+      expect(screen.getByText("Editor Pessoa")).toBeInTheDocument();
     });
-    const form = screen.getByRole("button", { name: /Convidar/i }).closest("form");
-    if (!form) throw new Error("form not found");
-    fireEvent.submit(form);
+
+    const select = screen.getByLabelText("Funcao de Editor Pessoa") as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "owner" } });
 
     await waitFor(() => {
-      expect(screen.getByText("Email ja cadastrado")).toBeInTheDocument();
+      expect(mocks.updateAdminRole).toHaveBeenCalledWith("u1", "owner");
     });
   });
 
   it("removes admin after confirmation", async () => {
-    mocks.listAdmins.mockResolvedValue([makeAdmin({ userId: "u1", email: "remover@igreja.org" })]);
+    mocks.listAdmins.mockResolvedValue([
+      makeAdmin({ userId: "u1", email: "remover@igreja.org", displayName: "Remover Pessoa" })
+    ]);
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("remover@igreja.org")).toBeInTheDocument();
+      expect(screen.getByText("Remover Pessoa")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Remover remover@igreja.org/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Remover Remover Pessoa/i }));
 
     const requireInput = await screen.findByLabelText("Digite EXCLUIR para confirmar");
     fireEvent.change(requireInput, { target: { value: "EXCLUIR" } });
@@ -142,19 +141,21 @@ describe("TeamView", () => {
       expect(mocks.removeAdmin).toHaveBeenCalledWith("u1");
     });
     await waitFor(() => {
-      expect(screen.getByText("Acesso de remover@igreja.org removido.")).toBeInTheDocument();
+      expect(screen.getByText("Acesso de Remover Pessoa removido.")).toBeInTheDocument();
     });
   });
 
   it("does not remove admin when confirmation is denied", async () => {
-    mocks.listAdmins.mockResolvedValue([makeAdmin({ userId: "u1", email: "manter@igreja.org" })]);
+    mocks.listAdmins.mockResolvedValue([
+      makeAdmin({ userId: "u1", email: "manter@igreja.org", displayName: "Manter Pessoa" })
+    ]);
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText("manter@igreja.org")).toBeInTheDocument();
+      expect(screen.getByText("Manter Pessoa")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Remover manter@igreja.org/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Remover Manter Pessoa/i }));
 
     await screen.findByTestId("confirm-dialog-confirm");
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));

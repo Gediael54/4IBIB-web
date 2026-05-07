@@ -1,6 +1,6 @@
 import { Calendar, CalendarDays } from "lucide-react";
-import { useForm, type UseFormReturn } from "react-hook-form";
-import { Field, FormActions, TextAreaField } from "../ui";
+import type { UseFormReturn } from "react-hook-form";
+import { Field, FormActions, TextAreaField } from "../../components/ui";
 import { TEXT_MAX, TEXTAREA_MAX } from "../../lib/limits";
 import { MONTH_OPTIONS } from "../../lib/commemoration";
 import type { CommemorationFormValues } from "../../schemas";
@@ -35,7 +35,7 @@ export default function CommemorationForm({ form, saving, onSubmit, onCancel }: 
     <form className="editor-form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Field
         label="Nome"
-        placeholder="Ex.: Mes de Missoes"
+        placeholder="Ex.: Mês de Missões"
         maxLength={TEXT_MAX}
         error={errors.name?.message}
         {...register("name")}
@@ -52,7 +52,7 @@ export default function CommemorationForm({ form, saving, onSubmit, onCancel }: 
               onChange={() => handleTypeChange("month")}
             />
             <Calendar size={16} aria-hidden="true" />
-            <span>Mes inteiro</span>
+            <span>Mês inteiro</span>
           </label>
           <label className={selectedType === "day" ? "type-option selected" : "type-option"}>
             <input
@@ -62,14 +62,14 @@ export default function CommemorationForm({ form, saving, onSubmit, onCancel }: 
               onChange={() => handleTypeChange("day")}
             />
             <CalendarDays size={16} aria-hidden="true" />
-            <span>Dia especifico</span>
+            <span>Dia específico</span>
           </label>
         </div>
       </fieldset>
 
       <div className="form-grid">
         <label>
-          <span className="field-label">Mes</span>
+          <span className="field-label">Mês</span>
           <select {...register("month", { valueAsNumber: true })}>
             {MONTH_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -82,7 +82,7 @@ export default function CommemorationForm({ form, saving, onSubmit, onCancel }: 
 
         {selectedType === "day" && (
           <Field
-            label="Dia do mes"
+            label="Dia do mês"
             type="number"
             min={1}
             max={31}
@@ -93,8 +93,8 @@ export default function CommemorationForm({ form, saving, onSubmit, onCancel }: 
       </div>
 
       <TextAreaField
-        label="Descricao (opcional)"
-        placeholder="Ex.: Lembre da igreja em oracao pelos missionarios."
+        label="Descrição (opcional)"
+        placeholder="Ex.: Lembre da igreja em oração pelos missionários."
         maxLength={TEXTAREA_MAX}
         error={errors.description?.message}
         {...register("description")}
@@ -114,8 +114,4 @@ export default function CommemorationForm({ form, saving, onSubmit, onCancel }: 
       <FormActions saving={saving} onCancel={onCancel} />
     </form>
   );
-}
-
-export function useCommemorationForm(initialValues: CommemorationFormValues) {
-  return useForm<CommemorationFormValues>({ defaultValues: initialValues });
 }

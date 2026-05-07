@@ -14,6 +14,8 @@
 @import "./styles/ministries-grid.css";
 @import "./styles/rotation.css";
 @import "./styles/members-grid.css";
+@import "./styles/login.css";
+@import "./styles/team-grid.css";
 
 * {
   box-sizing: border-box;

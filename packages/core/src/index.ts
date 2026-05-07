@@ -254,6 +254,16 @@ export {
   type ScheduleAssignment
 } from "./rotation-engine";
 
+export {
+  buildMonthCalendar,
+  getMonthLabel,
+  getWeekdayShortLabels,
+  groupItemsByDay,
+  type CalendarDay,
+  type CalendarMonth,
+  type CalendarWeek
+} from "./calendar";
+
 export type RotationFrequency =
   | "every_week"
   | "every_2_weeks"
